@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "593084232172",
+    "project_id": "enjoybook-a5852",
+    "storage_bucket": "enjoybook-a5852.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:593084232172:android:7b61f8c40c71ae9c0a90c9",
+        "android_client_info": {
+          "package_name": "com.example.enjoybook"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAu_GgqmSlExVWtd-eQV_BiA8afDyFaL0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
