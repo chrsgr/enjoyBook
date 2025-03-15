@@ -4,7 +4,9 @@ import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.*
@@ -23,10 +25,20 @@ import androidx.navigation.NavController
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 
-
-
 @Composable
 fun SignupPage(modifier: Modifier = Modifier, navController: NavController, authViewModel: AuthViewModel) {
+    var name by remember {
+        mutableStateOf("")
+    }
+
+    var surname by remember {
+        mutableStateOf("")
+    }
+
+    var username by remember {
+        mutableStateOf("")
+    }
+
     var email by remember {
         mutableStateOf("")
     }
@@ -34,6 +46,11 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
     var password by remember {
         mutableStateOf("")
     }
+
+    var phone by remember {
+        mutableStateOf("")
+    }
+
     var isLoading by remember {
         mutableStateOf(false)
     }
@@ -63,13 +80,49 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
     Box(modifier = modifier.fillMaxSize()) {
         // Contenuto principale
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()), // Added scroll for additional fields
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Signup Page", fontSize = 32.sp)
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // New field: Nome (First Name)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(text = "Name") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                enabled = !isLoading
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = surname,
+                onValueChange = { surname = it },
+                label = { Text(text = "Surname") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                enabled = !isLoading
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text(text = "Username") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                enabled = !isLoading
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = email,
@@ -92,19 +145,36 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                 enabled = !isLoading
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // New field: Numero di Cellulare (Phone Number)
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = { Text(text = "Phone number") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                enabled = !isLoading
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = {
                     isLoading = true  // Imposta immediatamente lo stato di caricamento
-                    authViewModel.signup(email, password)
+                    authViewModel.signup(name, surname, username, email, password, phone)
                 },
                 colors = ButtonDefaults.buttonColors(Color(0xFFA7E8EB)),
                 modifier = Modifier.width(200.dp),
-                enabled = !isLoading && email.isNotEmpty() && password.isNotEmpty()
+                enabled = !isLoading &&
+                        name.isNotEmpty() &&
+                        surname.isNotEmpty() &&
+                        username.isNotEmpty() &&
+                        email.isNotEmpty() &&
+                        password.isNotEmpty() &&
+                        phone.isNotEmpty()
             ) {
                 if (isLoading) {
-                    // Spinner direttamente nel pulsante
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = Color.Black,
@@ -123,6 +193,9 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
             ) {
                 Text("Already have an account? Login", color = Color.Blue)
             }
+
+            // Added extra space at bottom for scrolling
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         // Overlay di caricamento

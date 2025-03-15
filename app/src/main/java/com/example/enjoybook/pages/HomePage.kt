@@ -508,7 +508,7 @@ fun HomePage(modifier: Modifier = Modifier, navController: NavController, authVi
                                             RoundedCornerShape(16.dp)
                                         )
                                         .clickable {
-                                            navController.navigate("book")
+                                            navController.navigate("bookDetails/${book.id}")
                                         }
                                         .padding(12.dp),
                                     contentAlignment = Alignment.Center
