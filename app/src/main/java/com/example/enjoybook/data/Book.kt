@@ -2,7 +2,7 @@ package com.example.enjoybook.data
 
 data class Book(
     val id: String = "",
-    val isAvailable: Boolean = true,
+    val isAvailable: Boolean? = true,
     val author: String = "",
     val condition: String = "",
     val description: String = "",

@@ -1,5 +1,7 @@
 package com.example.enjoybook.pages
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -36,8 +38,10 @@ import androidx.navigation.NavController
 import com.example.enjoybook.data.Book
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
@@ -262,6 +266,9 @@ fun BookItem(
     onClick: () -> Unit
 ) {
     var isAvailable by remember { mutableStateOf(book.isAvailable ?: true) }
+    val scope = rememberCoroutineScope()
+    val db = FirebaseFirestore.getInstance()
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier
@@ -371,7 +378,15 @@ fun BookItem(
                         shape = RoundedCornerShape(4.dp),
                         color = if (isAvailable) availableColor.copy(alpha = 0.2f) else unavailableColor.copy(alpha = 0.2f),
                         modifier = Modifier
-                            .clickable { isAvailable = !isAvailable }
+                            .clickable {
+                                // Update local state
+                                isAvailable = !isAvailable
+
+                                // Update Firebase
+                                scope.launch {
+                                    updateBookAvailability(db, book.id, !isAvailable, context)
+                                }
+                            }
                             .padding(end = 4.dp)
                     ) {
                         Row(
@@ -422,9 +437,35 @@ fun BookItem(
                             tint = deleteColor
                         )
                     }
-
                 }
             }
+        }
+    }
+}
+// Function to update book availability in Firebase
+private suspend fun updateBookAvailability(db: FirebaseFirestore, bookId: String, isAvailable: Boolean, context: Context) {
+    try {
+        // Update the availability field in Firebase
+        db.collection("books").document(bookId)
+            .update("isAvailable", isAvailable)
+            .await()
+
+        // Show success message
+        withContext(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                "Book availability updated",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    } catch (e: Exception) {
+        // Show error message
+        withContext(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                "Failed to update book availability: ${e.message}",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 }

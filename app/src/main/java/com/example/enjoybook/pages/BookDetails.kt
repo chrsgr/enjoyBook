@@ -6,6 +6,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -51,6 +52,12 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     val currentUserEmail = currentUser?.email ?: ""
     val db = FirebaseFirestore.getInstance()
 
+    // Define the color scheme
+    val primaryColor = Color(0xFF2CBABE)
+    val backgroundColor = Color(0xFFF5F5F5)
+    val textColor = Color(0xFF333333)
+    val errorColor = Color(0xFFD32F2F)
+
     var book by remember { mutableStateOf<Book?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -64,7 +71,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     var errorMessage by remember { mutableStateOf("") }
 
     val firestore = FirebaseFirestore.getInstance()
-
 
     LaunchedEffect(Unit) {
         if (currentUser != null) {
@@ -101,7 +107,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
     LaunchedEffect(bookId) {
         if (bookId.isNotEmpty()) {
-
             db.collection("books").document(bookId)
                 .get()
                 .addOnSuccessListener { document ->
@@ -113,7 +118,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         submittedReviews.clear()
 
                         fetchReviewsForBook(documentId) { reviews ->
-
                             bookReviews = reviews
 
                             val formattedReviews = reviews.map {
@@ -142,8 +146,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         }
     }
 
-
-
     var review by remember { mutableStateOf("") }
     var showReviewDialog by remember { mutableStateOf(false) }
     var showContactDialog by remember { mutableStateOf(false) }
@@ -151,7 +153,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     var deleteRequest by remember { mutableStateOf(false) }
     var isLoanRequested by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-
 
     var isFavorite by remember { mutableStateOf(FavoritesManager.isBookFavorite(bookId)) }
     var isAnimating by remember { mutableStateOf(false) }
@@ -178,7 +179,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         label = "heart alpha animation"
     )
 
-    var isBookAvailable by remember { mutableStateOf(true) }  // Change to false if book is not available
+    var isBookAvailable by remember { mutableStateOf(true) }
     var buttonText by remember { mutableStateOf("available") }
 
     // Toggle loan request status based on book availability
@@ -214,7 +215,11 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+    ) {
         // Back button in top right
         IconButton(
             onClick = { navController.popBackStack() },
@@ -224,7 +229,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back"
+                contentDescription = "Back",
+                tint = primaryColor
             )
         }
 
@@ -236,16 +242,17 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Titolo
+            // Title
             Text(
                 text = book?.title ?: "TITLE",
                 fontSize = 35.sp,
                 fontWeight = FontWeight.Bold,
+                color = textColor
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Copertina e dettagli libro
+            // Cover and book details
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start
@@ -253,7 +260,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 Box(
                     modifier = Modifier
                         .size(130.dp, 200.dp)
-                        .background(Color((0xFFA7E8EB)), shape = RoundedCornerShape(8.dp))
+                        .background(primaryColor, shape = RoundedCornerShape(8.dp))
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -276,7 +283,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                         year = book!!.year,
                                     )
 
-
                                     FavoritesManager.addFavorite(favoriteBook)
                                     isAnimating = true
                                 } else {
@@ -289,13 +295,13 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             Icon(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
                                 contentDescription = "Favorite",
-                                tint = if (isFavorite) Color(0xFFF100F1) else Color.Black,
+                                tint = if (isFavorite) Color.Red else Color.White,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
                     }
 
-                    // animazione cuore
+                    // heart animation
                     if (isAnimating) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -304,7 +310,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             Icon(
                                 imageVector = Icons.Filled.Favorite,
                                 contentDescription = null,
-                                tint = Color(0xFFFC00FC).copy(alpha = alpha),
+                                tint = Color.Red.copy(alpha = alpha),
                                 modifier = Modifier
                                     .scale(scale)
                                     .size(24.dp)
@@ -319,11 +325,11 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    BookInfoItem(label = "AUTHORS", value = book?.author ?: "")
-                    BookInfoItem(label = "EDITION", value = book?.edition ?: "")
-                    BookInfoItem(label = "YEAR", value = book?.year ?: "")
-                    BookInfoItem(label = "GENRE", value = book?.type ?: "")
-                    BookInfoItem(label = "CONDITION", value = book?.condition ?: "")
+                    BookInfoItem(label = "AUTHORS", value = book?.author ?: "", textColor = textColor)
+                    BookInfoItem(label = "EDITION", value = book?.edition ?: "", textColor = textColor)
+                    BookInfoItem(label = "YEAR", value = book?.year ?: "", textColor = textColor)
+                    BookInfoItem(label = "GENRE", value = book?.type ?: "", textColor = textColor)
+                    BookInfoItem(label = "CONDITION", value = book?.condition ?: "", textColor = textColor)
                 }
             }
 
@@ -335,6 +341,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     .fillMaxWidth()
                     .height(180.dp)
                     .background(Color.White, shape = RoundedCornerShape(8.dp))
+                    .border(1.dp, primaryColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                     .padding(16.dp)
             ) {
                 if (book?.description?.isNotEmpty() == true) {
@@ -342,6 +349,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         text = book?.description ?: "",
                         fontWeight = FontWeight.Normal,
                         style = MaterialTheme.typography.bodyMedium,
+                        color = textColor,
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else {
@@ -349,20 +357,25 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "No description available", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "No description available",
+                            fontWeight = FontWeight.Bold,
+                            color = textColor.copy(alpha = 0.6f)
+                        )
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            // Pulsanti
+            // Buttons
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
                     onClick = { showContactDialog = true },
-                    colors = ButtonDefaults.buttonColors(Color(0xFFA7E8EB))
+                    colors = ButtonDefaults.buttonColors(primaryColor),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text(text = "contact owner", color = Color.Black)
+                    Text(text = "contact owner", color = Color.White)
                 }
 
                 Button(
@@ -371,10 +384,11 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         // Set button color based on the availability status
                         when (buttonText) {
                             "requested" -> Color(0xFFFF9800) // Orange for "requested"
-                            "not available" -> Color.Red // Red for "not available"
+                            "not available" -> errorColor // Red for "not available"
                             else -> Color(0xFF71F55E) // Green for "available"
                         }
-                    )
+                    ),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         text = buttonText,
@@ -384,9 +398,10 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
                 Button(
                     onClick = { showReviewDialog = true },
-                    colors = ButtonDefaults.buttonColors(Color(0xFFA7E8EB))
+                    colors = ButtonDefaults.buttonColors(primaryColor),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text(text = "review", color = Color.Black)
+                    Text(text = "review", color = Color.White)
                 }
             }
 
@@ -397,6 +412,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 180.dp)
+                    .background(Color.White, RoundedCornerShape(8.dp))
+                    .border(1.dp, primaryColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                     .padding(16.dp)
             ) {
                 if (submittedReviews.isEmpty()) {
@@ -404,7 +421,11 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "No reviews yet", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "No reviews yet",
+                            fontWeight = FontWeight.Bold,
+                            color = textColor.copy(alpha = 0.6f)
+                        )
                     }
                 } else {
                     Column(modifier = Modifier.fillMaxSize()) {
@@ -412,6 +433,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             text = "Reviews",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
+                            color = textColor,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
 
@@ -435,11 +457,12 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                             text = authorEmail.split("@")
                                                 .first(),  // Displaying only the part before "@"
                                             fontSize = 12.sp,
-                                            color = Color.Gray
+                                            color = textColor.copy(alpha = 0.6f)
                                         )
                                         Text(
                                             text = review,  // Display the review text
                                             style = MaterialTheme.typography.bodyMedium,
+                                            color = textColor,
                                             modifier = Modifier.padding(top = 4.dp)
                                         )
                                     }
@@ -473,7 +496,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                             Icon(
                                                 imageVector = Icons.Default.Delete,
                                                 contentDescription = "Delete review",
-                                                tint = Color.Red
+                                                tint = errorColor
                                             )
                                         }
                                     }
@@ -481,19 +504,19 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
                                 // Add a divider between reviews, but not after the last one
                                 if (index < submittedReviews.size - 1) {
-                                    Divider(modifier = Modifier.padding(vertical = 4.dp))
+                                    Divider(
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                        color = primaryColor.copy(alpha = 0.2f)
+                                    )
                                 }
                             }
                         }
-
                     }
                 }
             }
-                    }
+        }
 
-
-
-                    // Contact Owner Dialog
+        // Contact Owner Dialog
         if (showContactDialog) {
             Dialog(onDismissRequest = { showContactDialog = false }) {
                 Card(
@@ -501,6 +524,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         .fillMaxWidth()
                         .padding(16.dp),
                     shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
                     Box(
                         modifier = Modifier.fillMaxWidth()
@@ -511,7 +535,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Close"
+                                contentDescription = "Close",
+                                tint = primaryColor
                             )
                         }
 
@@ -527,23 +552,25 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             Text(
                                 text = "Owner Contact Information",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp
+                                fontSize = 20.sp,
+                                color = textColor
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            ContactInfoItem(label = "Name", value = name)
-                            ContactInfoItem(label = "Surname", value = surname)
-                            ContactInfoItem(label = "Email", value = book?.userEmail ?: "")
-                            ContactInfoItem(label = "Phone", value = phone)
+                            ContactInfoItem(label = "Name", value = name, textColor = textColor)
+                            ContactInfoItem(label = "Surname", value = surname, textColor = textColor)
+                            ContactInfoItem(label = "Email", value = book?.userEmail ?: "", textColor = textColor)
+                            ContactInfoItem(label = "Phone", value = phone, textColor = textColor)
 
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Button(
                                 onClick = { showContactDialog = false },
-                                colors = ButtonDefaults.buttonColors(Color(0xFFA7E8EB))
+                                colors = ButtonDefaults.buttonColors(primaryColor),
+                                shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Close", color = Color.Black)
+                                Text("Close", color = Color.White)
                             }
                         }
                     }
@@ -571,7 +598,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             text = "Loan request sent",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            color = textColor
                         )
                     }
                 }
@@ -598,7 +626,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             text = "Request Delete",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            color = textColor
                         )
                     }
                 }
@@ -613,6 +642,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         .fillMaxWidth()
                         .padding(16.dp),
                     shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
                     Box(
                         modifier = Modifier.fillMaxWidth()
@@ -624,7 +654,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Close"
+                                contentDescription = "Close",
+                                tint = primaryColor
                             )
                         }
 
@@ -640,7 +671,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             Text(
                                 text = "Write a Review",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp
+                                fontSize = 20.sp,
+                                color = textColor
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -652,7 +684,13 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(150.dp),
-                                placeholder = { Text("Share your thoughts about this book...") },
+                                placeholder = { Text("Share your thoughts about this book...", color = textColor.copy(alpha = 0.5f)) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = primaryColor,
+                                    unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
+                                    focusedTextColor = textColor,
+                                    unfocusedTextColor = textColor
+                                )
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -674,11 +712,11 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                         showReviewDialog = false
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColors(Color(0xFFA7E8EB))
+                                colors = ButtonDefaults.buttonColors(primaryColor),
+                                shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Submit", color = Color.Black)
+                                Text("Submit", color = Color.White)
                             }
-
                         }
                     }
                 }
@@ -688,7 +726,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 }
 
 @Composable
-fun ContactInfoItem(label: String, value: String) {
+fun ContactInfoItem(label: String, value: String, textColor: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -698,14 +736,18 @@ fun ContactInfoItem(label: String, value: String) {
         Text(
             text = "$label:",
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(60.dp)
+            modifier = Modifier.width(60.dp),
+            color = textColor
         )
-        Text(text = value)
+        Text(
+            text = value,
+            color = textColor
+        )
     }
 }
 
 @Composable
-fun BookInfoItem(label: String, value: String) {
+fun BookInfoItem(label: String, value: String, textColor: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -715,9 +757,13 @@ fun BookInfoItem(label: String, value: String) {
         Text(
             text = "$label: ",
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(100.dp)
+            modifier = Modifier.width(100.dp),
+            color = textColor
         )
-        Text(text = value)
+        Text(
+            text = value,
+            color = textColor
+        )
     }
 }
 
@@ -735,7 +781,7 @@ private fun saveReviewToDatabase(bookId: String, userEmail: String, review: Stri
         .add(reviewData)
         .addOnSuccessListener { documentReference ->
             Log.d("ReviewDialog", "Review saved with ID: ${documentReference.id}")
-            onComplete()  // Chiamata dopo il salvataggio
+            onComplete()
         }
         .addOnFailureListener { e ->
             Log.e("ReviewDialog", "Error adding review", e)
@@ -758,7 +804,6 @@ private fun fetchReviewsForBook(bookId: String, callback: (List<Review>) -> Unit
             val reviewsList = mutableListOf<Review>()
             for (document in documents) {
                 try {
-
                     val review = Review(
                         id = document.id,
                         bookId = document.getString("bookId") ?: "",
