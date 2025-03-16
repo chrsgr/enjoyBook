@@ -45,9 +45,22 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             HomePage(modifier, navController, authViewModel)
         }
 
-        composable("addpage?isEditing={isEditing}") { backStackEntry ->
-            val isEditing = backStackEntry.arguments?.getString("isEditing")?.toBoolean() ?: false
-            AddPage(navController = navController, context = context, isEditing = isEditing)
+        composable(
+            route = "addPage?bookId={bookId}&isEditing={isEditing}",
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("isEditing") { type = NavType.BoolType; defaultValue = false }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId")
+            val isEditing = backStackEntry.arguments?.getBoolean("isEditing") ?: false
+
+            AddPage(
+                navController = navController,
+                context = LocalContext.current,
+                isEditing = isEditing,
+                bookId = bookId
+            )
         }
 
         composable("search"){

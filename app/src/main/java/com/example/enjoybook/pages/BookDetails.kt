@@ -329,15 +329,29 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Riassunto
+            // description
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp)
-                    .background(Color.White, shape = RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
+                    .background(Color.White, shape = RoundedCornerShape(8.dp))
+                    .padding(16.dp)
             ) {
-                Text(text = "short description", fontWeight = FontWeight.Bold)
+                if (book?.description?.isNotEmpty() == true) {
+                    Text(
+                        text = book?.description ?: "",
+                        fontWeight = FontWeight.Normal,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "No description available", fontWeight = FontWeight.Bold)
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(30.dp))

@@ -10,7 +10,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.HeartBroken
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -179,7 +182,7 @@ fun FavouritePage(
                         CircularProgressIndicator(
                             modifier = Modifier.size(32.dp),
                             progress = if (refreshing) 1f else (refreshOffset / maxRefreshOffsetPx).coerceIn(0f, 1f),
-                            color = Color(0xFFE50914)
+                            color = Color(0xFF2CBABE) // Updated to use the primary color
                         )
 
                         if (refreshOffset > maxRefreshOffsetPx * 0.7f || refreshing) {
@@ -207,6 +210,7 @@ fun FavouritePage(
                     text = "FAVORITE BOOKS",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
+                    color = Color(0xFF333333), // Using text color from login page
                     modifier = Modifier.padding(bottom = 20.dp)
                 )
 
@@ -226,7 +230,7 @@ fun FavouritePage(
                                 modifier = Modifier
                                     .size(64.dp)
                                     .padding(bottom = 16.dp),
-                                tint = Color.Gray
+                                tint = Color(0xFF2CBABE) // Updated to use the primary color
                             )
                             Text(
                                 text = "No favorites yet",
@@ -244,7 +248,8 @@ fun FavouritePage(
                         items(favorites) { book ->
                             FavoriteBookItem(
                                 book = book,
-                                onClick = { navController.navigate("book") },
+                                onClick = {
+                                    navController.navigate("bookDetails/${book.id}")                                },
                                 onRemove = {
                                     FavoritesManager.removeFavorite(book.id)
                                     refreshScope.launch {
@@ -273,7 +278,7 @@ fun FavoriteBookItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .clickable { onClick(    ) },
+            .clickable { onClick() },
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -283,13 +288,23 @@ fun FavoriteBookItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Copertina del libro
+            // Book cover
             Box(
                 modifier = Modifier
                     .size(70.dp, 100.dp)
-                    .background(Color(0xFFA7E8EB))
+                    .background(Color(0xFF2CBABE).copy(alpha = 0.3f))
+                    .clip(RoundedCornerShape(4.dp))
 
-            )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MenuBook,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(40.dp),
+                    tint = Color(0xFF2CBABE)
+                )
+            }
 
             Column(
                 modifier = Modifier
@@ -299,7 +314,8 @@ fun FavoriteBookItem(
                 Text(
                     text = book.title,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+                    fontSize = 18.sp,
+                    color = Color(0xFF333333) // Using text color from login page
                 )
                 Text(
                     text = "di ${book.author}",
@@ -313,12 +329,12 @@ fun FavoriteBookItem(
                 )
             }
 
-            // Pulsante per rimuovere dai preferiti
+            // Button to remove from favorites
             IconButton(onClick = onRemove) {
                 Icon(
                     imageVector = Icons.Default.HeartBroken,
                     contentDescription = "Delete from favourite",
-                    tint = Color(0xFFE50914)
+                    tint = Color.Red
                 )
             }
         }

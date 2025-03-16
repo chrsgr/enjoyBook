@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -23,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
@@ -63,12 +65,14 @@ import com.example.enjoybook.viewModel.SearchViewModel
 
 @Composable
 fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavController){
+    // Define color scheme
+    val primaryColor = Color(0xFF2CBABE)
+    val backgroundColor = Color(0xFFF5F5F5)
+    val textColor = Color(0xFF333333)
+    val errorColor = Color(0xFFD32F2F)
+
     var query by remember { mutableStateOf("") }
     val books by viewModel.books.collectAsState()
-
-    var showCat = true
-
-    //var searchQuery by remember { mutableStateOf(query) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -78,7 +82,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
     val categories = listOf(
         "Adventure", "Classics", "Crime", "Folk", "Fantasy", "Historical",
         "Horror", "Literary fiction", "Mystery", "Poetry", "Plays", "Romance",
-        "Science fiction", "Short stories", "Thrillers", "War", "Women’s fiction", "Young adult"
+        "Science fiction", "Short stories", "Thrillers", "War", "Women's fiction", "Young adult"
     )
 
     LaunchedEffect(Unit) {
@@ -86,32 +90,35 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
         keyboardController?.show()
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Spacer(modifier = Modifier.height(88.dp))
 
-            // Top Bar
+            // Top Bar with updated colors
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(primaryColor)
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 IconButton(
-                    onClick =  {navController.popBackStack()},
-                    modifier = Modifier
-                        .padding(10.dp)
+                    onClick = { navController.popBackStack() },
+                    modifier = Modifier.padding(10.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription = "Back",
+                        tint = Color.White
                     )
                 }
 
-
-                // Campo di ricerca
+                // Search field with updated colors
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
@@ -119,7 +126,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
-                            tint = Color.Gray
+                            tint = textColor
                         )
                     },
                     modifier = Modifier
@@ -134,11 +141,11 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     singleLine = true,
                     shape = RoundedCornerShape(20.dp),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFFA7E8EB),
-                        unfocusedContainerColor = Color(0xFFA7E8EB),
-                        focusedTextColor = Color.Black,
-                        unfocusedTextColor = Color.Black,
-                        cursorColor = Color.Gray,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor,
+                        cursorColor = primaryColor,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent
                     ),
@@ -149,8 +156,8 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                         onSearch = {
                             Log.d("SearchPage", "Ricerca avviata con query: $query")
                             viewModel.searchBooks(query)
-                            keyboardController?.hide() // Nasconde la tastiera
-                            focusManager.clearFocus() // Toglie il focus dal campo di testo
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
                         }
                     )
                 )
@@ -159,60 +166,64 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = "Profile",
-                        tint = Color.Black
+                        tint = Color.White
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-
+            // Category heading with updated style
             Text(
                 text = "Browse by Category",
                 style = MaterialTheme.typography.titleMedium,
+                color = textColor,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
             )
 
+            // Display search results if query exists
             if(query.isNotEmpty()){
-                LazyColumn {
+                LazyColumn(
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
                     items(books) { book ->
-                        BookItem(book)
+                        BookItem(book, primaryColor, textColor)
                     }
                 }
             }
 
-            //va risolto il bug che quando cancello la query e ne scrivo un'altra non mi fa vedere le ultime robe mostrate
-
+            // Categories grid with updated styling
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2), // Due colonne
-                modifier = Modifier.fillMaxWidth(),
+                columns = GridCells.Fixed(2),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (categories.isEmpty()) {
                     Log.e("LazyVerticalGrid", "Attenzione: Nessuna categoria disponibile!")
                 }
 
                 items(categories) { category ->
-                    Log.d("LazyVerticalGrid", "Categoria caricata: $category") // Debug
-                    CategoryButton(category, navController) {
-                        viewModel.filterForCategories(category) // Avvia la ricerca per categoria
+                    Log.d("LazyVerticalGrid", "Categoria caricata: $category")
+                    CategoryButton(category, navController, primaryColor) {
+                        viewModel.filterForCategories(category)
                     }
                 }
             }
-
         }
     }
-
 }
 
-// Pulsanti per le categorie
+// Updated CategoryButton with the new color scheme
 @Composable
-fun CategoryButton(category: String, navController: NavController, onClick: () -> Unit) {
+fun CategoryButton(category: String, navController: NavController, primaryColor: Color, onClick: () -> Unit) {
     Log.d("CategoryButton", "Funzione chiamata per categoria: $category")
     val context = LocalContext.current
+
     Button(
         onClick = {
             Log.d("CategoryButton", "Navigating to filteredbooks/$category")
@@ -223,29 +234,80 @@ fun CategoryButton(category: String, navController: NavController, onClick: () -
             }
         },
         shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = primaryColor.copy(alpha = 0.8f)
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(4.dp)
+            .height(48.dp)
     ) {
-        Text(category, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text = category,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.White
+        )
     }
 }
 
-
+// Updated BookItem with the new color scheme
 @Composable
-fun BookItem(book: Book) {
+fun BookItem(book: Book, primaryColor: Color, textColor: Color) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp)
+            defaultElevation = 4.dp
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = book.title)
-            Text(text = "Autore: ${book.author}")
-            Text(text = "Autore: ${book.type}")
-            //Text(text = "Disponibile: ${if (book.available) "Sì" else "No"}", style = MaterialTheme.typography.body2)
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Book cover placeholder
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(primaryColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Book,
+                    contentDescription = null,
+                    tint = primaryColor,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Book details
+            Column {
+                Text(
+                    text = book.title,
+                    color = textColor,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "by ${book.author}",
+                    color = textColor.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = book.type,
+                    color = primaryColor,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
-
