@@ -1,5 +1,7 @@
 package com.example.enjoybook.pages
 
+import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -32,6 +34,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavController
 import com.example.enjoybook.data.Book
+import com.google.common.reflect.TypeToken
+import com.google.gson.Gson
 
 
 object FavoritesManager {
@@ -41,16 +45,42 @@ object FavoritesManager {
     private val _favoritesFlow = MutableStateFlow<List<Book>>(_favorites.toList())
     val favoritesFlow: StateFlow<List<Book>> = _favoritesFlow
 
+    private lateinit var sharedPreferences: SharedPreferences
+    private val gson = Gson()
+
+    fun initialize(context: Context) {
+        sharedPreferences = context.getSharedPreferences("favorites_prefs", Context.MODE_PRIVATE)
+        loadFavorites()
+    }
+
+    private fun loadFavorites() {
+        val favoritesJson = sharedPreferences.getString("favorites", null)
+        if (favoritesJson != null) {
+            val type = object : TypeToken<List<Book>>() {}.type
+            val loadedFavorites = gson.fromJson<List<Book>>(favoritesJson, type)
+            _favorites.clear()
+            _favorites.addAll(loadedFavorites)
+            _favoritesFlow.value = _favorites.toList()
+        }
+    }
+
+    private fun saveFavorites() {
+        val favoritesJson = gson.toJson(_favorites.toList())
+        sharedPreferences.edit().putString("favorites", favoritesJson).apply()
+    }
+
     fun addFavorite(book: Book) {
         if (!isBookFavorite(book.id)) {
             _favorites.add(book)
             _favoritesFlow.value = _favorites.toList()
+            saveFavorites()
         }
     }
 
     fun removeFavorite(bookId: String) {
         _favorites.removeIf { it.id == bookId }
         _favoritesFlow.value = _favorites.toList()
+        saveFavorites()
     }
 
     fun isBookFavorite(bookId: String): Boolean {
@@ -65,7 +95,6 @@ object FavoritesManager {
         return _favorites.find { it.id == bookId }
     }
 }
-
 @Composable
 fun FavouritePage(
     navController: NavController,
