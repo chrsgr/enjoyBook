@@ -454,8 +454,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                     // Review text with author's initials
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = authorEmail.split("@")
-                                                .first(),  // Displaying only the part before "@"
+                                            text = username,
                                             fontSize = 12.sp,
                                             color = textColor.copy(alpha = 0.6f)
                                         )
