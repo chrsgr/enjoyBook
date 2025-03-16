@@ -12,3 +12,9 @@ val Pink40 = Color(0xFF7D5260)
 
 val lighGreen = Color(0xFF98DD8E)
 val lightRed = Color(0xFFD23333)
+
+//colori da usare
+val primaryColor = Color(0xFF2CBABE)
+val backgroundColor = Color(0xFFF5F5F5)
+val textColor = Color(0xFF333333)
+val errorColor = Color(0xFFD32F2F)

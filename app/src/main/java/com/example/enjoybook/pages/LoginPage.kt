@@ -43,32 +43,51 @@ import androidx.navigation.NavController
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
-
 @Composable
 fun FallingBooksAnimation(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter
     ) {
-        repeat(40) { index ->
+        repeat(30) { index ->
             FallingBook(
-                delayMillis = index * 50L,
+                delayMillis = index * 75L,
                 horizontalOffset = Random.nextInt(-150, 150).toFloat(),
-                size = Random.nextInt(40, 80).toFloat()
+                size = Random.nextInt(40, 80).toFloat(),
+                color = when (index % 4) {
+                    0 -> Color(0xFF2CBABE) // Primary color
+                    1 -> Color(0xFF1D8A8E) // Darker shade of primary
+                    2 -> Color(0xFF3ECECC) // Lighter shade of primary
+                    else -> Color(0xFF25A3A8) // Medium shade of primary
+                }
             )
         }
     }
 }
+
 @Composable
-fun FallingBook(delayMillis: Long, horizontalOffset: Float, size: Float) {
+fun FallingBook(delayMillis: Long, horizontalOffset: Float, size: Float, color: Color) {
     var startAnimation by remember { mutableStateOf(false) }
     var animationCompleted by remember { mutableStateOf(false) }
 
@@ -77,7 +96,7 @@ fun FallingBook(delayMillis: Long, horizontalOffset: Float, size: Float) {
         startAnimation = true
     }
 
-    val animationDuration = 2000
+    val animationDuration = 2500
     val animationSpec = tween<Float>(
         durationMillis = animationDuration,
         easing = FastOutSlowInEasing
@@ -138,158 +157,275 @@ fun FallingBook(delayMillis: Long, horizontalOffset: Float, size: Float) {
                     scaleX = scaleAnimation.value
                     scaleY = scaleAnimation.value
                 },
-            tint = Color(0xFF95D1D3)
+            tint = color
         )
     }
 }
 
-
 @Composable
-fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authViewModel: AuthViewModel){
-
-    var email by remember {
-        mutableStateOf("")
-    }
-
-    var password by remember {
-        mutableStateOf("")
-    }
+fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authViewModel: AuthViewModel) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var isEmailValid by remember { mutableStateOf(true) }
+    var isPasswordValid by remember { mutableStateOf(true) }
 
     val authState = authViewModel.authState.observeAsState()
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    val primaryColor = Color(0xFF2CBABE)
+    val backgroundColor = Color(0xFFF5F5F5)
+    val textColor = Color(0xFF333333)
+    val errorColor = Color(0xFFD32F2F)
 
     LaunchedEffect(authState.value) {
-        when(authState.value){
+        when(authState.value) {
             is AuthState.Authenticated -> navController.navigate("main")
-            is AuthState.Error -> Toast.makeText(context, (authState.value as AuthState.Error).message, Toast.LENGTH_SHORT).show()
+            is AuthState.Error -> Toast.makeText(
+                context,
+                (authState.value as AuthState.Error).message,
+                Toast.LENGTH_SHORT
+            ).show()
             else -> Unit
         }
     }
 
-    val infiniteTransition = rememberInfiniteTransition()
-    val yOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 20f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 2000,
-                easing = FastOutSlowInEasing
-            ),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+    ) {
+        // Background animation
         FallingBooksAnimation()
 
-
-
-
+        // Content
         Column(
-            modifier = modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
-        ){
-            Text("Login", fontSize = 32.sp)
+        ) {
+            // App logo with animation
+            val rotation = rememberInfiniteTransition().animateFloat(
+                initialValue = -10f,
+                targetValue = 10f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1500, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                )
+            )
+
+            Icon(
+                imageVector = Icons.Filled.MenuBook,
+                contentDescription = "App Logo",
+                modifier = Modifier
+                    .size(80.dp)
+                    .graphicsLayer {
+                        rotationZ = rotation.value
+                    },
+                tint = primaryColor
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            Text(
+                "EnjoyBook",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = textColor
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Email field with validation
             OutlinedTextField(
                 value = email,
                 onValueChange = {
                     email = it
+                    isEmailValid = it.isEmpty() || it.contains('@')
                 },
-                label = {
-                    Text(text = "Email")
-                }
+                label = { Text("Email", color = textColor.copy(alpha = 0.8f)) },
+                singleLine = true,
+                isError = !isEmailValid,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryColor,
+                    unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
+                    errorBorderColor = errorColor,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (!isEmailValid) {
+                Text(
+                    text = "Please enter a valid email address",
+                    color = errorColor,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+            }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Password field with validation
             OutlinedTextField(
                 value = password,
                 onValueChange = {
                     password = it
+                    isPasswordValid = it.isEmpty() || it.length >= 6
                 },
-                label = {
-                    Text(text = "Password")
-                },
+                label = { Text("Password", color = textColor.copy(alpha = 0.8f)) },
+                singleLine = true,
+                isError = !isPasswordValid,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        keyboardController?.hide()
+                        if (isEmailValid && isPasswordValid && email.isNotEmpty() && password.isNotEmpty()) {
+                            authViewModel.login(email, password)
+                        }
+                    }
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryColor,
+                    unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
+                    errorBorderColor = errorColor,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
+
+            if (!isPasswordValid) {
+                Text(
+                    text = "Password must be at least 6 characters",
+                    color = errorColor,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Login button with improved styling
+            Button(
+                onClick = {
+                    keyboardController?.hide()
+                    if (isEmailValid && isPasswordValid && email.isNotEmpty() && password.isNotEmpty()) {
+                        authViewModel.login(email, password)
+                    }
+                },
+                enabled = authState.value != AuthState.Loading && email.isNotEmpty() && password.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = primaryColor,
+                    disabledContainerColor = Color(0xFFE0E0E0)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "LOGIN",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                onClick = {
-                    authViewModel.login(email, password)
-                },
-                enabled = authState.value != AuthState.Loading,
-                colors = ButtonDefaults.buttonColors(Color(0xFFA7E8EB))
+            // Sign up link with improved styling
+            TextButton(
+                onClick = { navController.navigate("signup") }
             ) {
-                Text(text = "LOGIN", color = Color.Black)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            TextButton(onClick = {
-                navController.navigate("signup")
-            }) {
-                Text("You don't have an account? Sign up", color = Color.Blue)
+                Text(
+                    text = "Don't have an account? Sign up",
+                    color = primaryColor,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
-    }
-    if (authState.value == AuthState.Loading) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0x80000000)),
-            contentAlignment = Alignment.Center
-        ) {
-            LoadingSpinner()
+
+        // Loading overlay
+        if (authState.value == AuthState.Loading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x80000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                LoadingSpinner(primaryColor)
+            }
         }
     }
 }
 
 @Composable
-fun LoadingSpinner() {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+fun LoadingSpinner(primaryColor: Color) {
+    // Add a card background for better visibility
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(60.dp),
-            color = Color(0xFFA7E8EB),
-            strokeWidth = 5.dp
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "login..",
-            color = Color.White,
-            fontSize = 18.sp
-        )
-
-        // Animazione libro rotante
-        val rotation = rememberInfiniteTransition().animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1500, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(32.dp)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(60.dp),
+                color = primaryColor,
+                strokeWidth = 5.dp
             )
-        )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Icon(
-            imageVector = Icons.Filled.MenuBook,
-            contentDescription = "Loading Book",
-            modifier = Modifier
-                .size(40.dp)
-                .graphicsLayer {
-                    rotationZ = rotation.value
-                },
-            tint = Color(0xFFA7E8EB)
-        )
+            Text(
+                text = "Logging in...",
+                color = Color(0xFF333333),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium
+            )
+
+            // Animated book icon
+            val rotation = rememberInfiniteTransition().animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1500, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Icon(
+                imageVector = Icons.Filled.MenuBook,
+                contentDescription = "Loading Book",
+                modifier = Modifier
+                    .size(40.dp)
+                    .graphicsLayer {
+                        rotationZ = rotation.value
+                    },
+                tint = primaryColor
+            )
+        }
     }
 }
