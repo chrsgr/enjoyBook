@@ -41,10 +41,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.material3.MaterialTheme
 import  androidx.compose.foundation.layout.size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.horizontalScroll
@@ -87,7 +85,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewModel: SearchViewModel = viewModel()) {
-    // Define color scheme
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
@@ -463,7 +460,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewMod
                 }
 
                 // Add space at the bottom for better scrolling experience
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(90.dp))
             }
         }
     }
