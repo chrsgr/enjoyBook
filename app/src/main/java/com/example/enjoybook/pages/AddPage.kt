@@ -5,6 +5,7 @@ import android.text.TextUtils
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -341,7 +343,7 @@ fun AddPage(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Type field (dropdown)
+
                     ExposedDropdownMenuBox(
                         expanded = expanded,
                         onExpandedChange = { expanded = !expanded },
@@ -373,30 +375,54 @@ fun AddPage(
                                 focusedBorderColor = primaryColor,
                                 unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
                                 focusedLabelColor = primaryColor,
-                                cursorColor = primaryColor
-                            )
+                                cursorColor = primaryColor,
+                                focusedContainerColor = backgroundColor,
+                                unfocusedContainerColor = backgroundColor
+                            ),
+                            shape = RoundedCornerShape(8.dp)
                         )
 
                         ExposedDropdownMenu(
                             expanded = expanded,
                             onDismissRequest = { expanded = false },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(backgroundColor)
                         ) {
                             bookTypes.forEach { type ->
                                 DropdownMenuItem(
-                                    text = { Text(type, color = textColor) },
+                                    text = {
+                                        Text(
+                                            text = type,
+                                            color = textColor,
+                                            fontWeight = if (type == selectedType) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
                                     onClick = {
                                         selectedType = type
                                         expanded = false
                                     },
                                     colors = MenuDefaults.itemColors(
                                         textColor = textColor
-                                    )
+                                    ),
+                                    leadingIcon = {
+                                        if (type == selectedType) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = primaryColor
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            if (type == selectedType) primaryColor.copy(alpha = 0.1f) else Color.Transparent
+                                        )
                                 )
                             }
                         }
                     }
-
                     Spacer(modifier = Modifier.height(32.dp))
 
                     // Save Button
@@ -514,7 +540,6 @@ fun addDataToFirebase(
         condition = condition,
         description = description,
         edition = edition,
-        review = "-",
         title = title,
         titleLower = titleLower,
         type = type,
