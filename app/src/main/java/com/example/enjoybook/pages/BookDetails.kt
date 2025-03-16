@@ -396,6 +396,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     )
                 }
 
+
                 Button(
                     onClick = { showReviewDialog = true },
                     colors = ButtonDefaults.buttonColors(primaryColor),

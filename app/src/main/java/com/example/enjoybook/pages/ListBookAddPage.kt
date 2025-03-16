@@ -374,6 +374,7 @@ fun BookItem(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(30.dp)
                 ) {
+// Inside BookItem composable
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = if (isAvailable) availableColor.copy(alpha = 0.2f) else unavailableColor.copy(alpha = 0.2f),

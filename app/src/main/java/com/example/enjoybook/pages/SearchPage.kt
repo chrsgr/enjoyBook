@@ -2,6 +2,7 @@ package com.example.enjoybook.pages
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -188,7 +189,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     modifier = Modifier.padding(horizontal = 16.dp)
                 ) {
                     items(books) { book ->
-                        BookItem(book, primaryColor, textColor)
+                        BookItem(book, primaryColor, textColor, navController)
                     }
                 }
             }
@@ -252,7 +253,7 @@ fun CategoryButton(category: String, navController: NavController, primaryColor:
 
 // Updated BookItem with the new color scheme
 @Composable
-fun BookItem(book: Book, primaryColor: Color, textColor: Color) {
+fun BookItem(book: Book, primaryColor: Color, textColor: Color, navController: NavController) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -265,7 +266,12 @@ fun BookItem(book: Book, primaryColor: Color, textColor: Color) {
         )
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .padding(16.dp)
+                .clickable {
+                    // Navigate to BookDetails screen when the book is clicked
+                    navController.navigate("bookDetails/${book.id}")
+                },
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Book cover placeholder
