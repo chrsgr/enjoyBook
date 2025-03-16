@@ -179,7 +179,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewMod
                         }
                     }
 
-                    // Search field with updated styling
+                    // Search field
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = {
@@ -260,7 +260,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewMod
                     )
                 }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     Row(
                         modifier = Modifier
@@ -278,7 +278,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewMod
 
                             Box(
                                 modifier = Modifier
-                                    .padding(start = 16.dp, end = 12.dp)
+                                    .padding(start = 16.dp, end = 2.dp)
                                     .clip(RoundedCornerShape(20.dp))
                                     .background(
                                         primaryColor.copy(alpha = animatedAlpha),
@@ -459,7 +459,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewMod
                     }
                 }
 
-                // Add space at the bottom for better scrolling experience
+                // space  scrolling
                 Spacer(modifier = Modifier.height(90.dp))
             }
         }
