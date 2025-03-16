@@ -65,12 +65,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
     val firestore = FirebaseFirestore.getInstance()
 
-    var bookReviews by remember { mutableStateOf<List<Review>>(emptyList()) }
-
-
-    val (submittedReviews, setSubmittedReviews) = remember {
-        mutableStateOf(mutableStateListOf<Pair<String, String>>()) //(email autore, testo)
-    }
 
     LaunchedEffect(Unit) {
         if (currentUser != null) {
@@ -102,36 +96,43 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         }
     }
 
+    var bookReviews by remember { mutableStateOf<List<Review>>(emptyList()) }
+    val submittedReviews = remember { mutableStateListOf<Pair<String, String>>() }
+
     LaunchedEffect(bookId) {
         if (bookId.isNotEmpty()) {
-            Log.d("BookDetails", "Recupero dettagli libro e recensioni per bookId: $bookId")
 
-            // Recupera i dettagli del libro usando il bookId effettivo (quello che esiste nel DB)
             db.collection("books").document(bookId)
                 .get()
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
-                        // Assegna il libro recuperato al nostro stato
                         book = document.toObject(Book::class.java)
 
-                        // Recupera anche le recensioni per lo stesso bookId
-                        fetchReviewsForBook(bookId) { newReviews ->
-                            val formattedReviews = newReviews.map { it.userEmail to it.review }
-                            submittedReviews.addAll(formattedReviews)  // Aggiungi le nuove recensioni
-                            Log.d("BookDetails", "Recuperate ${newReviews.size} recensioni per bookId: $bookId")
+                        val documentId = document.id
+
+                        submittedReviews.clear()
+
+                        fetchReviewsForBook(documentId) { reviews ->
+
+                            bookReviews = reviews
+
+                            val formattedReviews = reviews.map {
+                                it.userEmail to it.review
+                            }
+
+                            submittedReviews.addAll(formattedReviews)
                         }
+                    } else {
+                        Log.e("BookDetails", "Book document doesn't exist for ID: $bookId")
                     }
                     isLoading = false
                 }
-                .addOnFailureListener { exception ->
-                    Log.e("Firestore", "Errore nel recupero del libro: ", exception)
+                .addOnFailureListener { e ->
+                    Log.e("BookDetails", "Error loading book: ${e.message}")
                     isLoading = false
                 }
-        } else {
-            isLoading = false
         }
     }
-
 
     val authState = authViewModel.authState.observeAsState().value
 
@@ -188,7 +189,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 isLoanRequested = false
                 buttonText = "available"
                 coroutineScope.launch {
-                    delay(2000) // Simulate network or database request delay
+                    delay(2000)
                     deleteRequest = false
                 }
             }
@@ -197,7 +198,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 isLoanRequested = true
                 buttonText = "requested"
                 coroutineScope.launch {
-                    delay(2000) // Simulate network or database request delay
+                    delay(2000)
                     showLoanRequestDialog = false
                 }
             }
@@ -206,7 +207,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 isLoanRequested = false
                 buttonText = "not available"
                 coroutineScope.launch {
-                    delay(2000) // Simulate network or database request delay
+                    delay(2000)
                     showLoanRequestDialog = false
                 }
             }
@@ -428,15 +429,30 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                             modifier = Modifier.padding(top = 4.dp)
                                         )
                                     }
-
-                                    // Optionally add a delete icon for the current user's review
                                     if (authorEmail == currentUserEmail) {
                                         IconButton(
                                             onClick = {
-                                                // Delete the review
-                                                val newList = submittedReviews.toMutableList()
-                                                newList.removeAt(index)
-                                                setSubmittedReviews(newList.toMutableStateList())
+                                                // Find the corresponding review in the database and delete it
+                                                db.collection("reviews")
+                                                    .whereEqualTo("bookId", bookId)
+                                                    .whereEqualTo("userEmail", currentUserEmail)
+                                                    .whereEqualTo("review", submittedReviews[index].second)
+                                                    .get()
+                                                    .addOnSuccessListener { documents ->
+                                                        for (document in documents) {
+                                                            // Delete the document
+                                                            db.collection("reviews").document(document.id).delete()
+                                                                .addOnSuccessListener {
+                                                                    Log.d("ReviewDialog", "Review successfully deleted")
+
+                                                                    // Remove from local state after successful deletion
+                                                                    submittedReviews.removeAt(index)
+                                                                }
+                                                                .addOnFailureListener { e ->
+                                                                    Log.e("ReviewDialog", "Error deleting review", e)
+                                                                }
+                                                        }
+                                                    }
                                             },
                                             modifier = Modifier.size(24.dp)
                                         ) {
@@ -629,21 +645,17 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
                             Button(
                                 onClick = {
-                                    if (review.isNotBlank() && currentUserEmail.isNotEmpty()) {
-                                        // Save to local state
-                                        submittedReviews.add(Pair(currentUserEmail, review))
+                                    if (review.isNotBlank() && currentUserEmail.isNotEmpty() && book != null) {
+                                        val documentId = bookId
+                                        Log.d("ReviewSubmit", "Submitting review for document ID: $documentId")
 
-                                        // Save to database - aggiungendo bookId come primo parametro
-                                        saveReviewToDatabase(book!!.id, currentUserEmail, review) {
-                                            // Ricarica le recensioni aggiornate dopo il salvataggio
-                                            fetchReviewsForBook(book!!.id) { newReviews ->
-                                                // Formatta le recensioni recuperate e aggiorna lo stato
-                                                val formattedReviews = newReviews.map { it.userEmail to it.review }
-                                                submittedReviews.addAll(formattedReviews) // Aggiunge le recensioni aggiornate
-                                            }
+                                        // Add immediately to UI for responsiveness
+                                        submittedReviews.add(0, currentUserEmail to review)
+
+                                        saveReviewToDatabase(documentId, currentUserEmail, review) {
+                                            Log.d("ReviewSubmit", "Review saved to database")
                                         }
 
-                                        // Reset e chiusura del dialog
                                         review = ""
                                         showReviewDialog = false
                                     }
@@ -652,7 +664,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             ) {
                                 Text("Submit", color = Color.Black)
                             }
-
 
                         }
                     }
@@ -721,19 +732,33 @@ private fun fetchReviewsForBook(bookId: String, callback: (List<Review>) -> Unit
     val db = FirebaseFirestore.getInstance()
 
     db.collection("reviews")
-        .whereEqualTo("bookId", bookId)  // Usa il bookId per cercare le recensioni correlate
-        .orderBy("timestamp", Query.Direction.DESCENDING) // Ordina per timestamp (dal più recente al più vecchio)
+        .whereEqualTo("bookId", bookId)
         .get()
         .addOnSuccessListener { documents ->
-            val reviewsList = documents.map { document ->
-                document.toObject(Review::class.java).copy(id = document.id)  // Recupera la review e aggiungi l'ID del documento
+
+            if (documents.isEmpty) {
+                callback(emptyList())
+                return@addOnSuccessListener
             }
-            Log.d("Firestore", "Fetched ${reviewsList.size} reviews for bookId: $bookId")
-            callback(reviewsList)  // Passa la lista delle recensioni alla callback
+
+            val reviewsList = mutableListOf<Review>()
+            for (document in documents) {
+                try {
+
+                    val review = Review(
+                        id = document.id,
+                        bookId = document.getString("bookId") ?: "",
+                        userEmail = document.getString("userEmail") ?: "",
+                        review = document.getString("review") ?: ""
+                    )
+                    reviewsList.add(review)
+                } catch (e: Exception) {
+                }
+            }
+
+            callback(reviewsList)
         }
         .addOnFailureListener { e ->
-            Log.e("ReviewDialog", "Errore nel recupero delle recensioni", e)
-            callback(emptyList())  // In caso di errore, restituisci una lista vuota
+            callback(emptyList())
         }
 }
-

@@ -208,18 +208,33 @@ fun addDataToFirebase(
     //save the currentUser
     val currentUser = FirebaseAuth.getInstance().currentUser
     val titleLower = title.lowercase()
-    val doc = dbCourses.document()
-    //adding our data to our courses object class.
+
+    // CRITICAL FIX: Create a document reference first
+    val docRef = dbCourses.document()
+    val documentId = docRef.id
+
+    Log.d("AddBook", "Generated document ID: $documentId")
+
     Log.d("Utente", "Utente trovato: ${currentUser.toString()}")
-    val books = Book(doc.id, author, condition = "-", description = "-", edition = "-", review = "-", title, titleLower, type,
-       currentUser?.email.toString(),  currentUser?.uid.toString(), year = "-"
+
+    // CRITICAL FIX: Use the document ID as both the document ID and the id field
+    val books = Book(
+        id = documentId,
+        author = author,
+        condition = "-",
+        description = "-",
+        edition = "-",
+        review = "-",
+        title = title,
+        titleLower = titleLower,
+        type = type,
+        userEmail = currentUser?.email.toString(),
+        userId = currentUser?.uid.toString(),
+        year = "-"
     )
 
-
-    //below method is use to add data to Firebase Firestore.
-    dbCourses.add(books).addOnSuccessListener {
-        // after the data addition is successful
-        // we are displaying a success toast message.
+    // CRITICAL FIX: Use set() with the document reference instead of add()
+    docRef.set(books).addOnSuccessListener {
         Toast.makeText(
             context,
             "Your book has been added to Firebase Firestore",
@@ -231,5 +246,4 @@ fun addDataToFirebase(
         // displaying a toast message when data addition is failed.
         Toast.makeText(context, "Fail to add book \n$e", Toast.LENGTH_SHORT).show()
     }
-
 }
