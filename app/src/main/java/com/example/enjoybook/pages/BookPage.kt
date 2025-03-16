@@ -32,14 +32,11 @@ import androidx.navigation.NavController
 import androidx.compose.foundation.interaction.MutableInteractionSource
 
 import androidx.compose.foundation.hoverable
-import com.example.enjoybook.viewModel.AuthViewModel
 
 
 @Composable
-fun BookPage(navController: NavController, authViewModel: AuthViewModel) {
+fun BookPage(navController: NavController) {
     var expanded by remember { mutableStateOf(true) } // Start expanded by default
-
-    // Hover state for menu items
     var isLibraryHovered by remember { mutableStateOf(false) }
     var isAddBookHovered by remember { mutableStateOf(false) }
     var isSelected by remember { mutableStateOf(false) }

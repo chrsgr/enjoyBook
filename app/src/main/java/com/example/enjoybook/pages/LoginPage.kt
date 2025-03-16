@@ -76,10 +76,10 @@ fun FallingBooksAnimation(modifier: Modifier = Modifier) {
                 horizontalOffset = Random.nextInt(-150, 150).toFloat(),
                 size = Random.nextInt(40, 80).toFloat(),
                 color = when (index % 4) {
-                    0 -> Color(0xFF2CBABE) // Primary color
-                    1 -> Color(0xFF1D8A8E) // Darker shade of primary
-                    2 -> Color(0xFF3ECECC) // Lighter shade of primary
-                    else -> Color(0xFF25A3A8) // Medium shade of primary
+                    0 -> Color(0xFF2CBABE)
+                    1 -> Color(0xFF1D8A8E)
+                    2 -> Color(0xFF3ECECC)
+                    else -> Color(0xFF25A3A8)
                 }
             )
         }
@@ -196,7 +196,6 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
             .fillMaxSize()
             .background(backgroundColor)
     ) {
-        // Background animation
         FallingBooksAnimation()
 
         // Content
@@ -240,7 +239,6 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Email field with validation
             OutlinedTextField(
                 value = email,
                 onValueChange = {
@@ -278,7 +276,6 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Password field with validation
             OutlinedTextField(
                 value = password,
                 onValueChange = {
@@ -322,7 +319,6 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Login button with improved styling
             Button(
                 onClick = {
                     keyboardController?.hide()
@@ -349,7 +345,6 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Sign up link with improved styling
             TextButton(
                 onClick = { navController.navigate("signup") }
             ) {
@@ -361,7 +356,6 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
             }
         }
 
-        // Loading overlay
         if (authState.value == AuthState.Loading) {
             Box(
                 modifier = Modifier
@@ -377,7 +371,6 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
 
 @Composable
 fun LoadingSpinner(primaryColor: Color) {
-    // Add a card background for better visibility
     Card(
         colors = CardDefaults.cardColors(
             containerColor = Color.White
@@ -404,7 +397,6 @@ fun LoadingSpinner(primaryColor: Color) {
                 fontWeight = FontWeight.Medium
             )
 
-            // Animated book icon
             val rotation = rememberInfiniteTransition().animateFloat(
                 initialValue = 0f,
                 targetValue = 360f,

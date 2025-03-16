@@ -33,9 +33,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.platform.LocalContext
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.Review
 import com.example.enjoybook.viewModel.AuthState
@@ -44,7 +42,6 @@ import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 
 @Composable
 fun BookDetails(navController: NavController, authViewModel: AuthViewModel, bookId: String) {

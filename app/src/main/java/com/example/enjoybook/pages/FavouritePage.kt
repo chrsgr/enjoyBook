@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.outlined.Favorite
@@ -90,18 +89,10 @@ object FavoritesManager {
         return _favorites.any { it.id == bookId }
     }
 
-    fun getFavoriteBooks(): List<Book> {
-        return _favorites.toList()
-    }
-
-    fun getFavoriteById(bookId: String): Book? {
-        return _favorites.find { it.id == bookId }
-    }
 }
 @Composable
 fun FavouritePage(
     navController: NavController,
-    onBookClick: (String) -> Unit = {}
 ) {
     val favorites by remember { mutableStateOf(FavoritesManager.favorites) }
 
@@ -210,7 +201,7 @@ fun FavouritePage(
                     text = "FAVORITE BOOKS",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF333333), // Using text color from login page
+                    color = Color(0xFF333333),
                     modifier = Modifier.padding(bottom = 20.dp)
                 )
 
@@ -230,7 +221,7 @@ fun FavouritePage(
                                 modifier = Modifier
                                     .size(64.dp)
                                     .padding(bottom = 16.dp),
-                                tint = Color(0xFF2CBABE) // Updated to use the primary color
+                                tint = Color(0xFF2CBABE)
                             )
                             Text(
                                 text = "No favorites yet",

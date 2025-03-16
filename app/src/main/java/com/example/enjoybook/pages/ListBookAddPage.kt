@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cancel
@@ -46,14 +45,12 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun ListBookAddPage(navController: NavController) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val db = FirebaseFirestore.getInstance()
 
     val currentUser = FirebaseAuth.getInstance().currentUser
     val userId = currentUser?.uid
 
-    // Define theme colors to match rest of app
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
@@ -61,7 +58,6 @@ fun ListBookAddPage(navController: NavController) {
     val availableColor = Color(0xFF81C784)
     val unavailableColor = Color(0xFFFFB74D)
 
-    // State to hold book list
     var booksList by remember { mutableStateOf<List<BookWithId>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -143,7 +139,6 @@ fun ListBookAddPage(navController: NavController) {
                     )
                 }
             } else if (booksList.isEmpty()) {
-                // Empty state
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
@@ -192,16 +187,13 @@ fun ListBookAddPage(navController: NavController) {
                                 }
                             },
                             onEditClick = {
-                                // Pass the book ID for editing
                                 navController.navigate("addPage?bookId=${bookWithId.id}&isEditing=true")
                             },
                             onClick = {
-                                // Navigate to book detail
-                                navController.navigate("book/${bookWithId.id}")
+                                navController.navigate("bookDetails/${bookWithId.id}")
                             }
                         )
                     }
-                    // Add some bottom padding for better UX with FAB
                     item {
                         Spacer(modifier = Modifier.height(72.dp))
                     }

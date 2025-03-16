@@ -9,10 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
@@ -34,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.enjoybook.data.NavItem
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -44,8 +41,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -63,12 +58,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.TabRowDefaults.Divider
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
-
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -80,7 +73,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
@@ -94,7 +86,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomePage(modifier: Modifier = Modifier, navController: NavController, authViewModel: AuthViewModel, viewModel: SearchViewModel = viewModel()) {
+fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewModel: SearchViewModel = viewModel()) {
     // Define color scheme
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
@@ -108,7 +100,6 @@ fun HomePage(modifier: Modifier = Modifier, navController: NavController, authVi
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
-    val searchFocusRequester = remember { FocusRequester() }
     var selectedGenre by remember { mutableStateOf<String?>(null) }
 
     val categories = listOf(
@@ -200,7 +191,8 @@ fun HomePage(modifier: Modifier = Modifier, navController: NavController, authVi
                                 viewModel.searchBooks(searchQuery)
                             }
                         },
-                        leadingIcon = {
+
+                                leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "Search",
@@ -257,11 +249,11 @@ fun HomePage(modifier: Modifier = Modifier, navController: NavController, authVi
                 .padding(paddingValues)
                 .padding(top = 16.dp)
         ){
-            // Genre section with improved styling
+            // Genre
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Box(
-                    modifier = Modifier.padding(start = 16.dp)  // Adding padding around the SectionHeader
+                    modifier = Modifier.padding(start = 16.dp)
                 ) {
                     SectionHeader(
                         icon = Icons.Filled.MenuBook,
@@ -273,7 +265,6 @@ fun HomePage(modifier: Modifier = Modifier, navController: NavController, authVi
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Scrollable genre categories
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -316,7 +307,7 @@ fun HomePage(modifier: Modifier = Modifier, navController: NavController, authVi
                         }
                     }
 
-                    // "See all" link
+                // "See all" link
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -336,7 +327,7 @@ fun HomePage(modifier: Modifier = Modifier, navController: NavController, authVi
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // Featured books section
+            // Featured books
             item {
                 Card(
                     modifier = Modifier
@@ -477,7 +468,7 @@ fun HomePage(modifier: Modifier = Modifier, navController: NavController, authVi
         }
     }
 
-    // Notification popup with improved design
+    // Notification popup
     if (showNotificationPopup) {
         Dialog(onDismissRequest = { showNotificationPopup = false }) {
             Surface(
@@ -577,7 +568,7 @@ fun FeatureBookCard(
         modifier = Modifier
             .padding(end = 16.dp)
             .width(140.dp)
-            .height(180.dp) // 🔹 Leggermente più alta per migliorare la disposizione
+            .height(180.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -587,11 +578,11 @@ fun FeatureBookCard(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            // 🔹 Area superiore con icona libro
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(85.dp) // 🔹 Più spazio per l'icona
+                    .height(85.dp)
                     .background(primaryColor.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -599,7 +590,7 @@ fun FeatureBookCard(
                     imageVector = Icons.Default.MenuBook,
                     contentDescription = null,
                     tint = primaryColor,
-                    modifier = Modifier.size(36.dp) // 🔹 Icona leggermente più grande
+                    modifier = Modifier.size(36.dp)
                 )
             }
 
@@ -630,9 +621,9 @@ fun FeatureBookCard(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.weight(1f)) // 🔹 Spinge il Box verso il basso
+                Spacer(modifier = Modifier.weight(1f))
 
-                // 🔹 Box con il tipo del libro
+
 
                     Text(
                         text = book.type,
@@ -698,7 +689,6 @@ fun NotificationItem(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                // Reject button with improved styling
                 Button(
                     onClick = { },
                     colors = ButtonDefaults.buttonColors(
@@ -714,7 +704,6 @@ fun NotificationItem(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Accept button with improved styling
                 Button(
                     onClick = { },
                     colors = ButtonDefaults.buttonColors(
@@ -731,91 +720,6 @@ fun NotificationItem(
     }
 }
 
-@Composable
-fun BookItemClickable(
-    book: Book,
-    primaryColor: Color,
-    textColor: Color,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Book cover placeholder
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(primaryColor.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Book,
-                    contentDescription = null,
-                    tint = primaryColor,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column {
-                Text(
-                    text = book.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = textColor,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "by ${book.author}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = textColor.copy(alpha = 0.7f)
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(primaryColor.copy(alpha = 0.2f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = book.type,
-                            color = primaryColor,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "View details",
-                        tint = primaryColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
 private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
@@ -825,7 +729,6 @@ private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
         .addOnSuccessListener { documents ->
             val booksList = mutableListOf<Book>()
             for (document in documents) {
-                // Get the book data and ensure it has the document ID
                 val book = document.toObject(Book::class.java).copy(
                     id = document.id
                 )

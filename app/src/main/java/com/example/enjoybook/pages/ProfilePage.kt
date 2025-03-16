@@ -73,10 +73,7 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfilePage(
-    modifier: Modifier = Modifier,
     navController: NavController,
-    authViewModel: AuthViewModel,
-    viewModel: SearchViewModel = viewModel()
 ) {
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
@@ -182,12 +179,10 @@ fun ProfilePage(
             "phone" to phone
         )
 
-        // If there's a profile picture, add its URL to the user data
         imageUri?.let {
             userData["profilePictureUrl"] = it.toString()
         }
 
-        // Update the user data in Firestore
         firestore.collection("users").document(currentUser.uid)
             .update(userData as Map<String, Any>)
             .addOnSuccessListener {
@@ -203,12 +198,12 @@ fun ProfilePage(
     }
 
     val primaryColor = Color(0xFFA7E8EB)
-    val accentColor = Color(0xFF4DB6AC) // Slightly darker teal for contrast
-    val primaryTextColor = Color(0xFF212121) // Dark gray for main text
-    val secondaryTextColor = Color(0xFF757575) // Medium gray for secondary text
+    val accentColor = Color(0xFF4DB6AC)
+    val primaryTextColor = Color(0xFF212121)
+    val secondaryTextColor = Color(0xFF757575)
     val cardBackgroundColor = Color.White
     val buttonTextColor = Color(0xFF212121)
-    val errorColor = Color(0xFFB00020) // Material design error color
+    val errorColor = Color(0xFFB00020)
 
     val sheetState = rememberModalBottomSheetState()
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -439,7 +434,6 @@ fun ProfilePage(
 
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            // Action buttons
                             AnimatedVisibility(
                                 visible = true,
                                 enter = fadeIn() + expandHorizontally()
@@ -558,7 +552,6 @@ fun ProfilePage(
         }
     }
 
-// Bottom sheet for API image selection with improved UI
     if (showBottomSheet) {
         ModalBottomSheet(
             onDismissRequest = { showBottomSheet = false },
@@ -599,7 +592,6 @@ fun ProfilePage(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 if (isLoading) {
-                    // Loading indicator with animation
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -631,7 +623,6 @@ fun ProfilePage(
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
 
-                        // Grid of images from API with better selection indicator
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(3),
                             contentPadding = PaddingValues(8.dp),
@@ -642,7 +633,6 @@ fun ProfilePage(
                             items(apiImages.size) { index ->
                                 val imageUrl = apiImages[index]
 
-                                // Using MutableInteractionSource for proper touch handling
                                 val interactionSource = remember { MutableInteractionSource() }
                                 val isPressed by interactionSource.collectIsPressedAsState()
 
@@ -713,7 +703,6 @@ fun ProfilePage(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Add button to close without selecting
                         OutlinedButton(
                             onClick = { showBottomSheet = false },
                             modifier = Modifier
@@ -738,7 +727,6 @@ fun ProfilePage(
         }
     }
 
-// Error Dialog with improved styling
     if (showErrorDialog) {
         AlertDialog(
             onDismissRequest = { showErrorDialog = false },
@@ -770,10 +758,7 @@ fun ProfilePage(
     }
 }
 
-// Reusable composable for profile fields
 @Composable
-
-
 fun ProfileField(
     label: String,
     value: String,

@@ -66,11 +66,9 @@ import com.example.enjoybook.viewModel.SearchViewModel
 
 @Composable
 fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavController){
-    // Define color scheme
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
-    val errorColor = Color(0xFFD32F2F)
 
     var query by remember { mutableStateOf("") }
     val books by viewModel.books.collectAsState()
@@ -119,7 +117,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     )
                 }
 
-                // Search field with updated colors
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
@@ -174,7 +171,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Category heading with updated style
+            // Category
             Text(
                 text = "Browse by Category",
                 style = MaterialTheme.typography.titleMedium,
@@ -194,7 +191,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                 }
             }
 
-            // Categories grid with updated styling
+            // Categories grid
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier
@@ -219,11 +216,9 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
     }
 }
 
-// Updated CategoryButton with the new color scheme
 @Composable
 fun CategoryButton(category: String, navController: NavController, primaryColor: Color, onClick: () -> Unit) {
     Log.d("CategoryButton", "Funzione chiamata per categoria: $category")
-    val context = LocalContext.current
 
     Button(
         onClick = {

@@ -42,7 +42,7 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             MainPage(modifier, navController, authViewModel, searchViewModel)
         }
         composable("home"){
-            HomePage(modifier, navController, authViewModel)
+            HomePage(navController, authViewModel)
         }
 
         composable(
@@ -67,7 +67,7 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             SearchPage(searchViewModel, navController)
         }
         composable("profile"){
-            ProfilePage(modifier, navController, authViewModel)
+            ProfilePage(navController)
         }
         composable("favourite"){
             FavouritePage(navController)
@@ -80,11 +80,11 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             BookDetails(navController, authViewModel, bookId)
         }
         composable("bookUser"){
-            BookPage(navController, authViewModel)
+            BookPage(navController)
         }
 
         composable("library"){
-            LibraryPage(navController, authViewModel)
+            LibraryPage(navController)
         }
 
         composable("listBookAdd"){

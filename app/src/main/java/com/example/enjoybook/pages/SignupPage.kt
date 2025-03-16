@@ -50,7 +50,6 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
     val authState = authViewModel.authState.observeAsState()
     val context = LocalContext.current
 
-    // Definizione dei colori personalizzati
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
@@ -95,7 +94,7 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Logo o icona dell'app
+            // Logo
             Icon(
                 imageVector = Icons.Filled.AccountCircle,
                 contentDescription = "App Logo",
@@ -111,7 +110,7 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                 modifier = Modifier.padding(vertical = 16.dp)
             )
 
-            // Campo Nome
+            //  Nome
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -135,7 +134,7 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo Cognome
+            //  Cognome
             OutlinedTextField(
                 value = surname,
                 onValueChange = { surname = it },
@@ -159,7 +158,7 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo Username
+            //  Username
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
@@ -183,7 +182,7 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo Email
+            //  Email
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -207,7 +206,7 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo Password con toggle visibilità
+            // Campo Password
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -331,11 +330,9 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                 }
             }
 
-            // Spazio aggiuntivo per lo scroll
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Overlay di caricamento
         if (isLoading) {
             Box(
                 modifier = Modifier

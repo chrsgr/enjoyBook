@@ -1,6 +1,5 @@
 package com.example.enjoybook.pages
 
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,27 +36,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.enjoybook.viewModel.AuthViewModel
+import com.example.enjoybook.data.Book
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
-fun LibraryPage(navController: NavController, authViewModel: AuthViewModel) {
+fun LibraryPage(navController: NavController) {
     val currentUser = FirebaseAuth.getInstance().currentUser
-    var userBooks by remember { mutableStateOf<List<BookModel>>(emptyList()) }
+    var userBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // Fetch books from Firestore that belong to the current user
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
-            // Reference to the Firestore collection
             val db = FirebaseFirestore.getInstance()
             db.collection("books")
                 .whereEqualTo("userId", currentUser.uid)
                 .get()
                 .addOnSuccessListener { documents ->
                     userBooks = documents.map { doc ->
-                        BookModel(
+                        Book(
                             id = doc.id,
                             title = doc.getString("title") ?: "",
                             author = doc.getString("author") ?: "",
@@ -68,7 +65,6 @@ fun LibraryPage(navController: NavController, authViewModel: AuthViewModel) {
                     isLoading = false
                 }
                 .addOnFailureListener {
-                    // Handle error
                     isLoading = false
                 }
         }
@@ -194,11 +190,3 @@ fun LibraryPage(navController: NavController, authViewModel: AuthViewModel) {
     }
 }
 
-// Model class for the book
-data class BookModel(
-    val id: String = "",
-    val title: String = "",
-    val author: String = "",
-    val type: String = "",
-    val userId: String = ""
-)

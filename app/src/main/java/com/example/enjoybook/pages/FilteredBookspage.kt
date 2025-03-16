@@ -39,7 +39,6 @@ fun FilteredBooksPage(category: String, navController: NavController, viewModel:
     Log.d("FilteredBooksPage", "Pagina caricata correttamente!")
     val books by viewModel.books.collectAsState() // Osserva lo stato dei libri
     Log.d("FilteredBooksPage", "Stato UI aggiornato: ${books.size} libri")
-    val coroutineScope = rememberCoroutineScope()
 
     Log.d("FilteredBooksPage", "Libri ricevuti: ${books.size}")
 

@@ -112,11 +112,11 @@ fun MainPage(modifier: Modifier = Modifier, navController: NavController, authVi
 @Composable
 fun ContentScreen(modifier: Modifier = Modifier, selectedIndex : Int, navController: NavController, authViewModel: AuthViewModel, context : Context, searchViewModel: SearchViewModel){
     when(selectedIndex){
-        0 -> HomePage(modifier, navController, authViewModel)
+        0 -> HomePage(navController, authViewModel)
         1 -> SearchPage(searchViewModel, navController)
-        2 -> AddPage(modifier, navController, context)
+        2 -> AddPage(navController, context)
         3 -> FavouritePage(navController)
-        4 -> BookPage( navController, authViewModel)
+        4 -> BookPage( navController)
     }
 }
 
