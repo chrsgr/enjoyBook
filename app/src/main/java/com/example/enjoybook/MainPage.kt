@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.example.enjoybook.data.NavItem
@@ -35,7 +36,6 @@ import com.example.enjoybook.pages.AddPage
 import com.example.enjoybook.pages.BookPage
 import com.example.enjoybook.pages.FavouritePage
 import com.example.enjoybook.pages.HomePage
-import com.example.enjoybook.pages.ProfilePage
 import com.example.enjoybook.pages.SearchPage
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
@@ -61,6 +61,11 @@ fun MainPage(modifier: Modifier = Modifier, navController: NavController, authVi
         mutableIntStateOf(0)
     }
 
+    // Define your colors
+    val primaryColor = Color(0xFFB4E4E8)
+    val backgroundColor = Color(0xFFF5F5F5)
+    val textColor = Color(0xFF333333)
+
     LaunchedEffect(authState.value){
         when(authState.value){
             is AuthState.Unauthenticated -> navController.navigate("login")
@@ -73,11 +78,11 @@ fun MainPage(modifier: Modifier = Modifier, navController: NavController, authVi
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    containerColor = primaryColor, // use primary color here
+                    titleContentColor = textColor, // use text color here
                 ),
                 title = {
-                    Text("EnjoyBooks")
+                    Text("EnjoyBooks", color = textColor) // Text color set to textColor
                 },
                 actions = {
                     IconButton(onClick = { authViewModel.signout() }) {
@@ -87,7 +92,9 @@ fun MainPage(modifier: Modifier = Modifier, navController: NavController, authVi
             )
         },
         bottomBar = {
-            NavigationBar{
+            NavigationBar(
+                containerColor = backgroundColor // Background color for bottom bar
+            ){
                 navItemList.forEachIndexed { index, navItem ->
                     NavigationBarItem(
                         selected = selectedIndex == index,
@@ -98,14 +105,21 @@ fun MainPage(modifier: Modifier = Modifier, navController: NavController, authVi
                             Icon(imageVector = navItem.icon, contentDescription = "Icon")
                         },
                         label = {
-                            Text(text = navItem.label)
+                            Text(text = navItem.label, color = textColor) // Text color set to textColor
                         }
                     )
                 }
             }
         }
     ){ innerPadding ->
-        ContentScreen(modifier = Modifier.padding(innerPadding), selectedIndex, navController, authViewModel, context, searchViewModel)
+        ContentScreen(
+            modifier = Modifier.padding(innerPadding),
+            selectedIndex,
+            navController,
+            authViewModel,
+            context,
+            searchViewModel
+        )
     }
 }
 
@@ -116,7 +130,7 @@ fun ContentScreen(modifier: Modifier = Modifier, selectedIndex : Int, navControl
         1 -> SearchPage(searchViewModel, navController)
         2 -> AddPage(navController, context)
         3 -> FavouritePage(navController)
-        4 -> BookPage( navController)
+        4 -> BookPage(navController)
     }
 }
 

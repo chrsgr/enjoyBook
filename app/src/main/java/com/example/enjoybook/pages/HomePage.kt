@@ -58,7 +58,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.TabRowDefaults.Divider
 import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.Button
@@ -136,7 +135,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewMod
     Scaffold(
         topBar = {
             Column {
-                Spacer(modifier = Modifier.height(90.dp)) //
+                Spacer(modifier = Modifier.height(88.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

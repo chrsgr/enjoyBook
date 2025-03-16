@@ -306,7 +306,7 @@ fun FavoriteBookItem(
                     text = book.title,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = Color(0xFF333333) // Using text color from login page
+                    color = Color(0xFF333333)
                 )
                 Text(
                     text = "di ${book.author}",
