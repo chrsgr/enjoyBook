@@ -133,111 +133,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewMod
     }
 
     Scaffold(
-        topBar = {
-            Column {
-                Spacer(modifier = Modifier.height(88.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(primaryColor)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Notifications with badge
-                    IconButton(onClick = {
-                        showNotificationPopup = true
-                        if (unreadNotifications > 0) {
-                            unreadNotifications = 0
-                        }
-                    }) {
-                        Box(contentAlignment = Alignment.TopEnd) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = "Notifications",
-                                tint = Color.White
-                            )
-                            if (unreadNotifications > 0) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(18.dp)
-                                        .offset(x = 8.dp, y = (-8).dp)
-                                        .clip(CircleShape)
-                                        .background(errorColor)
-                                        .border(1.dp, Color.White, CircleShape)
-                                ) {
-                                    Text(
-                                        text = unreadNotifications.toString(),
-                                        color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
 
-                    // Search field
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = {
-                            searchQuery = it
-                            if (searchQuery.isNotEmpty()) {
-                                viewModel.searchBooks(searchQuery)
-                            }
-                        },
-
-                                leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = textColor.copy(alpha = 0.6f)
-                            )
-                        },
-                        modifier = Modifier
-                            .width(250.dp)
-                            .height(50.dp),
-                        placeholder = { Text("Search for books...", color = Color.Gray) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(25.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor,
-                            cursorColor = primaryColor,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = {
-                                viewModel.searchBooks(searchQuery)
-                                keyboardController?.hide()
-                                focusManager.clearFocus()
-                            }
-                        )
-                    )
-
-                    // Profile icon
-                    IconButton(
-                        onClick = { navController.navigate("profile") },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.2f))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Profile",
-                            tint = Color.White
-                        )
-                    }
-                }
-            }
-        },
-        containerColor = backgroundColor
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -247,7 +143,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewMod
         ){
             // Genre
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(60.dp))
                 Box(
                     modifier = Modifier.padding(start = 16.dp)
                 ) {

@@ -148,7 +148,7 @@ fun LibraryPage(navController: NavController) {
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable {
-                                            navController.navigate("book/${book.id}")
+                                            navController.navigate("bookDetails/${book.id}")
                                         }
                                 ) {
                                     Box(

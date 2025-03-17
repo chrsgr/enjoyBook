@@ -43,9 +43,19 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
+
+    // Validazioni
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var surnameError by remember { mutableStateOf<String?>(null) }
+    var usernameError by remember { mutableStateOf<String?>(null) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+    var confirmPasswordError by remember { mutableStateOf<String?>(null) }
 
     val authState = authViewModel.authState.observeAsState()
     val context = LocalContext.current
@@ -53,6 +63,56 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
+    val errorColor = Color.Red
+
+    // Validazione email
+    val emailPattern = remember { Regex("[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}") }
+
+    // Funzione per validare tutti i campi
+    fun validateFields(): Boolean {
+        var isValid = true
+
+        nameError = if (name.isEmpty()) {
+            isValid = false
+            "Name is required"
+        } else null
+
+        surnameError = if (surname.isEmpty()) {
+            isValid = false
+            "Surname is required"
+        } else null
+
+        usernameError = if (username.isEmpty()) {
+            isValid = false
+            "Username is required"
+        } else null
+
+        emailError = if (email.isEmpty()) {
+            isValid = false
+            "Email is required"
+        } else if (!emailPattern.matches(email)) {
+            isValid = false
+            "Invalid email format"
+        } else null
+
+        passwordError = if (password.isEmpty()) {
+            isValid = false
+            "Password is required"
+        } else if (password.length < 6) {
+            isValid = false
+            "Password must be at least 6 characters"
+        } else null
+
+        confirmPasswordError = if (confirmPassword.isEmpty()) {
+            isValid = false
+            "Please confirm your password"
+        } else if (password != confirmPassword) {
+            isValid = false
+            "Passwords do not match"
+        } else null
+
+        return isValid
+    }
 
     LaunchedEffect(authState.value) {
         when (authState.value) {
@@ -98,22 +158,25 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
             Icon(
                 imageVector = Icons.Filled.AccountCircle,
                 contentDescription = "App Logo",
-                modifier = Modifier.size(80.dp),
+                modifier = Modifier.size(60.dp),
                 tint = primaryColor
             )
 
             Text(
                 "Create Account",
-                fontSize = 28.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor,
                 modifier = Modifier.padding(vertical = 16.dp)
             )
 
-            //  Nome
+            // Nome
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = {
+                    name = it
+                    if (nameError != null) nameError = null
+                },
                 label = { Text("Name") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
@@ -122,22 +185,37 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryColor,
                     focusedLabelColor = primaryColor,
-                    cursorColor = primaryColor
+                    cursorColor = primaryColor,
+                    errorBorderColor = errorColor,
+                    errorLabelColor = errorColor
                 ),
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = "Name"
                     )
+                },
+                isError = nameError != null,
+                supportingText = {
+                    nameError?.let {
+                        Text(
+                            text = it,
+                            color = errorColor,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            //  Cognome
+            // Cognome
             OutlinedTextField(
                 value = surname,
-                onValueChange = { surname = it },
+                onValueChange = {
+                    surname = it
+                    if (surnameError != null) surnameError = null
+                },
                 label = { Text("Surname") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
@@ -146,22 +224,37 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryColor,
                     focusedLabelColor = primaryColor,
-                    cursorColor = primaryColor
+                    cursorColor = primaryColor,
+                    errorBorderColor = errorColor,
+                    errorLabelColor = errorColor
                 ),
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = "Surname"
                     )
+                },
+                isError = surnameError != null,
+                supportingText = {
+                    surnameError?.let {
+                        Text(
+                            text = it,
+                            color = errorColor,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            //  Username
+            // Username
             OutlinedTextField(
                 value = username,
-                onValueChange = { username = it },
+                onValueChange = {
+                    username = it
+                    if (usernameError != null) usernameError = null
+                },
                 label = { Text("Username") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
@@ -170,22 +263,37 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryColor,
                     focusedLabelColor = primaryColor,
-                    cursorColor = primaryColor
+                    cursorColor = primaryColor,
+                    errorBorderColor = errorColor,
+                    errorLabelColor = errorColor
                 ),
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.AccountBox,
                         contentDescription = "Username"
                     )
+                },
+                isError = usernameError != null,
+                supportingText = {
+                    usernameError?.let {
+                        Text(
+                            text = it,
+                            color = errorColor,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            //  Email
+            // Email
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = {
+                    email = it
+                    if (emailError != null) emailError = null
+                },
                 label = { Text("Email") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -194,13 +302,25 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryColor,
                     focusedLabelColor = primaryColor,
-                    cursorColor = primaryColor
+                    cursorColor = primaryColor,
+                    errorBorderColor = errorColor,
+                    errorLabelColor = errorColor
                 ),
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Email,
                         contentDescription = "Email"
                     )
+                },
+                isError = emailError != null,
+                supportingText = {
+                    emailError?.let {
+                        Text(
+                            text = it,
+                            color = errorColor,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             )
 
@@ -209,7 +329,13 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
             // Campo Password
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = {
+                    password = it
+                    if (passwordError != null) passwordError = null
+                    if (confirmPassword.isNotEmpty() && confirmPasswordError != null) {
+                        confirmPasswordError = if (it != confirmPassword) "Passwords do not match" else null
+                    }
+                },
                 label = { Text("Password") },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 singleLine = true,
@@ -219,7 +345,9 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryColor,
                     focusedLabelColor = primaryColor,
-                    cursorColor = primaryColor
+                    cursorColor = primaryColor,
+                    errorBorderColor = errorColor,
+                    errorLabelColor = errorColor
                 ),
                 leadingIcon = {
                     Icon(
@@ -234,16 +362,76 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                             contentDescription = if (passwordVisible) "Hide password" else "Show password"
                         )
                     }
+                },
+                isError = passwordError != null,
+                supportingText = {
+                    passwordError?.let {
+                        Text(
+                            text = it,
+                            color = errorColor,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo Telefono
+            // Campo Conferma Password
+            OutlinedTextField(
+                value = confirmPassword,
+                onValueChange = {
+                    confirmPassword = it
+                    if (confirmPasswordError != null) {
+                        confirmPasswordError = if (it != password) "Passwords do not match" else null
+                    }
+                },
+                label = { Text("Confirm Password") },
+                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryColor,
+                    focusedLabelColor = primaryColor,
+                    cursorColor = primaryColor,
+                    errorBorderColor = errorColor,
+                    errorLabelColor = errorColor
+                ),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Confirm Password"
+                    )
+                },
+                trailingIcon = {
+                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                        Icon(
+                            imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                            contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password"
+                        )
+                    }
+                },
+                isError = confirmPasswordError != null,
+                supportingText = {
+                    confirmPasswordError?.let {
+                        Text(
+                            text = it,
+                            color = errorColor,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Campo Telefono (opzionale)
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
-                label = { Text("Phone number") },
+                label = { Text("Phone number (optional)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 enabled = !isLoading,
@@ -263,16 +451,18 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Pulsante di registrazione con effetto elevazione
+            // Pulsante di registrazione con validazione
             Button(
                 onClick = {
-                    authViewModel.signup(name, surname, username, email, password, phone)
+                    if (validateFields()) {
+                        authViewModel.signup(name, surname, username, email, password, phone)
+                    }
                 },
                 colors = ButtonColors(
                     containerColor = primaryColor,
                     contentColor = textColor,
-                    disabledContainerColor = primaryColor.copy(alpha = 0.5f),
-                    disabledContentColor = textColor.copy(alpha = 0.5f)
+                    disabledContainerColor = Color(0xFFE0E0E0).copy(alpha = 0.5f),
+                    disabledContentColor = textColor.copy(alpha = 0.5f),
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -284,7 +474,7 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                         username.isNotEmpty() &&
                         email.isNotEmpty() &&
                         password.isNotEmpty() &&
-                        phone.isNotEmpty()
+                        confirmPassword.isNotEmpty()
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -299,7 +489,7 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                     } else {
                         Text(
                             text = "CREATE ACCOUNT",
-                            color = textColor,
+                            color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                     }

@@ -33,12 +33,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,16 +60,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import com.example.enjoybook.viewModel.AuthViewModel
-import com.example.enjoybook.viewModel.SearchViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -80,19 +88,30 @@ fun ProfilePage(
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var isEditing by remember { mutableStateOf(false) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var apiImages by remember { mutableStateOf<List<String>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) } // Start with loading state
+    var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var reportReason by remember { mutableStateOf("") }
+    var showReportSuccessDialog by remember { mutableStateOf(false) }
+    var isReporting by remember { mutableStateOf(false) }
+    var reportOptions = listOf("Inappropriate content", "Fake account", "Harassment", "Spam", "Other")
+    var selectedReportOption by remember { mutableStateOf(reportOptions[0]) }
 
     val context = LocalContext.current
 
     val firestore = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
+    var originalPassword by remember { mutableStateOf("") }
+    var userId by remember { mutableStateOf("") }
+    var isCurrentUserProfile by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         if (currentUser != null) {
@@ -105,6 +124,7 @@ fun ProfilePage(
                         username = document.getString("username") ?: ""
                         email = document.getString("email") ?: ""
                         phone = document.getString("phone") ?: ""
+                        password = document.getString("password") ?: ""
 
                         document.getString("profilePictureUrl")?.let {
                             imageUri = Uri.parse(it)
@@ -123,7 +143,6 @@ fun ProfilePage(
             }
         }
     }
-
     fun fetchImagesFromApi() {
         isLoading = true
 
@@ -179,6 +198,18 @@ fun ProfilePage(
             "phone" to phone
         )
 
+
+        if (password != originalPassword) {
+            val user = FirebaseAuth.getInstance().currentUser
+            user?.updatePassword(password)
+                ?.addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                    } else {
+                        errorMessage = "Failed to update authentication: ${task.exception?.message}"
+                        showErrorDialog = true
+                    }
+                }
+        }
         imageUri?.let {
             userData["profilePictureUrl"] = it.toString()
         }
@@ -188,11 +219,73 @@ fun ProfilePage(
             .addOnSuccessListener {
                 isSaving = false
                 isEditing = false
+
                 Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
             }
             .addOnFailureListener { e ->
                 isSaving = false
                 errorMessage = "Failed to update profile: ${e.message}"
+                showErrorDialog = true
+            }
+    }
+
+    fun reportUser() {
+        if (currentUser == null) {
+            errorMessage = "You must be logged in to report accounts"
+            showErrorDialog = true
+            return
+        }
+
+        if (reportReason.isBlank() && selectedReportOption == "Other") {
+            errorMessage = "Please provide a reason for the report"
+            showErrorDialog = true
+            return
+        }
+
+        isReporting = true
+
+        // report document
+        val reportData = hashMapOf(
+            "reportedUserId" to userId,
+            "reportedBy" to currentUser.uid,
+            "reason" to if (selectedReportOption == "Other") reportReason else selectedReportOption,
+            "timestamp" to FieldValue.serverTimestamp()
+        )
+
+        firestore.collection("reports").add(reportData)
+            .addOnSuccessListener {
+                firestore.collection("reports")
+                    .whereEqualTo("reportedUserId", userId)
+                    .get()
+                    .addOnSuccessListener { reports ->
+                        if (reports.size() >= 5) {
+                            firestore.collection("users").document(userId)
+                                .update("isBanned", true)
+                                .addOnSuccessListener {
+                                    isReporting = false
+                                    showReportDialog = false
+                                    showReportSuccessDialog = true
+                                }
+                                .addOnFailureListener { e ->
+                                    isReporting = false
+                                    errorMessage = "Failed to ban user: ${e.message}"
+                                    showErrorDialog = true
+                                }
+                        } else {
+                            isReporting = false
+                            showReportDialog = false
+                            showReportSuccessDialog = true
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        isReporting = false
+                        errorMessage = "Failed to count reports: ${e.message}"
+                        showErrorDialog = true
+                    }
+            }
+            .addOnFailureListener { e ->
+                isReporting = false
+                errorMessage = "Failed to submit report: ${e.message}"
                 showErrorDialog = true
             }
     }
@@ -204,6 +297,7 @@ fun ProfilePage(
     val cardBackgroundColor = Color.White
     val buttonTextColor = Color(0xFF212121)
     val errorColor = Color(0xFFB00020)
+    val warningColor = Color(0xFFFF6D00)
 
     val sheetState = rememberModalBottomSheetState()
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -382,7 +476,7 @@ fun ProfilePage(
                                     label = "Email",
                                     value = email,
                                     onValueChange = { email = it },
-                                    isEditing = false, // Email is read-only
+                                    isEditing = false,
                                     leadingIcon = Icons.Default.Email
                                 )
 
@@ -394,6 +488,15 @@ fun ProfilePage(
                                     leadingIcon = Icons.Default.Phone,
                                     keyboardType = KeyboardType.Phone
                                 )
+
+                                ProfileField(
+                                    label = "Password",
+                                    value = password,
+                                    onValueChange = { password = it },
+                                    isEditing = true,
+                                    leadingIcon = Icons.Default.Password
+                                )
+
                             } else {
                                 // View mode
                                 ProfileField(
@@ -430,6 +533,14 @@ fun ProfilePage(
                                     isEditing = false,
                                     leadingIcon = Icons.Default.Phone
                                 )
+
+                                ProfileField(
+                                    label = "Password",
+                                    value = password,
+                                    onValueChange = { password = it },
+                                    isEditing = false,
+                                    leadingIcon = Icons.Default.Password
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(24.dp))
@@ -443,7 +554,7 @@ fun ProfilePage(
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (isEditing) {
+                                    if (isEditing && isCurrentUserProfile ) {
                                         Button(
                                             onClick = { saveUserData() },
                                             modifier = Modifier
@@ -542,6 +653,116 @@ fun ProfilePage(
                                                 )
                                             }
                                         }
+                                    }
+                                }
+                            }
+
+                            // Only show report button if this is NOT the current user's profile
+                            if (!isCurrentUserProfile) {
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                OutlinedButton(
+                                    onClick = { showReportDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.7f)
+                                        .height(50.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = warningColor
+                                    ),
+                                    border = BorderStroke(1.dp, warningColor),
+                                    shape = RoundedCornerShape(25.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Report,
+                                            contentDescription = "Report",
+                                            tint = warningColor,
+                                            modifier = Modifier.padding(end = 8.dp)
+                                        )
+                                        Text(
+                                            "Report Account",
+                                            color = warningColor,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (isCurrentUserProfile && !isEditing) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateContentSize(animationSpec),
+                            colors = CardDefaults.cardColors(containerColor = cardBackgroundColor),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Security,
+                                        contentDescription = "Safety",
+                                        tint = warningColor,
+                                        modifier = Modifier.padding(end = 12.dp)
+                                    )
+                                    Text(
+                                        "Account Safety",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp,
+                                        color = primaryTextColor
+                                    )
+                                }
+
+                                Text(
+                                    "If you find inappropriate content or want to report a user, visit their profile and use the Report Account button.",
+                                    fontSize = 14.sp,
+                                    color = secondaryTextColor,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                )
+
+                                OutlinedButton(
+                                    onClick = {
+                                        //fare in seguito pagina dove ci sono le linee guida
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = accentColor
+                                    ),
+                                    border = BorderStroke(1.dp, accentColor),
+                                    shape = RoundedCornerShape(25.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Help,
+                                            contentDescription = "Help",
+                                            tint = accentColor,
+                                            modifier = Modifier.padding(end = 8.dp)
+                                        )
+                                        Text(
+                                            "Community Guidelines",
+                                            color = accentColor,
+                                            fontWeight = FontWeight.Medium
+                                        )
                                     }
                                 }
                             }
@@ -727,6 +948,162 @@ fun ProfilePage(
         }
     }
 
+    // Report Dialog
+    if (showReportDialog) {
+        AlertDialog(
+            onDismissRequest = { showReportDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Report,
+                        contentDescription = "Report",
+                        tint = warningColor,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                    Text(
+                        "Report Account",
+                        fontWeight = FontWeight.Bold,
+                        color = primaryTextColor
+                    )
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Why are you reporting this user?",
+                        fontWeight = FontWeight.Medium,
+                        color = primaryTextColor,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    ExposedDropdownMenuBox(
+                        expanded = false,
+                        onExpandedChange = {  },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column {
+                            reportOptions.forEach { option ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                        .clickable { selectedReportOption = option },
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = selectedReportOption == option,
+                                        onClick = { selectedReportOption = option },
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = accentColor
+                                        )
+                                    )
+                                    Text(
+                                        text = option,
+                                        modifier = Modifier.padding(start = 8.dp),
+                                        color = primaryTextColor
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    AnimatedVisibility(visible = selectedReportOption == "Other") {
+                        OutlinedTextField(
+                            value = reportReason,
+                            onValueChange = { reportReason = it },
+                            label = { Text("Please specify") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            maxLines = 3,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = accentColor,
+                                focusedLabelColor = accentColor,
+                                cursorColor = accentColor
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    Text(
+                        "Users will be automatically banned after receiving 5 reports.",
+                        color = secondaryTextColor,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { reportUser() },
+                    enabled = !isReporting,
+                    colors = ButtonDefaults.buttonColors(containerColor = warningColor),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    if (isReporting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Submit Report", color = Color.White)
+                    }
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showReportDialog = false },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryTextColor),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, Color.LightGray)
+                ) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = cardBackgroundColor,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // Report Success Dialog
+    if (showReportSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showReportSuccessDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Success",
+                        tint = accentColor,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                    Text(
+                        "Report Submitted",
+                        fontWeight = FontWeight.Bold,
+                        color = primaryTextColor
+                    )
+                }
+            },
+            text = {
+                Text(
+                    "Thank you for your report. We take all reports seriously and will review this account. Users who receive multiple reports may be banned automatically.",
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showReportSuccessDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text("OK", color = Color.White)
+                }
+            },
+            containerColor = cardBackgroundColor,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
     if (showErrorDialog) {
         AlertDialog(
             onDismissRequest = { showErrorDialog = false },
@@ -765,8 +1142,14 @@ fun ProfileField(
     onValueChange: (String) -> Unit = {},
     isEditing: Boolean,
     leadingIcon: ImageVector? = null,
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    isPassword: Boolean = label.equals("Password", ignoreCase = true),
+    passwordVisible: Boolean = false,
+    onTogglePasswordVisibility: () -> Unit = {}
 ) {
+    val accentColor = Color(0xFF4DB6AC)
+    var isPasswordVisible by remember { mutableStateOf(passwordVisible) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -782,25 +1165,40 @@ fun ProfileField(
                     .animateContentSize(),
                 singleLine = true,
                 enabled = isEditing,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = if (isPassword) KeyboardType.Password else keyboardType
+                ),
+                visualTransformation = if (isPassword && !isPasswordVisible)
+                    PasswordVisualTransformation() else VisualTransformation.None,
                 leadingIcon = if (leadingIcon != null) {
-
-
                     {
-                        val accentColor = Color(0xFF4DB6AC)
-
                         Icon(
-                            imageVector = leadingIcon as ImageVector,
+                            imageVector = leadingIcon,
                             contentDescription = null,
                             tint = accentColor
                         )
                     }
                 } else null,
-
+                trailingIcon = if (isPassword) {
+                    {
+                        IconButton(onClick = {
+                            isPasswordVisible = !isPasswordVisible
+                            onTogglePasswordVisibility()
+                        }) {
+                            Icon(
+                                imageVector = if (isPasswordVisible)
+                                    Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                contentDescription = if (isPasswordVisible)
+                                    "Hide password" else "Show password",
+                                tint = accentColor
+                            )
+                        }
+                    }
+                } else null,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF4DB6AC) ,
-                    focusedLabelColor = Color(0xFF4DB6AC) ,
-                    cursorColor = Color(0xFF4DB6AC)
+                    focusedBorderColor = accentColor,
+                    focusedLabelColor = accentColor,
+                    cursorColor = accentColor
                 ),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -814,7 +1212,7 @@ fun ProfileField(
                         Icon(
                             imageVector = leadingIcon,
                             contentDescription = null,
-                            tint = Color.Blue,
+                            tint = accentColor,
                             modifier = Modifier
                                 .size(18.dp)
                                 .padding(end = 4.dp)
@@ -824,12 +1222,16 @@ fun ProfileField(
                         text = label,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
-                        color = Color(0xFF4DB6AC)
+                        color = accentColor
                     )
                 }
 
                 Text(
-                    text = value.ifEmpty { "Not set" },
+                    text = if (isPassword) {
+                        if (value.isEmpty()) "Not set" else "••••••••"
+                    } else {
+                        if (value.isEmpty()) "Not set" else value
+                    },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Normal,
                     color = if (value.isEmpty()) Color.Gray else Color.Black,
@@ -845,4 +1247,3 @@ fun ProfileField(
         }
     }
 }
-

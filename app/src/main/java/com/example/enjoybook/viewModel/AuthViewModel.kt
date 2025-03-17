@@ -50,7 +50,8 @@ class AuthViewModel : ViewModel() {
         username: String,
         email: String,
         password: String,
-        phone: String
+        phone: String,
+
     ) {
         // Validate all fields
         if (name.isEmpty() || surname.isEmpty() || username.isEmpty() ||
@@ -61,31 +62,27 @@ class AuthViewModel : ViewModel() {
 
         _authState.value = AuthState.Loading
 
-        // First create the Firebase Authentication user
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    // Get the user ID created by Firebase Auth
                     val userId = auth.currentUser?.uid
 
                     if (userId != null) {
-                        // Create a user profile document in Firestore
                         val userMap = hashMapOf(
                             "name" to name,
                             "surname" to surname,
                             "username" to username,
                             "email" to email,
-                            "phone" to phone
+                            "phone" to phone,
+                            "password" to password,
                         )
 
-                        // Store the additional data in Firestore
                         db.collection("users").document(userId)
                             .set(userMap)
                             .addOnSuccessListener {
                                 _authState.value = AuthState.Authenticated
                             }
                             .addOnFailureListener { e ->
-                                // If storing additional data fails, delete the authentication account
                                 auth.currentUser?.delete()
                                 _authState.value = AuthState.Error(e.message ?: "Failed to save user data")
                             }
@@ -103,6 +100,40 @@ class AuthViewModel : ViewModel() {
         auth.signOut()
         _authState.value = AuthState.Unauthenticated
     }
+
+
+    fun updatePassword(newPassword: String) {
+        val user = auth.currentUser
+        if (user == null) {
+            _authState.value = AuthState.Error("Utente non autenticato")
+            return
+        }
+
+        _authState.value = AuthState.Loading
+
+        user.updatePassword(newPassword)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+
+                    updatePasswordInDatabase(user.uid, newPassword)
+                } else {
+                    _authState.value = AuthState.Error(task.exception?.message ?: "Errore nell'aggiornamento della password")
+                }
+            }
+    }
+
+    private fun updatePasswordInDatabase(userId: String, newPassword: String) {
+        val userRef = db.collection("users").document(userId)
+
+        userRef.update("password", newPassword)
+            .addOnSuccessListener {
+                _authState.value = AuthState.Authenticated
+            }
+            .addOnFailureListener { e ->
+                _authState.value = AuthState.Error("Errore aggiornando la password nel database")
+            }
+    }
+
 }
 
 sealed class AuthState {
