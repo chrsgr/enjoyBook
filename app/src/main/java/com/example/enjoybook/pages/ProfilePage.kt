@@ -96,7 +96,6 @@ fun ProfilePage(
     var isSaving by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
     var reportReason by remember { mutableStateOf("") }
     var showReportSuccessDialog by remember { mutableStateOf(false) }

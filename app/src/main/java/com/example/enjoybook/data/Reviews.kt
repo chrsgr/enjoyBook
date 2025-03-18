@@ -2,7 +2,6 @@ package com.example.enjoybook.data
 
 import java.security.Timestamp
 
-
 data class Review(
     val id: String = "",
     val bookId: String = "",

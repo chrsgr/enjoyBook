@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.scale
 import com.example.enjoybook.data.Book
+import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.Review
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
@@ -193,6 +194,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 showLoanRequestDialog = true
                 isLoanRequested = true
                 buttonText = "requested"
+                sendBookRequestNotification(book?.userId.toString(), book!!.title, book!!.id)
                 coroutineScope.launch {
                     delay(2000)
                     showLoanRequestDialog = false
@@ -376,11 +378,10 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 Button(
                     onClick = { toggleLoanRequest() },
                     colors = ButtonDefaults.buttonColors(
-                        // Set button color based on the availability status
                         when (buttonText) {
-                            "requested" -> Color(0xFFFF9800) // Orange for "requested"
-                            "not available" -> errorColor // Red for "not available"
-                            else -> Color(0xFF71F55E) // Green for "available"
+                            "requested" -> Color(0xFFFF9800)
+                            "not available" -> errorColor
+                            else -> Color(0xFF71F55E)
                         }
                     ),
                     shape = RoundedCornerShape(8.dp)
@@ -814,5 +815,32 @@ private fun fetchReviewsForBook(bookId: String, callback: (List<Review>) -> Unit
         }
         .addOnFailureListener { e ->
             callback(emptyList())
+        }
+}
+fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
+    val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+
+    // Create notification data
+    val notification = Notification(
+        recipientId = userId,
+        senderId = currentUser.uid,
+        message = "Richiesta di affitto per libro '$title'",
+        timestamp = System.currentTimeMillis(),
+        isRead = false,
+        type = "LOAN_REQUEST",
+        bookId = bookId,
+        title = title
+    )
+4
+    // Add to Firestore
+    FirebaseFirestore.getInstance()
+        .collection("notifications")
+        .add(notification)
+        .addOnSuccessListener {
+            // Notification saved successfully
+            Log.d("Notifications", "Request notification sent to owner")
+        }
+        .addOnFailureListener { e ->
+            Log.e("Notifications", "Error sending notification", e)
         }
 }
