@@ -1,21 +1,32 @@
 package com.example.enjoybook.pages
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.IconButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CalendarToday
@@ -49,16 +60,24 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.enjoybook.data.Book
+import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.CollectionReference
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,6 +99,20 @@ fun AddPage(
     val description = remember { mutableStateOf("") }
     val edition = remember { mutableStateOf("") }
     val year = remember { mutableStateOf("") }
+    val frontCoverUri = remember { mutableStateOf<Uri?>(null) }
+    val backCoverUri = remember { mutableStateOf<Uri?>(null) }
+
+    val frontCoverLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        frontCoverUri.value = uri
+    }
+
+    val backCoverLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        backCoverUri.value = uri
+    }
 
     val bookTypes = listOf(
         "Adventure", "Classics", "Crime", "Folk", "Fantasy", "Historical",
@@ -107,9 +140,15 @@ fun AddPage(
                             description.value = it.description
                             edition.value = it.edition
                             year.value = it.year
-                            // Verifica che il tipo del libro sia nella lista di tipi disponibili
                             if (bookTypes.contains(it.type)) {
                                 selectedType = it.type
+                            }
+
+                            it.frontCoverUrl?.let { url ->
+                                // Convert URL to URI if needed for display
+                            }
+                            it.backCoverUrl?.let { url ->
+                                // Convert URL to URI if needed for display
                             }
                         }
                     }
@@ -170,11 +209,117 @@ fun AddPage(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 24.dp),
+                        .padding(horizontal = 24.dp)
+                        .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Spacer(modifier = Modifier.height(30.dp))
 
+                    // Book Cover Image Upload Section
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Front Cover Upload Box
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White)
+                                .border(
+                                    width = 1.dp,
+                                    color = primaryColor.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .shadow(4.dp, RoundedCornerShape(8.dp), clip = false)
+                                .clickable { frontCoverLauncher.launch("image/*") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when {
+                                frontCoverUri.value != null -> {
+                                    AsyncImage(
+                                        model = frontCoverUri.value,
+                                        contentDescription = "Book Front Cover",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                else -> {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AddAPhoto,
+                                            contentDescription = "Add Front Cover",
+                                            tint = primaryColor,
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "Front Cover",
+                                            color = textColor,
+                                            fontSize = 14.sp,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Back Cover Upload Box
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White)
+                                .border(
+                                    width = 1.dp,
+                                    color = primaryColor.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .shadow(4.dp, RoundedCornerShape(8.dp), clip = false)
+                                .clickable { backCoverLauncher.launch("image/*") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when {
+                                backCoverUri.value != null -> {
+                                    AsyncImage(
+                                        model = backCoverUri.value,
+                                        contentDescription = "Book Back Cover",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                else -> {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AddAPhoto,
+                                            contentDescription = "Add Back Cover",
+                                            tint = primaryColor,
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "Back Cover",
+                                            color = textColor,
+                                            fontSize = 14.sp,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     // Title field
                     OutlinedTextField(
@@ -333,7 +478,6 @@ fun AddPage(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-
                     ExposedDropdownMenuBox(
                         expanded = expanded,
                         onExpandedChange = { expanded = !expanded },
@@ -434,9 +578,19 @@ fun AddPage(
                                 Toast.makeText(context, "Please enter year", Toast.LENGTH_SHORT).show()
                             } else {
                                 if (isEditing && bookId != null) {
-                                    updateBook(bookId, title.value, author.value, selectedType, condition.value, description.value, edition.value, year.value, context, navController)
+                                    updateBookWithImages(
+                                        bookId, title.value, author.value, selectedType,
+                                        condition.value, description.value, edition.value,
+                                        year.value, frontCoverUri.value, backCoverUri.value,
+                                        context, navController
+                                    )
                                 } else {
-                                    addDataToFirebase(title.value, author.value, selectedType, condition.value, description.value, edition.value, year.value, context, navController)
+                                    addDataToFirebaseWithImages(
+                                        title.value, author.value, selectedType,
+                                        condition.value, description.value, edition.value,
+                                        year.value, frontCoverUri.value, backCoverUri.value,
+                                        context, navController
+                                    )
                                 }
                             }
                         },
@@ -454,13 +608,15 @@ fun AddPage(
                             fontWeight = FontWeight.Bold
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(90.dp))
                 }
             }
         }
     }
 }
 
-fun updateBook(
+fun updateBookWithImages(
     bookId: String,
     title: String,
     author: String,
@@ -469,10 +625,13 @@ fun updateBook(
     description: String,
     edition: String,
     year: String,
+    frontCoverUri: Uri?,
+    backCoverUri: Uri?,
     context: Context,
     navController: NavController
 ) {
     val db: FirebaseFirestore = FirebaseFirestore.getInstance()
+    val storage = FirebaseStorage.getInstance()
     val docRef = db.collection("books").document(bookId)
     val titleLower = title.lowercase()
 
@@ -489,14 +648,47 @@ fun updateBook(
                 "year" to year
             )
 
-            docRef.update(updates)
-                .addOnSuccessListener {
-                    Toast.makeText(context, "Book updated successfully", Toast.LENGTH_SHORT).show()
-                    navController.popBackStack()
+            val uploadTasks = mutableListOf<Task<Uri>>()
+
+            frontCoverUri?.let { uri ->
+                val frontCoverRef = storage.reference.child("book_covers/${bookId}_front")
+                val uploadTask = frontCoverRef.putFile(uri).continueWithTask { task ->
+                    if (!task.isSuccessful) {
+                        task.exception?.let { throw it }
+                    }
+                    frontCoverRef.downloadUrl
                 }
-                .addOnFailureListener { e ->
-                    Toast.makeText(context, "Failed to update book: ${e.message}", Toast.LENGTH_SHORT).show()
+                uploadTasks.add(uploadTask)
+
+                uploadTask.addOnSuccessListener { downloadUri ->
+                    updates["frontCoverUrl"] = downloadUri.toString()
+                    if (backCoverUri == null || uploadTasks.size == 2) {
+                        updateDocumentWithChanges(docRef, updates, context, navController)
+                    }
                 }
+            }
+
+            backCoverUri?.let { uri ->
+                val backCoverRef = storage.reference.child("book_covers/${bookId}_back")
+                val uploadTask = backCoverRef.putFile(uri).continueWithTask { task ->
+                    if (!task.isSuccessful) {
+                        task.exception?.let { throw it }
+                    }
+                    backCoverRef.downloadUrl
+                }
+                uploadTasks.add(uploadTask)
+
+                uploadTask.addOnSuccessListener { downloadUri ->
+                    updates["backCoverUrl"] = downloadUri.toString()
+                    if (frontCoverUri == null || uploadTasks.size == 2) {
+                        updateDocumentWithChanges(docRef, updates, context, navController)
+                    }
+                }
+            }
+
+            if (uploadTasks.isEmpty()) {
+                updateDocumentWithChanges(docRef, updates, context, navController)
+            }
         } else {
             Toast.makeText(context, "Book not found", Toast.LENGTH_SHORT).show()
         }
@@ -505,7 +697,23 @@ fun updateBook(
     }
 }
 
-fun addDataToFirebase(
+private fun updateDocumentWithChanges(
+    docRef: DocumentReference,
+    updates: HashMap<String, Any>,
+    context: Context,
+    navController: NavController
+) {
+    docRef.update(updates)
+        .addOnSuccessListener {
+            Toast.makeText(context, "Book updated successfully", Toast.LENGTH_SHORT).show()
+            navController.popBackStack()
+        }
+        .addOnFailureListener { e ->
+            Toast.makeText(context, "Failed to update book: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+}
+
+fun addDataToFirebaseWithImages(
     title: String,
     author: String,
     type: String,
@@ -513,10 +721,13 @@ fun addDataToFirebase(
     description: String,
     edition: String,
     year: String,
+    frontCoverUri: Uri?,
+    backCoverUri: Uri?,
     context: Context,
     navController: NavController
 ) {
     val db: FirebaseFirestore = FirebaseFirestore.getInstance()
+    val storage = FirebaseStorage.getInstance()
     val dbCourses: CollectionReference = db.collection("books")
     val currentUser = FirebaseAuth.getInstance().currentUser
     val titleLower = title.lowercase()
@@ -524,21 +735,74 @@ fun addDataToFirebase(
     val docRef = dbCourses.document()
     val documentId = docRef.id
 
-    val books = Book(
-        id = documentId,
-        author = author,
-        condition = condition,
-        description = description,
-        edition = edition,
-        title = title,
-        titleLower = titleLower,
-        type = type,
-        userEmail = currentUser?.email.toString(),
-        userId = currentUser?.uid.toString(),
-        year = year
-    )
+    val bookData = HashMap<String, Any>().apply {
+        put("id", documentId)
+        put("author", author)
+        put("condition", condition)
+        put("description", description)
+        put("edition", edition)
+        put("title", title)
+        put("titleLower", titleLower)
+        put("type", type)
+        put("userEmail", currentUser?.email.toString())
+        put("userId", currentUser?.uid.toString())
+        put("year", year)
+    }
 
-    docRef.set(books)
+    val uploadTasks = mutableListOf<Task<Uri>>()
+
+    frontCoverUri?.let { uri ->
+        val frontCoverRef = storage.reference.child("book_covers/${documentId}_front")
+        val uploadTask = frontCoverRef.putFile(uri).continueWithTask { task ->
+            if (!task.isSuccessful) {
+                task.exception?.let { throw it }
+            }
+            frontCoverRef.downloadUrl
+        }
+        uploadTasks.add(uploadTask)
+
+        uploadTask.addOnSuccessListener { downloadUri ->
+            bookData["frontCoverUrl"] = downloadUri.toString()
+            if (backCoverUri == null || (backCoverUri != null && bookData.containsKey("backCoverUrl"))) {
+                saveBookToFirestore(docRef, bookData, context, navController)
+            }
+        }.addOnFailureListener { e ->
+            Toast.makeText(context, "Failed to upload front cover: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    backCoverUri?.let { uri ->
+        val backCoverRef = storage.reference.child("book_covers/${documentId}_back")
+        val uploadTask = backCoverRef.putFile(uri).continueWithTask { task ->
+            if (!task.isSuccessful) {
+                task.exception?.let { throw it }
+            }
+            backCoverRef.downloadUrl
+        }
+        uploadTasks.add(uploadTask)
+
+        uploadTask.addOnSuccessListener { downloadUri ->
+            bookData["backCoverUrl"] = downloadUri.toString()
+            if (frontCoverUri == null || (frontCoverUri != null && bookData.containsKey("frontCoverUrl"))) {
+                saveBookToFirestore(docRef, bookData, context, navController)
+            }
+        }.addOnFailureListener { e ->
+            Toast.makeText(context, "Failed to upload back cover: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    if (uploadTasks.isEmpty()) {
+        saveBookToFirestore(docRef, bookData, context, navController)
+    }
+}
+
+private fun saveBookToFirestore(
+    docRef: DocumentReference,
+    bookData: HashMap<String, Any>,
+    context: Context,
+    navController: NavController
+) {
+    docRef.set(bookData)
         .addOnSuccessListener {
             Toast.makeText(
                 context,
@@ -548,6 +812,7 @@ fun addDataToFirebase(
             navController.popBackStack()
         }
         .addOnFailureListener { e ->
-            Toast.makeText(context, "Fail to add book \n$e", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Failed to add book: ${e.message}", Toast.LENGTH_SHORT).show()
         }
 }
+
