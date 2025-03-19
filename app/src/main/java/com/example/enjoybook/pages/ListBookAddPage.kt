@@ -51,6 +51,10 @@ fun ListBookAddPage(navController: NavController) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     val userId = currentUser?.uid
 
+    var book by remember { mutableStateOf<Book?>(null) }
+
+    var isAvailable by remember { mutableStateOf(book?.isAvailable == true) }
+
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
@@ -257,7 +261,7 @@ fun BookItem(
     onEditClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    var isAvailable by remember { mutableStateOf(book.isAvailable ?: true) }
+    var isAvailable by remember { mutableStateOf(book.isAvailable == true) }
     val scope = rememberCoroutineScope()
     val db = FirebaseFirestore.getInstance()
     val context = LocalContext.current
@@ -366,7 +370,7 @@ fun BookItem(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(30.dp)
                 ) {
-// Inside BookItem composable
+                  // Inside BookItem composable
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = if (isAvailable) availableColor.copy(alpha = 0.2f) else unavailableColor.copy(alpha = 0.2f),
@@ -374,6 +378,7 @@ fun BookItem(
                             .clickable {
                                 // Update local state
                                 isAvailable = !isAvailable
+
 
                                 // Update Firebase
                                 scope.launch {

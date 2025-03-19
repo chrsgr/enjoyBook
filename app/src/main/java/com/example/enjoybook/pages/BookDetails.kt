@@ -65,6 +65,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     var book by remember { mutableStateOf<Book?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
+
+
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -109,6 +111,9 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     var bookReviews by remember { mutableStateOf<List<Review>>(emptyList()) }
     val submittedReviews = remember { mutableStateListOf<Pair<String, String>>() }
 
+    var isBookAvailable by remember { mutableStateOf(true) }
+    var buttonText by remember { mutableStateOf("available") }
+
     LaunchedEffect(bookId) {
         if (bookId.isNotEmpty()) {
             db.collection("books").document(bookId)
@@ -116,6 +121,10 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
                         book = document.toObject(Book::class.java)
+
+                        // Update availability state from the database
+                        isBookAvailable = document.getBoolean("isAvailable") ?: true
+                        buttonText = if (isBookAvailable) "available" else "not available"
 
                         val documentId = document.id
 
@@ -181,8 +190,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         label = "heart alpha animation"
     )
 
-    var isBookAvailable by remember { mutableStateOf(true) }
-    var buttonText by remember { mutableStateOf("available") }
+
 
     // Toggle loan request status based on book availability
     fun toggleLoanRequest() {
@@ -190,7 +198,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             isLoanRequested -> {
                 deleteRequest = true
                 isLoanRequested = false
-                buttonText = "available"
+                buttonText = if (isBookAvailable) "available" else "not available"
                 coroutineScope.launch {
                     delay(2000)
                     deleteRequest = false
@@ -207,6 +215,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 }
             }
             else -> {
+                // This handles the "not available" case
                 showLoanRequestDialog = false
                 isLoanRequested = false
                 buttonText = "not available"
@@ -601,8 +610,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            ContactInfoItem(label = "Name", value = name, textColor = textColor)
-                            ContactInfoItem(label = "Surname", value = surname, textColor = textColor)
+
                             ContactInfoItem(label = "Email", value = book?.userEmail ?: "", textColor = textColor)
                             ContactInfoItem(label = "Phone", value = phone, textColor = textColor)
 
