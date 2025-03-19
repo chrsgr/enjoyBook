@@ -49,6 +49,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 
 
 @Composable
@@ -264,14 +266,58 @@ fun BookCard(book: Book, navController: NavController) {
                 .background(Color(0xFF2CBABE)),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Immagine del libro
+            // Book cover image section
+            val isFrontCover = remember { mutableStateOf(true) }
+
             Box(
                 modifier = Modifier
                     .weight(3f)
                     .fillMaxWidth()
                     .background(Color(0xFFBDEBEE))
+                    .clickable {
+                        isFrontCover.value = !isFrontCover.value
+                    }
             ) {
-                // immagine copertina
+                // Cover image display logic
+                if ((isFrontCover.value && book.frontCoverUrl != null) ||
+                    (!isFrontCover.value && book.backCoverUrl != null)) {
+
+                    val imageUrl = if (isFrontCover.value) book.frontCoverUrl else book.backCoverUrl
+
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = if (isFrontCover.value) "Front Cover" else "Back Cover",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+
+                    // Small indicator for front/back
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = if (isFrontCover.value) "Front" else "Back",
+                            color = Color.White,
+                            fontSize = 10.sp
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = "No Cover Available",
+                            tint = Color(0xFF2CBABE),
+                            modifier = Modifier.size(64.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))

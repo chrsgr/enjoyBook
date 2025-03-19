@@ -7,11 +7,14 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -30,10 +33,13 @@ import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.Review
@@ -49,8 +55,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     val currentUser = FirebaseAuth.getInstance().currentUser
     val currentUserEmail = currentUser?.email ?: ""
     val db = FirebaseFirestore.getInstance()
+    val isFrontCover = remember { mutableStateOf(true) }
 
-    // Define the color scheme
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
@@ -248,8 +254,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             )
 
             Spacer(modifier = Modifier.height(20.dp))
-
-            // Cover and book details
+//Cover
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start
@@ -257,8 +262,51 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 Box(
                     modifier = Modifier
                         .size(130.dp, 200.dp)
-                        .background(primaryColor, shape = RoundedCornerShape(8.dp))
+                        .background(Color(0xFFBDEBEE), shape = RoundedCornerShape(8.dp))
+                        .clickable {
+                            isFrontCover.value = !isFrontCover.value
+                        }
                 ) {
+                    if ((isFrontCover.value && book?.frontCoverUrl != null) ||
+                        (!isFrontCover.value && book?.backCoverUrl != null)) {
+
+                        val imageUrl = if (isFrontCover.value) book?.frontCoverUrl else book?.backCoverUrl
+
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = if (isFrontCover.value) "Front Cover" else "Back Cover",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(8.dp)
+                                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = if (isFrontCover.value) "Front" else "Back",
+                                color = Color.White,
+                                fontSize = 10.sp
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MenuBook,
+                                contentDescription = "No Cover Available",
+                                tint = Color(0xFF2CBABE),
+                                modifier = Modifier.size(64.dp)
+                            )
+                        }
+                    }
+
+                    // Favorite button
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.TopStart
@@ -266,7 +314,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         IconButton(
                             onClick = {
                                 if (!isFavorite) {
-                                    // Add to favorites
                                     val favoriteBook = Book(
                                         id = bookId,
                                         author = book!!.author,
@@ -292,7 +339,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             Icon(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
                                 contentDescription = "Favorite",
-                                tint = if (isFavorite) Color.Red else Color.White,
+                                tint = if (isFavorite) Color.Red else Color.Red,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
