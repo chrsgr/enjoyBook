@@ -257,7 +257,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             // Title
             Text(
                 text = book?.title ?: "TITLE",
-                fontSize = 35.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor
             )

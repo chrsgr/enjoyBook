@@ -262,9 +262,49 @@ fun BookItem(
     onClick: () -> Unit
 ) {
     var isAvailable by remember { mutableStateOf(book.isAvailable == true) }
+    var showDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val db = FirebaseFirestore.getInstance()
     val context = LocalContext.current
+
+    // Dialog to confirm availability change
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Update Availability") },
+            text = {
+                Text(
+                    text =
+
+                        "Mark this book as available again?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // Update local state
+                        book.isAvailable == true
+                        showDialog = false
+
+                        // Update Firebase
+                        scope.launch {
+                            updateBookAvailability(db, book.id, isAvailable, context)
+                        }
+                    }
+                ) {
+                    Text("Confirm", color = primaryColor)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            },
+            containerColor = Color.White,
+            titleContentColor = textColor,
+            textContentColor = textColor.copy(alpha = 0.7f)
+        )
+    }
 
     Card(
         modifier = Modifier
@@ -370,21 +410,12 @@ fun BookItem(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(30.dp)
                 ) {
-                  // Inside BookItem composable
+                    // Available/Unavailable button
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = if (isAvailable) availableColor.copy(alpha = 0.2f) else unavailableColor.copy(alpha = 0.2f),
+                        color =  availableColor.copy(alpha = 0.2f) ,
                         modifier = Modifier
-                            .clickable {
-                                // Update local state
-                                isAvailable = !isAvailable
-
-
-                                // Update Firebase
-                                scope.launch {
-                                    updateBookAvailability(db, book.id, !isAvailable, context)
-                                }
-                            }
+                            .clickable { showDialog = true }
                             .padding(end = 4.dp)
                     ) {
                         Row(
@@ -392,16 +423,16 @@ fun BookItem(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = if (isAvailable) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                imageVector =  Icons.Default.CheckCircle,
                                 contentDescription = null,
                                 modifier = Modifier.size(14.dp),
-                                tint = if (isAvailable) availableColor else unavailableColor
+                                tint =  availableColor
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (isAvailable) "Available" else "Not Available",
+                                text =  "Available",
                                 fontSize = 12.sp,
-                                color = if (isAvailable) availableColor else unavailableColor
+                                color = availableColor
                             )
                         }
                     }
@@ -440,6 +471,7 @@ fun BookItem(
         }
     }
 }
+
 // Function to update book availability in Firebase
 private suspend fun updateBookAvailability(db: FirebaseFirestore, bookId: String, isAvailable: Boolean, context: Context) {
     try {
@@ -452,7 +484,7 @@ private suspend fun updateBookAvailability(db: FirebaseFirestore, bookId: String
         withContext(Dispatchers.Main) {
             Toast.makeText(
                 context,
-                "Book availability updated",
+              "Book is now available" ,
                 Toast.LENGTH_SHORT
             ).show()
         }
