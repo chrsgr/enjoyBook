@@ -24,12 +24,25 @@ import com.example.enjoybook.pages.SearchPage
 import com.example.enjoybook.pages.SignupPage
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
+import android.content.Context
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.example.enjoybook.pages.*
 
 
 @Composable
 fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel, searchViewModel: SearchViewModel){
     val navController = rememberNavController()
     val context = LocalContext.current.applicationContext
+    val scannedTitle = remember { mutableStateOf("") }
+    val scannedAuthor = remember { mutableStateOf("") }
+    val scannedYear = remember { mutableStateOf("") }
+    val scannedDescription = remember { mutableStateOf("") }
+    val scannedCategory = remember { mutableStateOf("") }
 
     NavHost(navController = navController, startDestination = "login") {
         composable("login"){
@@ -100,6 +113,44 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             // Passa category al ViewModel
             FilteredBooksPage(category, navController, searchViewModel)
         }
-    }
 
+        composable(
+            "edit_screen/{bookId}",
+            arguments = listOf(
+                navArgument("bookId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId")
+            if (bookId != null) {
+                AddPage(
+                    navController = navController,
+                    context = context,
+                    isEditing = true,
+                    bookId = bookId
+                )
+            }
+        }
+
+        // Schermata per la scansione del libro
+        composable("book_scan_screen") {
+            BookScanScreen(
+                navController = navController,
+                onBookInfoRetrieved = { title, author, year, description, category ->
+                    // Salva i dati scansionati nelle variabili
+                    scannedTitle.value = title
+                    scannedAuthor.value = author
+                    scannedYear.value = year
+                    scannedDescription.value = description
+                    scannedCategory.value = category
+
+                    // Naviga indietro all'AddPage
+                    navController.navigate("add_screen") {
+                        popUpTo("add_screen") { inclusive = true }
+                    }
+                }
+            )
+        }
+    }
 }

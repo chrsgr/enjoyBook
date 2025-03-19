@@ -9,55 +9,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.IconButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Title
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,7 +46,12 @@ fun AddPage(
     navController: NavController,
     context: Context,
     isEditing: Boolean = false,
-    bookId: String? = null
+    bookId: String? = null,
+    initialTitle: String = "",
+    initialAuthor: String = "",
+    initialYear: String = "",
+    initialDescription: String = "",
+    initialCategory: String = ""
 ) {
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
@@ -93,12 +59,12 @@ fun AddPage(
 
     val db = FirebaseFirestore.getInstance()
 
-    val title = remember { mutableStateOf("") }
-    val author = remember { mutableStateOf("") }
+    val title = remember { mutableStateOf(initialTitle) }
+    val author = remember { mutableStateOf(initialAuthor) }
     val condition = remember { mutableStateOf("") }
-    val description = remember { mutableStateOf("") }
+    val description = remember { mutableStateOf(initialDescription) }
     val edition = remember { mutableStateOf("") }
-    val year = remember { mutableStateOf("") }
+    val year = remember { mutableStateOf(initialYear) }
     val frontCoverUri = remember { mutableStateOf<Uri?>(null) }
     val backCoverUri = remember { mutableStateOf<Uri?>(null) }
 
@@ -122,7 +88,15 @@ fun AddPage(
     )
 
     var expanded by remember { mutableStateOf(false) }
-    var selectedType by remember { mutableStateOf(bookTypes.first()) }
+    var selectedType by remember {
+        mutableStateOf(
+            if (initialCategory.isNotEmpty() && bookTypes.contains(initialCategory)) {
+                initialCategory
+            } else {
+                bookTypes.first()
+            }
+        )
+    }
 
     var isLoading by remember { mutableStateOf(isEditing) }
 
@@ -213,7 +187,40 @@ fun AddPage(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Spacer(modifier = Modifier.height(30.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Scan Book Button
+                    Button(
+                        onClick = {
+                            navController.navigate("book_scan_screen")
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = primaryColor
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = "Scan Book",
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "SCAN BOOK COVER",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     // Book Cover Image Upload Section
                     Row(
@@ -815,4 +822,3 @@ private fun saveBookToFirestore(
             Toast.makeText(context, "Failed to add book: ${e.message}", Toast.LENGTH_SHORT).show()
         }
 }
-
