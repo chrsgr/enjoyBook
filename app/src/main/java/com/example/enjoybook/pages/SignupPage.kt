@@ -134,6 +134,19 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                 isLoading = true
             }
 
+            is AuthState.WaitingForVerification -> {
+                Toast.makeText(
+                    context,
+                    "Please check your mailbox for the verification!",
+                    Toast.LENGTH_LONG
+                ).show()
+                navController.navigate("login") {
+                    popUpTo("signup") {
+                        inclusive = true
+                    }  // Rimuove la schermata attuale dallo stack
+                }
+            }
+
             else -> {
                 isLoading = false
             }

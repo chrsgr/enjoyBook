@@ -367,6 +367,18 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
                     fontWeight = FontWeight.Medium
                 )
             }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            TextButton(
+                onClick = { navController.navigate("forgotpass") }
+            ) {
+                Text(
+                    text = "Forgot password?",
+                    color = primaryColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
 
         if (authState.value == AuthState.Loading) {

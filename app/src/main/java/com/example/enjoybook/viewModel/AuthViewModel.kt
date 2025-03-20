@@ -160,6 +160,24 @@ class AuthViewModel : ViewModel() {
             }
     }
 
+    fun resetPassword(email: String) {
+        if (email.isEmpty()) {
+            _authState.value = AuthState.Error("Insert a valid email")
+            return
+        }
+
+        _authState.value = AuthState.Loading
+
+        auth.sendPasswordResetEmail(email)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    _authState.value = AuthState.PasswordResetSent
+                } else {
+                    _authState.value = AuthState.Error(task.exception?.message ?: "Errore durante l'invio della mail")
+                }
+            }
+    }
+
 }
 
 sealed class AuthState {
@@ -167,5 +185,6 @@ sealed class AuthState {
     object Unauthenticated : AuthState()
     object Loading : AuthState()
     object WaitingForVerification: AuthState()
+    object PasswordResetSent: AuthState()
     data class Error(val message: String) : AuthState()
 }

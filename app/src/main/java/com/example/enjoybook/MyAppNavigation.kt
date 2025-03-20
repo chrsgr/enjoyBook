@@ -48,6 +48,11 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
         composable("login"){
             LoginPage(modifier, navController, authViewModel)
         }
+
+        composable("forgotpass"){
+            ForgotPasswordPage(modifier, navController, authViewModel)
+        }
+
         composable("signup"){
             SignupPage(modifier, navController, authViewModel)
         }
