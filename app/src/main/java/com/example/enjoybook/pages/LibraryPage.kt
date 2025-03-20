@@ -52,11 +52,10 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 
-
 @Composable
 fun LibraryPage(navController: NavController) {
     val currentUser = FirebaseAuth.getInstance().currentUser
-    var ownedBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
+    var lentBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
     var borrowedBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableStateOf(0) }
@@ -65,11 +64,11 @@ fun LibraryPage(navController: NavController) {
     val secondaryColor = Color(0xFF1A8A8F)
     val backgroundColor = (primaryColor.copy(alpha = 0.1f))
 
-
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             val db = FirebaseFirestore.getInstance()
 
+            //  libri presi in prestito da altri utenti
             db.collection("borrows")
                 .whereEqualTo("borrowerId", currentUser.uid)
                 .whereEqualTo("status", "accepted")
@@ -78,48 +77,42 @@ fun LibraryPage(navController: NavController) {
                     val borrowedBookIds = borrowDocs.mapNotNull { it.getString("bookId") }
 
                     if (borrowedBookIds.isEmpty()) {
-                        isLoading = false
-                        return@addOnSuccessListener
-                    }
-
-                    db.collection("books")
-                        .whereIn(FieldPath.documentId(), borrowedBookIds)
-                        .get()
-                        .addOnSuccessListener { bookDocs ->
-                            ownedBooks = bookDocs.map { doc ->
-                                Book(
-                                    id = doc.id,
-                                    title = doc.getString("title") ?: "",
-                                    author = doc.getString("author") ?: "",
-                                    type = doc.getString("type") ?: "",
-                                    userId = doc.getString("userId") ?: "",
-                                    isAvailable = false,
-                                    userEmail = doc.getString("userEmail") ?: ""
-                                )
+                        borrowedBooks = emptyList()
+                    } else {
+                        db.collection("books")
+                            .whereIn(FieldPath.documentId(), borrowedBookIds)
+                            .get()
+                            .addOnSuccessListener { bookDocs ->
+                                borrowedBooks = bookDocs.map { doc ->
+                                    Book(
+                                        id = doc.id,
+                                        title = doc.getString("title") ?: "",
+                                        author = doc.getString("author") ?: "",
+                                        type = doc.getString("type") ?: "",
+                                        userId = doc.getString("userId") ?: "",
+                                        isAvailable = false,
+                                        userEmail = doc.getString("userEmail") ?: ""
+                                    )
+                                }
                             }
-                            isLoading = false
-                        }
-                        .addOnFailureListener {
-                            isLoading = false
-                        }
+                            .addOnFailureListener {  }
+                    }
                 }
-                .addOnFailureListener {
-                    isLoading = false
-                }
+                .addOnFailureListener { }
 
-            // Recupera i libri che l'utente ha dato in prestito
             db.collection("books")
                 .whereEqualTo("userId", currentUser.uid)
+                .whereEqualTo("isAvailable", false)  // Solo i libri non disponibili (prestati)
                 .get()
                 .addOnSuccessListener { documents ->
-                    borrowedBooks = documents.map { doc ->
+                    lentBooks = documents.map { doc ->
                         Book(
                             id = doc.id,
                             title = doc.getString("title") ?: "",
                             author = doc.getString("author") ?: "",
                             type = doc.getString("type") ?: "",
                             userId = doc.getString("userId") ?: "",
-                            isAvailable = doc.getBoolean("isAvailable") ?: true,
+                            isAvailable = false,
                             userEmail = doc.getString("userEmail") ?: ""
                         )
                     }
@@ -130,7 +123,6 @@ fun LibraryPage(navController: NavController) {
                 }
         }
     }
-
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -165,10 +157,9 @@ fun LibraryPage(navController: NavController) {
                 )
             }
 
-
             TabRow(
                 selectedTabIndex = selectedTab,
-                backgroundColor =  Color(0xFF2CBABE),
+                backgroundColor = Color(0xFF2CBABE),
                 contentColor = primaryColor,
                 indicator = { tabPositions ->
                     TabRowDefaults.Indicator(
@@ -183,7 +174,7 @@ fun LibraryPage(navController: NavController) {
                     onClick = { selectedTab = 0 },
                     text = {
                         Text(
-                            "My Books (${ownedBooks.size})",
+                            "Lent Books (${lentBooks.size})",
                             fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
                         )
                     }
@@ -206,7 +197,7 @@ fun LibraryPage(navController: NavController) {
                 }
             } else {
                 when (selectedTab) {
-                    0 -> BookGrid(ownedBooks, navController, "No books in your library yet")
+                    0 -> BookGrid(lentBooks, navController, "You haven't lent any books yet")
                     1 -> BookGrid(borrowedBooks, navController, "You haven't borrowed any books")
                 }
             }
