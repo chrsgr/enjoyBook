@@ -82,7 +82,7 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfilePage(
-    navController: NavController,
+    navController: NavController
 ) {
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }

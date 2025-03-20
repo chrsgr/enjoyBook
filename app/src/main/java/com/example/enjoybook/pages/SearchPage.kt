@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -63,6 +64,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.ScreenState
+import com.example.enjoybook.data.User
 import com.example.enjoybook.viewModel.SearchViewModel
 @Composable
 fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavController){
@@ -72,6 +74,11 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 
     var query by remember { mutableStateOf("") }
     val books by viewModel.books.collectAsState()
+    val users by viewModel.users.collectAsState() // Add this to the ViewModel
+
+    // Search type selection
+    var searchType by remember { mutableStateOf("Books") } // Default to Books
+    val searchTypes = listOf("Books", "Users")
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -121,9 +128,13 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     value = query,
                     onValueChange = {
                         query = it
-                        // Optionally update the viewModel search query here
+                        // Update search results based on search type
                         if (it.isNotBlank()) {
-                            viewModel.searchBooks(it)
+                            if (searchType == "Books") {
+                                viewModel.searchBooks(it)
+                            } else {
+                                viewModel.searchUsers(it)
+                            }
                         }
                     },
                     leadingIcon = {
@@ -141,7 +152,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                                 keyboardController?.show()
                             }
                         },
-                    placeholder = { Text("Search", color = Color.Gray) },
+                    placeholder = { Text("Search ${searchType.lowercase()}", color = Color.Gray) },
                     singleLine = true,
                     shape = RoundedCornerShape(20.dp),
                     colors = TextFieldDefaults.colors(
@@ -161,12 +172,11 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                             keyboardController?.hide()
                             focusManager.clearFocus()
                             if (query.isNotBlank()) {
-                                // Here you can either navigate to a separate results page
-                                // navController.navigate("searchresults/$query"){
-                                //    launchSingleTop = true
-                                // }
-                                // Or trigger a search in the current view
-                                viewModel.searchBooks(query)
+                                if (searchType == "Books") {
+                                    viewModel.searchBooks(query)
+                                } else {
+                                    viewModel.searchUsers(query)
+                                }
                             }
                         }
                     )
@@ -181,46 +191,118 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Search Type Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                searchTypes.forEach { type ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .padding(horizontal = 4.dp)
+                            .background(
+                                if (searchType == type) primaryColor else primaryColor.copy(alpha = 0.2f),
+                                RoundedCornerShape(20.dp)
+                            )
+                            .clickable {
+                                searchType = type
+                                if (query.isNotBlank()) {
+                                    if (type == "Books") {
+                                        viewModel.searchBooks(query)
+                                    } else {
+                                        viewModel.searchUsers(query)
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = type,
+                            color = if (searchType == type) Color.White else textColor,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Display search results if query exists
             if(query.isNotEmpty()) {
                 Text(
-                    text = "Search Results",
+                    text = "Search Results for \"$query\"",
                     style = MaterialTheme.typography.titleMedium,
                     color = textColor,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
                 )
 
-                LazyColumn(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .weight(1f)
-                ) {
-                    items(books) { book ->
-                        BookItem(book, primaryColor, textColor, navController)
-                    }
+                when (searchType) {
+                    // Books search results
+                    "Books" -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .weight(1f)
+                        ) {
+                            items(books) { book ->
+                                BookItem(book, primaryColor, textColor, navController)
+                            }
 
-                    if (books.isEmpty()) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 24.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "No results found",
-                                    color = textColor.copy(alpha = 0.7f),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
+                            if (books.isEmpty()) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No books found",
+                                            color = textColor.copy(alpha = 0.7f),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Users search results
+                    "Users" -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .weight(1f)
+                        ) {
+                            items(users) { user ->
+                                UserItem(user, primaryColor, textColor, navController)
+                            }
+
+                            if (users.isEmpty()) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No users found",
+                                            color = textColor.copy(alpha = 0.7f),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             } else {
-                // Category header
+                // Category header (only shown when no search is active)
                 Text(
                     text = "Browse by Category",
                     style = MaterialTheme.typography.titleMedium,
@@ -250,6 +332,66 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// User Item Composable for displaying search results
+@Composable
+fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: NavController) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .clickable {
+                    // Navigate to UserProfile screen when the user is clicked
+                    navController.navigate("profile/${user.id}")
+                },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // User avatar placeholder
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .background(primaryColor.copy(alpha = 0.2f), CircleShape)
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = primaryColor,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // User details
+            Column {
+                Text(
+                    text = user.username,
+                    color = textColor,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${user.name} ${user.surname}",
+                    color = textColor.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }
