@@ -90,6 +90,13 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             FavouritePage(navController)
         }
 
+        composable(
+            route = "bookDetails/{bookId}",
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) {
+            val bookId = it.arguments?.getString("bookId") ?: ""
+            BookDetails(navController, authViewModel, bookId)
+        }
         composable("bookUser"){
             BookPage(navController)
         }

@@ -54,6 +54,7 @@ import com.google.common.util.concurrent.ListenableFuture
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+
 fun BookScanScreen(
     navController: NavController,
     onBookInfoRetrieved: (String, String, String, String, String) -> Unit
