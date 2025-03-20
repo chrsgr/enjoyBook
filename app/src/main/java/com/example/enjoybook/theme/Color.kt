@@ -18,3 +18,4 @@ val primaryColor = Color(0xFF2CBABE)
 val backgroundColor = Color(0xFFF5F5F5)
 val textColor = Color(0xFF333333)
 val errorColor = Color(0xFFD32F2F)
+

@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import com.example.enjoybook.theme.primaryColor
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -111,6 +112,10 @@ fun ProfilePage(
     var originalPassword by remember { mutableStateOf("") }
     var userId by remember { mutableStateOf("") }
     var isCurrentUserProfile by remember { mutableStateOf(true) }
+
+    val secondaryColor = Color(0xFF1A8A8F)
+    val backgroundColor = (primaryColor.copy(alpha = 0.1f))
+
 
     LaunchedEffect(Unit) {
         if (currentUser != null) {
@@ -310,8 +315,7 @@ fun ProfilePage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(80.dp),
-                color = primaryColor,
-                shadowElevation = 4.dp
+                color = backgroundColor,
             ) {
                 Row(
                     modifier = Modifier
@@ -325,12 +329,12 @@ fun ProfilePage(
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back",
-                            tint = buttonTextColor
+                            tint = secondaryColor
                         )
                     }
 
                     Text(
-                        text = if (isEditing) "Edit Profile" else "Profile",
+                        text = if (isEditing) "EDIT PROFILE" else "PROFILE",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = buttonTextColor

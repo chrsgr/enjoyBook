@@ -53,14 +53,16 @@ fun ListBookAddPage(navController: NavController) {
 
     var book by remember { mutableStateOf<Book?>(null) }
 
-    var isAvailable by remember { mutableStateOf(book?.isAvailable == true) }
-
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
     val deleteColor = Color(0xFFE57373)
     val availableColor = Color(0xFF81C784)
     val unavailableColor = Color(0xFFFFB74D)
+    val secondaryBackgroundColor = (primaryColor.copy(alpha = 0.1f))
+    val secondaryColor = Color(0xFF1A8A8F)
+
+
 
     var booksList by remember { mutableStateOf<List<BookWithId>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -90,7 +92,7 @@ fun ListBookAddPage(navController: NavController) {
             TopAppBar(
                 title = {
                     Text(
-                        "YOUR BOOK LIST",
+                        "YOUR ADD BOOK LIST",
                         color = textColor,
                         fontWeight = FontWeight.Bold
                     )
@@ -100,12 +102,12 @@ fun ListBookAddPage(navController: NavController) {
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Back",
-                            tint = primaryColor
+                            tint = secondaryColor
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = backgroundColor,
+                    containerColor = secondaryBackgroundColor,
                     titleContentColor = textColor
                 )
             )

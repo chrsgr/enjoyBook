@@ -62,6 +62,8 @@ fun LibraryPage(navController: NavController) {
     var selectedTab by remember { mutableStateOf(0) }
 
     val primaryColor = Color(0xFFB4E4E8)
+    val secondaryColor = Color(0xFF1A8A8F)
+    val backgroundColor = (primaryColor.copy(alpha = 0.1f))
 
 
     LaunchedEffect(currentUser) {
@@ -139,6 +141,7 @@ fun LibraryPage(navController: NavController) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(backgroundColor)
                     .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -148,7 +151,7 @@ fun LibraryPage(navController: NavController) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
                         contentDescription = "Go back",
-                        tint = Color.Black
+                        tint = secondaryColor
                     )
                 }
 
@@ -161,6 +164,7 @@ fun LibraryPage(navController: NavController) {
                     color = Color.Black
                 )
             }
+
 
             TabRow(
                 selectedTabIndex = selectedTab,
