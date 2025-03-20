@@ -64,7 +64,6 @@ import androidx.navigation.NavController
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.ScreenState
 import com.example.enjoybook.viewModel.SearchViewModel
-
 @Composable
 fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavController){
     val primaryColor = Color(0xFF2CBABE)
@@ -120,7 +119,13 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 
                 OutlinedTextField(
                     value = query,
-                    onValueChange = { query = it },
+                    onValueChange = {
+                        query = it
+                        // Optionally update the viewModel search query here
+                        if (it.isNotBlank()) {
+                            viewModel.searchBooks(it)
+                        }
+                    },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -156,9 +161,12 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                             keyboardController?.hide()
                             focusManager.clearFocus()
                             if (query.isNotBlank()) {
-                                navController.navigate("searchresults/$query"){
-                                    launchSingleTop = true
-                                }
+                                // Here you can either navigate to a separate results page
+                                // navController.navigate("searchresults/$query"){
+                                //    launchSingleTop = true
+                                // }
+                                // Or trigger a search in the current view
+                                viewModel.searchBooks(query)
                             }
                         }
                     )
@@ -175,44 +183,71 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Category
-            Text(
-                text = "Browse by Category",
-                style = MaterialTheme.typography.titleMedium,
-                color = textColor,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
-            )
+            // Display search results if query exists
+            if(query.isNotEmpty()) {
+                Text(
+                    text = "Search Results",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = textColor,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
+                )
 
-            /*// Display search results if query exists
-            if(query.isNotEmpty()){
                 LazyColumn(
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .weight(1f)
                 ) {
                     items(books) { book ->
                         BookItem(book, primaryColor, textColor, navController)
                     }
-                }
-            }*/
 
-            // Categories grid
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (categories.isEmpty()) {
-                    Log.e("LazyVerticalGrid", "Attenzione: Nessuna categoria disponibile!")
+                    if (books.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No results found",
+                                    color = textColor.copy(alpha = 0.7f),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
+                    }
                 }
+            } else {
+                // Category header
+                Text(
+                    text = "Browse by Category",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = textColor,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
+                )
 
-                items(categories) { category ->
-                    Log.d("LazyVerticalGrid", "Categoria caricata: $category")
-                    CategoryButton(category, navController, primaryColor) {
-                        viewModel.filterForCategories(category)
+                // Categories grid
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (categories.isEmpty()) {
+                        Log.e("LazyVerticalGrid", "Attenzione: Nessuna categoria disponibile!")
+                    }
+
+                    items(categories) { category ->
+                        Log.d("LazyVerticalGrid", "Categoria caricata: $category")
+                        CategoryButton(category, navController, primaryColor) {
+                            viewModel.filterForCategories(category)
+                        }
                     }
                 }
             }
