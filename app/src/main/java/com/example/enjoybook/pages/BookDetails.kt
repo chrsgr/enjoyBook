@@ -10,8 +10,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -270,10 +272,12 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 )
             }
         ) { paddingValues ->
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -406,11 +410,11 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
                     Spacer(modifier = Modifier.width(24.dp))
 
+                    // Replace the existing Column for book details with this:
                     Column(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(top = 8.dp, end = 8.dp)
+                            .fillMaxWidth()
                     ) {
                         BookInfoItem(
                             label = "AUTHORS",
@@ -488,29 +492,33 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(32.dp))
 
-                Row(
+
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Contact button
                     Button(
                         onClick = { showContactDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = secondaryColor),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1.6f)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Person,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Contact",
                                 color = Color.White,
@@ -519,8 +527,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
+                    // Available/Unavailable button
                     Button(
                         onClick = { toggleLoanRequest() },
                         colors = ButtonDefaults.buttonColors(
@@ -531,7 +538,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             }
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1.8f)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         val icon = when (buttonText) {
                             "requested" -> Icons.Default.Pending
@@ -541,15 +548,16 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = icon,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = when (buttonText) {
                                     "requested" -> "Requested"
@@ -562,26 +570,25 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
                     // Review button
                     Button(
                         onClick = { showReviewDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1.5f)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Star,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Review",
                                 color = Color.White,
@@ -590,7 +597,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Card(
@@ -636,7 +642,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                 }
                             }
                         } else {
-                            Column(modifier = Modifier.fillMaxSize()) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
@@ -666,13 +672,10 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                 Divider(color = primaryColor.copy(alpha = 0.2f))
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                LazyColumn(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f)
+                                Column(
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    // Displaying reviews with improved styling
-                                    itemsIndexed(submittedReviews) { index, (authorEmail, reviewText) ->
+                                    submittedReviews.forEachIndexed { index, (authorEmail, reviewText) ->
                                         Card(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -870,7 +873,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                             val documentId = bookId
                                             Log.d("ReviewSubmit", "Submitting review for document ID: $documentId")
 
-                                            // Add immediately to UI for responsiveness
                                             submittedReviews.add(0, currentUserEmail to review)
 
                                             saveReviewToDatabase(documentId, currentUserEmail, review) {
@@ -1124,24 +1126,29 @@ fun ContactInfoItem(label: String, value: String, textColor: Color) {
 
 @Composable
 fun BookInfoItem(label: String, value: String, textColor: Color) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.Start
+            .padding(vertical = 4.dp)
     ) {
+        // Display label on its own line
         Text(
-            text = "$label: ",
+            text = "$label:",
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(100.dp),
             color = textColor
         )
+
+        // Small spacer between label and value
+        Spacer(modifier = Modifier.height(2.dp))
+
+        // Display value on its own line
         Text(
             text = value,
             color = textColor
         )
     }
 }
+
 
 private fun saveReviewToDatabase(bookId: String, userEmail: String, review: String, onComplete: () -> Unit) {
     val db = FirebaseFirestore.getInstance()

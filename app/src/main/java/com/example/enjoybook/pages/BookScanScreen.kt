@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.example.enjoybook.data.Book
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -198,8 +199,8 @@ fun BookScanScreen(
                                     processCapturedImage(
                                         context = context,
                                         imageUri = capturedImageUri!!,
-                                        onSuccess = { title, author, year, description, category ->
-                                            onBookInfoRetrieved(title, author, year, description, category)
+                                        onSuccess = { title, author, year, description, type ->
+                                            onBookInfoRetrieved(title, author, year, description, type)
                                             navController.popBackStack()
                                         },
                                         onError = { errorMessage ->
@@ -382,7 +383,7 @@ private suspend fun processCapturedImage(
             bookInfo.author,
             bookInfo.year,
             bookInfo.description,
-            bookInfo.category
+            bookInfo.year
         )
     } catch (e: Exception) {
         Log.e("BookScan", "Error processing image", e)
@@ -409,7 +410,7 @@ private suspend fun extractTextFromImage(context: Context, imageUri: Uri): Strin
     }
 }
 
-private suspend fun searchBookInfo(query: String): BookInfo? {
+private suspend fun searchBookInfo(query: String): Book? {
     return withContext(Dispatchers.IO) {
         try {
             val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
@@ -427,8 +428,8 @@ private suspend fun searchBookInfo(query: String): BookInfo? {
 
                 val title = if (volumeInfo.has("title")) volumeInfo.getString("title") else ""
 
-                val authors = if (volumeInfo.has("authors")) {
-                    val authorsArray = volumeInfo.getJSONArray("authors")
+                val authors = if (volumeInfo.has("author")) {
+                    val authorsArray = volumeInfo.getJSONArray("author")
                     if (authorsArray.length() > 0) authorsArray.getString(0) else ""
                 } else ""
 
@@ -441,16 +442,16 @@ private suspend fun searchBookInfo(query: String): BookInfo? {
                     volumeInfo.getString("description")
                 } else ""
 
-                val categories = if (volumeInfo.has("categories") && volumeInfo.getJSONArray("categories").length() > 0) {
-                    volumeInfo.getJSONArray("categories").getString(0)
+                val categories = if (volumeInfo.has("type") && volumeInfo.getJSONArray("categories").length() > 0) {
+                    volumeInfo.getJSONArray("type").getString(0)
                 } else "Fiction"
 
-                BookInfo(
+                Book(
                     title = title,
                     author = authors,
                     year = publishedDate,
                     description = description,
-                    category = mapBookCategory(categories)
+                    type = mapBookCategory(categories)
                 )
             } else {
                 null
@@ -496,11 +497,3 @@ private fun mapBookCategory(googleCategory: String): String {
         else -> bookTypes.firstOrNull { it.equals(googleCategory, ignoreCase = true) } ?: "Literary fiction"
     }
 }
-
-data class BookInfo(
-    val title: String,
-    val author: String,
-    val year: String,
-    val description: String,
-    val category: String
-)
