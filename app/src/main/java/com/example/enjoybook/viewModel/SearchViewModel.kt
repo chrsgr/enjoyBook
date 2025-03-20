@@ -6,6 +6,7 @@ import com.example.enjoybook.data.Book
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.tasks.await
 
 
 open class SearchViewModel : ViewModel() {
@@ -13,7 +14,7 @@ open class SearchViewModel : ViewModel() {
     val books: StateFlow<List<Book>> = _books
 
     // Funzione di ricerca dei libri per titolo
-    fun searchBooks(query: String) {
+     fun searchBooks(query: String) {
         val lowerCaseQuery = query.trim().lowercase()
 
         FirebaseFirestore.getInstance().collection("books")

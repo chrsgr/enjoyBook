@@ -77,6 +77,9 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import androidx.compose.material.icons.filled.Delete
+import com.example.enjoybook.data.ScreenState
+import com.example.enjoybook.pages.FilteredBooksPage
+import com.example.enjoybook.pages.QueryBooks
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -350,6 +353,7 @@ fun ContentScreen(modifier: Modifier = Modifier, selectedIndex : Int, navControl
         4 -> BookPage(navController)
     }
 }
+
 @Composable
 fun NotificationItem(
     notification: Notification,

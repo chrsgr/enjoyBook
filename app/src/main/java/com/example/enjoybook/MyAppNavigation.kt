@@ -25,12 +25,15 @@ import com.example.enjoybook.pages.SignupPage
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
 import android.content.Context
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.enjoybook.data.ScreenState
 import com.example.enjoybook.pages.*
 
 
@@ -43,6 +46,7 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
     val scannedYear = remember { mutableStateOf("") }
     val scannedDescription = remember { mutableStateOf("") }
     val scannedCategory = remember { mutableStateOf("") }
+    var currentScreen by remember { mutableStateOf<ScreenState>(ScreenState.Home) }
 
     NavHost(navController = navController, startDestination = "login") {
         composable("login"){
@@ -112,6 +116,11 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             Log.d("NavHost", "Navigato a filteredbooks con categoria: $category")
             // Passa category al ViewModel
             FilteredBooksPage(category, navController, searchViewModel)
+        }
+
+        composable("searchresults/{query}") { backStackEntry ->
+            val query = backStackEntry.arguments?.getString("query") ?: ""
+            QueryBooks(query, navController, searchViewModel, onNavigateToScreen = { screen -> currentScreen = screen })
         }
 
         composable(

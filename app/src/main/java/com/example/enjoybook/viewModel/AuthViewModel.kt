@@ -36,7 +36,14 @@ class AuthViewModel : ViewModel() {
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    _authState.value = AuthState.Authenticated
+                    val user = auth.currentUser
+                    if (user != null && user.isEmailVerified) {
+                        _authState.value = AuthState.Authenticated
+                    } else {
+                        auth.signOut()
+                        _authState.value =
+                            AuthState.Error("Please verify your email before logging in")
+                    }
                 } else {
                     _authState.value =
                         AuthState.Error(task.exception?.message ?: "Something went wrong")
@@ -65,30 +72,49 @@ class AuthViewModel : ViewModel() {
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val userId = auth.currentUser?.uid
 
-                    if (userId != null) {
-                        val userMap = hashMapOf(
-                            "name" to name,
-                            "surname" to surname,
-                            "username" to username,
-                            "email" to email,
-                            "phone" to phone,
-                            "password" to password,
-                        )
+                    val user = auth.currentUser
+                    user?.sendEmailVerification()
+                        ?.addOnCompleteListener { verificationTask ->
+                            if (verificationTask.isSuccessful) {
 
-                        db.collection("users").document(userId)
-                            .set(userMap)
-                            .addOnSuccessListener {
-                                _authState.value = AuthState.Authenticated
+                                val userId = auth.currentUser?.uid
+
+                                if (userId != null) {
+                                    val userMap = hashMapOf(
+                                        "name" to name,
+                                        "surname" to surname,
+                                        "username" to username,
+                                        "email" to email,
+                                        "phone" to phone,
+                                        "password" to password,
+                                        "emailVerified" to false
+                                    )
+
+                                    db.collection("users").document(userId)
+                                        .set(userMap)
+                                        .addOnSuccessListener {
+                                            auth.signOut()
+                                            _authState.value = AuthState.WaitingForVerification
+                                        }
+                                        .addOnFailureListener { e ->
+                                            user.delete()
+                                            _authState.value = AuthState.Error(
+                                                e.message ?: "Failed to save user data"
+                                            )
+                                        }
+                                } else {
+                                    user.delete()
+                                    _authState.value =
+                                        AuthState.Error("Failed to create user profile")
+                                }
+                            } else {
+                                user.delete()  // Se l'email di verifica non viene inviata, elimina l'account
+                                _authState.value =
+                                    AuthState.Error("Failed to send verification email")
                             }
-                            .addOnFailureListener { e ->
-                                auth.currentUser?.delete()
-                                _authState.value = AuthState.Error(e.message ?: "Failed to save user data")
-                            }
-                    } else {
-                        _authState.value = AuthState.Error("Failed to create user profile")
-                    }
+                        }
+
                 } else {
                     _authState.value =
                         AuthState.Error(task.exception?.message ?: "Something went wrong")
@@ -140,5 +166,6 @@ sealed class AuthState {
     object Authenticated : AuthState()
     object Unauthenticated : AuthState()
     object Loading : AuthState()
+    object WaitingForVerification: AuthState()
     data class Error(val message: String) : AuthState()
 }

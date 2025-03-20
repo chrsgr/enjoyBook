@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.enjoybook.data.Book
+import com.example.enjoybook.data.ScreenState
 import com.example.enjoybook.viewModel.SearchViewModel
 
 @Composable
@@ -152,10 +153,13 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     ),
                     keyboardActions = KeyboardActions(
                         onSearch = {
-                            Log.d("SearchPage", "Ricerca avviata con query: $query")
-                            viewModel.searchBooks(query)
                             keyboardController?.hide()
                             focusManager.clearFocus()
+                            if (query.isNotBlank()) {
+                                navController.navigate("searchresults/$query"){
+                                    launchSingleTop = true
+                                }
+                            }
                         }
                     )
                 )
@@ -180,7 +184,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                 modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
             )
 
-            // Display search results if query exists
+            /*// Display search results if query exists
             if(query.isNotEmpty()){
                 LazyColumn(
                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -189,7 +193,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                         BookItem(book, primaryColor, textColor, navController)
                     }
                 }
-            }
+            }*/
 
             // Categories grid
             LazyVerticalGrid(

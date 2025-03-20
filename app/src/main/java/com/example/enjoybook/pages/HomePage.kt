@@ -75,6 +75,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.enjoybook.data.Book
+import com.example.enjoybook.data.ScreenState
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
@@ -83,7 +84,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomePage(navController: NavController, authViewModel: AuthViewModel, viewModel: SearchViewModel = viewModel()) {
+fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
