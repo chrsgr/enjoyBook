@@ -16,9 +16,6 @@ data class Book(
     val year : String = "",
     val frontCoverUrl: String? = null,
     val backCoverUrl: String? = null,
-    val userName: String? = "",
-    val userUsername: String? = "",
-    val userSurname: String? = "",
 
 )
 
