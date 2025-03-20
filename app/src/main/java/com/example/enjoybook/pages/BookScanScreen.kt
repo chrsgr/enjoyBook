@@ -36,34 +36,33 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
-import com.example.enjoybook.data.Book
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.*
+import org.json.JSONObject
 import java.io.File
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
-import org.json.JSONObject
-import java.net.URL
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 import com.google.common.util.concurrent.ListenableFuture
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-
 fun BookScanScreen(
     navController: NavController,
-    onBookInfoRetrieved: (String, String, String, String, String) -> Unit
+    onBookInfoRetrieved: (String, String, String, String, String) -> Unit // (title, author, year, description, type)
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
+
+    // Create a coroutine scope that is tied to this composable's lifecycle
+    val coroutineScope = rememberCoroutineScope()
 
     // Camera permission state
     var hasCameraPermission by remember {
@@ -96,7 +95,12 @@ fun BookScanScreen(
 
     var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+
+    // Used to handle processing errors
+    var processingError by remember { mutableStateOf<String?>(null) }
+
+    // Create a key for the coroutine scope that won't change during composition
+    val coroutineScopeKey = remember { Object() }
 
     Scaffold(
         topBar = {
@@ -156,6 +160,38 @@ fun BookScanScreen(
                                     executor = executor,
                                     onPhotoTaken = { uri ->
                                         capturedImageUri = uri
+                                        isProcessing = true
+                                        processingError = null
+
+                                        coroutineScope.launch {
+                                            try {
+                                                val result =
+                                                    processImageAndGetBookInfo(context, uri)
+                                                if (result != null) {
+                                                    // Use type instead of category to match Book data class
+                                                    onBookInfoRetrieved(
+                                                        result.title,
+                                                        result.author,
+                                                        result.year,
+                                                        result.description,
+                                                        result.type // Changed from category to type
+                                                    )
+                                                    // Call popBackStack on the main thread
+                                                    withContext(Dispatchers.Main) {
+                                                        navController.popBackStack()
+                                                    }
+                                                } else {
+                                                    processingError =
+                                                        "Couldn't find book information. Please try entering details manually."
+                                                    isProcessing = false
+                                                }
+                                            } catch (e: Exception) {
+                                                Log.e("BookScan", "Error processing image", e)
+                                                processingError =
+                                                    "Error processing image: ${e.message}"
+                                                isProcessing = false
+                                            }
+                                        }
                                     }
                                 )
                             },
@@ -193,34 +229,30 @@ fun BookScanScreen(
                                 )
                             }
                         } else {
-                            // Process the image and get book details
-                            LaunchedEffect(capturedImageUri) {
-                                isProcessing = true
-                                try {
-                                    processCapturedImage(
-                                        context = context,
-                                        imageUri = capturedImageUri!!,
-                                        onSuccess = { title, author, year, description, type ->
-                                            onBookInfoRetrieved(title, author, year, description, type)
-                                            navController.popBackStack()
-                                        },
-                                        onError = { errorMessage ->
-                                            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
-                                            capturedImageUri = null
-                                            isProcessing = false
-                                        }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                processingError?.let {
+                                    Text(
+                                        it,
+                                        color = Color.Red,
+                                        fontWeight = FontWeight.Medium
                                     )
-                                } catch (e: Exception) {
-                                    Log.e("BookScan", "Error processing image", e)
-                                    Toast.makeText(context, "Error processing image: ${e.message}", Toast.LENGTH_LONG).show()
-                                    capturedImageUri = null
-                                    isProcessing = false
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = { capturedImageUri = null },
+                                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                                    ) {
+                                        Text("Try Again")
+                                    }
                                 }
                             }
                         }
 
+                        // Cancel button (only show when not processing)
                         if (!isProcessing) {
-                            // Cancel button
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
@@ -269,7 +301,6 @@ fun BookScanScreen(
         }
     }
 }
-
 @Composable
 private fun CameraPreview(
     modifier: Modifier = Modifier,
@@ -285,7 +316,6 @@ private fun CameraPreview(
                 implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             }
 
-            // Utilizziamo un effetto collaterale per attendere che il provider della fotocamera sia pronto
             try {
                 cameraProviderFuture.addListener({
                     try {
@@ -357,110 +387,158 @@ private fun takePhoto(
     )
 }
 
-private suspend fun processCapturedImage(
+// Combined function that processes the image and returns book info in one step
+// This prevents coroutine cancellation issues
+private suspend fun processImageAndGetBookInfo(
     context: Context,
-    imageUri: Uri,
-    onSuccess: (String, String, String, String, String) -> Unit,
-    onError: (String) -> Unit
-) {
+    imageUri: Uri
+): BookInfo? = withContext(Dispatchers.IO) {
     try {
-        // Step 1: Use ML Kit for OCR to extract text from the image
-        val extractedText = extractTextFromImage(context, imageUri)
-        if (extractedText.isNullOrBlank()) {
-            onError("Couldn't extract any text from the image. Please try again with a clearer image.")
-            return
+        // Step 1: Extract text from image using ML Kit
+        val image = InputImage.fromFilePath(context, imageUri)
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+
+        val result = suspendCancellableCoroutine<String> { continuation ->
+            recognizer.process(image)
+                .addOnSuccessListener { visionText ->
+                    continuation.resume(visionText.text) {}
+                }
+                .addOnFailureListener { e ->
+                    Log.e("OCR", "Text recognition failed", e)
+                    continuation.resume("") {}
+                }
         }
 
-        // Step 2: Use extracted text to search for book information
-        val bookInfo = searchBookInfo(extractedText)
-        if (bookInfo == null) {
-            onError("Couldn't find book information. Please try entering details manually.")
-            return
+        if (result.isBlank()) {
+            Log.d("BookScan", "Couldn't extract text from image")
+            return@withContext null
         }
 
-        // Step 3: Return the book information to populate the form
-        onSuccess(
-            bookInfo.title,
-            bookInfo.author,
-            bookInfo.year,
-            bookInfo.description,
-            bookInfo.year
-        )
+        Log.d("OCR", "Extracted text: $result")
+
+        // Step 2: Search for book info using extracted text
+        return@withContext searchBookInfo(result)
     } catch (e: Exception) {
-        Log.e("BookScan", "Error processing image", e)
-        onError("Error processing image: ${e.message}")
+        Log.e("BookScan", "Error in processImageAndGetBookInfo", e)
+        throw e
     }
 }
 
-private suspend fun extractTextFromImage(context: Context, imageUri: Uri): String {
-    return withContext(Dispatchers.IO) {
-        try {
-            val image = InputImage.fromFilePath(context, imageUri)
-            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+private suspend fun searchBookInfo(query: String): BookInfo? = withContext(Dispatchers.IO) {
+    if (query.isBlank() || query.length < 3) {
+        Log.d("GoogleBooksAPI", "Query too short or blank, skipping API call")
+        return@withContext null
+    }
 
-            // Utilizziamo l'estensione await di kotlinx.coroutines.tasks
-            val result = recognizer.process(image).await()
-            val extractedText = result.text
+    try {
+        Log.d("GoogleBooksAPI", "Searching for book with query: $query")
+        val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+        val apiKey = "AIzaSyDA9btjrzoV5g-YqjcmzgLhrqzaWfXjjPw"
+        val url = URL("https://www.googleapis.com/books/v1/volumes?q=$encodedQuery&key=$apiKey&maxResults=1")
 
-            Log.d("OCR", "Extracted text: $extractedText")
-            extractedText
-        } catch (e: Exception) {
-            Log.e("OCR", "Text recognition failed", e)
-            throw e
+        Log.d("GoogleBooksAPI", "API URL: https://www.googleapis.com/books/v1/volumes?q=$encodedQuery&key=<API_KEY>&maxResults=1")
+
+        val connection = url.openConnection()
+        connection.connectTimeout = 10000 // 10 seconds timeout
+        connection.readTimeout = 10000 // 10 seconds timeout
+
+        // Set request properties to ensure proper response
+        connection.setRequestProperty("Accept", "application/json")
+        connection.setRequestProperty("User-Agent", "Android Book Scanner App")
+
+        Log.d("GoogleBooksAPI", "Starting API request...")
+        val response = connection.getInputStream().bufferedReader().use { it.readText() }
+        Log.d("GoogleBooksAPI", "Received API response, length: ${response.length}")
+
+        // Log first part of response to see what's being returned
+        Log.d("GoogleBooksAPI", "Response first 200 chars: ${response.take(200)}")
+
+        val jsonObject = JSONObject(response)
+
+        if (jsonObject.has("totalItems") && jsonObject.getInt("totalItems") == 0) {
+            Log.d("GoogleBooksAPI", "No books found for query")
+            return@withContext null
         }
-    }
-}
 
-private suspend fun searchBookInfo(query: String): Book? {
-    return withContext(Dispatchers.IO) {
-        try {
-            val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
-            val apiKey = "AIzaSyDA9btjrzoV5g-YqjcmzgLhrqzaWfXjjPw"
-            val url = URL("https://www.googleapis.com/books/v1/volumes?q=$encodedQuery&key=$apiKey")
+        if (jsonObject.has("items") && jsonObject.getJSONArray("items").length() > 0) {
+            val bookJson = jsonObject.getJSONArray("items").getJSONObject(0)
+            Log.d("GoogleBooksAPI", "Found book with ID: ${bookJson.optString("id", "unknown")}")
 
-            val connection = url.openConnection()
-            val response = connection.getInputStream().bufferedReader().use { it.readText() }
+            val volumeInfo = bookJson.getJSONObject("volumeInfo")
 
-            val jsonObject = JSONObject(response)
-
-            if (jsonObject.has("items") && jsonObject.getJSONArray("items").length() > 0) {
-                val bookJson = jsonObject.getJSONArray("items").getJSONObject(0)
-                val volumeInfo = bookJson.getJSONObject("volumeInfo")
-
-                val title = if (volumeInfo.has("title")) volumeInfo.getString("title") else ""
-
-                val authors = if (volumeInfo.has("author")) {
-                    val authorsArray = volumeInfo.getJSONArray("author")
-                    if (authorsArray.length() > 0) authorsArray.getString(0) else ""
-                } else ""
-
-                val publishedDate = if (volumeInfo.has("publishedDate")) {
-                    val date = volumeInfo.getString("publishedDate")
-                    if (date.length >= 4) date.substring(0, 4) else ""
-                } else ""
-
-                val description = if (volumeInfo.has("description")) {
-                    volumeInfo.getString("description")
-                } else ""
-
-                val categories = if (volumeInfo.has("type") && volumeInfo.getJSONArray("categories").length() > 0) {
-                    volumeInfo.getJSONArray("type").getString(0)
-                } else "Fiction"
-
-                Book(
-                    title = title,
-                    author = authors,
-                    year = publishedDate,
-                    description = description,
-                    type = mapBookCategory(categories)
-                )
+            val title = if (volumeInfo.has("title")) {
+                val bookTitle = volumeInfo.getString("title")
+                Log.d("GoogleBooksAPI", "Book title: $bookTitle")
+                bookTitle
             } else {
-                null
+                Log.d("GoogleBooksAPI", "No title found in book data")
+                ""
             }
-        } catch (e: Exception) {
-            Log.e("GoogleBooksAPI", "Error fetching book info", e)
-            null
+
+            val authors = if (volumeInfo.has("authors")) {
+                val authorsArray = volumeInfo.getJSONArray("authors")
+                if (authorsArray.length() > 0) {
+                    val firstAuthor = authorsArray.getString(0)
+                    Log.d("GoogleBooksAPI", "Book author: $firstAuthor")
+                    firstAuthor
+                } else {
+                    Log.d("GoogleBooksAPI", "Authors array is empty")
+                    ""
+                }
+            } else {
+                Log.d("GoogleBooksAPI", "No authors found in book data")
+                ""
+            }
+
+            val publishedDate = if (volumeInfo.has("publishedDate")) {
+                val date = volumeInfo.getString("publishedDate")
+                val year = if (date.length >= 4) date.substring(0, 4) else ""
+                Log.d("GoogleBooksAPI", "Book year: $year")
+                year
+            } else {
+                Log.d("GoogleBooksAPI", "No published date found in book data")
+                ""
+            }
+
+            val description = if (volumeInfo.has("description")) {
+                val desc = volumeInfo.getString("description")
+                Log.d("GoogleBooksAPI", "Book description: ${desc.take(50)}...")
+                desc
+            } else {
+                Log.d("GoogleBooksAPI", "No description found in book data")
+                ""
+            }
+
+            val categories = if (volumeInfo.has("categories") && volumeInfo.getJSONArray("categories").length() > 0) {
+                val category = volumeInfo.getJSONArray("categories").getString(0)
+                Log.d("GoogleBooksAPI", "Book category: $category")
+                category
+            } else {
+                Log.d("GoogleBooksAPI", "No categories found, using default 'Fiction'")
+                "Fiction"
+            }
+
+            val bookType = mapBookCategory(categories)
+            Log.d("GoogleBooksAPI", "Mapped book type: $bookType")
+
+            return@withContext BookInfo(
+                title = title,
+                author = authors,
+                year = publishedDate,
+                description = description,
+                type = bookType
+            )
+        } else {
+            Log.d("GoogleBooksAPI", "No 'items' found in API response")
+            return@withContext null
         }
+    } catch (e: Exception) {
+        Log.e("GoogleBooksAPI", "Error fetching book info", e)
+        // Print more detailed error information
+        Log.e("GoogleBooksAPI", "Error message: ${e.message}")
+        Log.e("GoogleBooksAPI", "Error cause: ${e.cause}")
+        e.printStackTrace()
+        return@withContext null
     }
 }
 
@@ -498,3 +576,11 @@ private fun mapBookCategory(googleCategory: String): String {
         else -> bookTypes.firstOrNull { it.equals(googleCategory, ignoreCase = true) } ?: "Literary fiction"
     }
 }
+
+data class BookInfo(
+    val title: String,
+    val author: String,
+    val year: String,
+    val description: String,
+    val type: String // Changed from category to type to match Book data class
+)

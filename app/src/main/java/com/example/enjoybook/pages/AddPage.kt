@@ -1,16 +1,25 @@
 package com.example.enjoybook.pages
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
@@ -25,11 +34,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.enjoybook.data.Book
@@ -39,6 +52,12 @@ import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
+import com.google.common.util.concurrent.ListenableFuture
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,6 +77,8 @@ fun AddPage(
     val textColor = Color(0xFF333333)
 
     val db = FirebaseFirestore.getInstance()
+    val localContext = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val title = remember { mutableStateOf(initialTitle) }
     val author = remember { mutableStateOf(initialAuthor) }
@@ -68,13 +89,54 @@ fun AddPage(
     val frontCoverUri = remember { mutableStateOf<Uri?>(null) }
     val backCoverUri = remember { mutableStateOf<Uri?>(null) }
 
-    val frontCoverLauncher = rememberLauncherForActivityResult(
+    // Camera state variables
+    var showFrontCameraView by remember { mutableStateOf(false) }
+    var showBackCameraView by remember { mutableStateOf(false) }
+
+    // Camera permission state
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                localContext,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    // Camera permission launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        hasCameraPermission = isGranted
+        if (!isGranted) {
+            Toast.makeText(
+                localContext,
+                "Camera permission is required to take photos",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    // Request camera permission
+    LaunchedEffect(key1 = true) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    // Camera components
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(localContext) }
+    val imageCapture = remember { ImageCapture.Builder().build() }
+    val executor = remember { Executors.newSingleThreadExecutor() }
+
+    // Gallery pickers
+    val frontCoverGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         frontCoverUri.value = uri
     }
 
-    val backCoverLauncher = rememberLauncherForActivityResult(
+    val backCoverGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         backCoverUri.value = uri
@@ -130,7 +192,7 @@ fun AddPage(
                 }
                 .addOnFailureListener { e ->
                     Log.e("AddPage", "Error loading book data", e)
-                    Toast.makeText(context, "Error loading book data", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(localContext, "Error loading book data", Toast.LENGTH_SHORT).show()
                     isLoading = false
                 }
         }
@@ -169,7 +231,40 @@ fun AddPage(
                 .padding(paddingValues)
                 .background(backgroundColor)
         ) {
-            if (isLoading) {
+            // Camera view for front cover
+            if (showFrontCameraView && hasCameraPermission) {
+                CameraView(
+                    onPhotoCaptured = { uri ->
+                        frontCoverUri.value = uri
+                        showFrontCameraView = false
+                    },
+                    onClose = { showFrontCameraView = false },
+                    cameraProviderFuture = cameraProviderFuture,
+                    imageCapture = imageCapture,
+                    executor = executor,
+                    localContext = localContext,
+                    lifecycleOwner = lifecycleOwner,
+                    primaryColor = primaryColor
+                )
+            }
+            // Camera view for back cover
+            else if (showBackCameraView && hasCameraPermission) {
+                CameraView(
+                    onPhotoCaptured = { uri ->
+                        backCoverUri.value = uri
+                        showBackCameraView = false
+                    },
+                    onClose = { showBackCameraView = false },
+                    cameraProviderFuture = cameraProviderFuture,
+                    imageCapture = imageCapture,
+                    executor = executor,
+                    localContext = localContext,
+                    lifecycleOwner = lifecycleOwner,
+                    primaryColor = primaryColor
+                )
+            }
+            // Main form view
+            else if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -241,37 +336,96 @@ fun AddPage(
                                     color = primaryColor.copy(alpha = 0.5f),
                                     shape = RoundedCornerShape(8.dp)
                                 )
-                                .shadow(4.dp, RoundedCornerShape(8.dp), clip = false)
-                                .clickable { frontCoverLauncher.launch("image/*") },
+                                .shadow(4.dp, RoundedCornerShape(8.dp), clip = false),
                             contentAlignment = Alignment.Center
                         ) {
                             when {
                                 frontCoverUri.value != null -> {
-                                    AsyncImage(
-                                        model = frontCoverUri.value,
-                                        contentDescription = "Book Front Cover",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        AsyncImage(
+                                            model = frontCoverUri.value,
+                                            contentDescription = "Book Front Cover",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        // Add a small edit button overlay
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(8.dp)
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.Black.copy(alpha = 0.6f))
+                                                .clickable {
+                                                    // Show options to replace image
+                                                    frontCoverUri.value = null
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Change Image",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
                                 }
                                 else -> {
+                                    // Option buttons for camera or gallery
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.AddAPhoto,
-                                            contentDescription = "Add Front Cover",
-                                            tint = primaryColor,
-                                            modifier = Modifier.size(40.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
                                         Text(
                                             text = "Front Cover",
                                             color = textColor,
-                                            fontSize = 14.sp,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium,
                                             textAlign = TextAlign.Center
                                         )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            // Camera button
+                                            IconButton(
+                                                onClick = {
+                                                    if (hasCameraPermission) {
+                                                        showFrontCameraView = true
+                                                    } else {
+                                                        permissionLauncher.launch(Manifest.permission.CAMERA)
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .clip(CircleShape)
+                                                    .background(primaryColor.copy(alpha = 0.2f))
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CameraAlt,
+                                                    contentDescription = "Take Photo",
+                                                    tint = primaryColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+
+                                            // Gallery button
+                                            IconButton(
+                                                onClick = { frontCoverGalleryLauncher.launch("image/*") },
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .clip(CircleShape)
+                                                    .background(primaryColor.copy(alpha = 0.2f))
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PhotoLibrary,
+                                                    contentDescription = "Choose from Gallery",
+                                                    tint = primaryColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -289,37 +443,96 @@ fun AddPage(
                                     color = primaryColor.copy(alpha = 0.5f),
                                     shape = RoundedCornerShape(8.dp)
                                 )
-                                .shadow(4.dp, RoundedCornerShape(8.dp), clip = false)
-                                .clickable { backCoverLauncher.launch("image/*") },
+                                .shadow(4.dp, RoundedCornerShape(8.dp), clip = false),
                             contentAlignment = Alignment.Center
                         ) {
                             when {
                                 backCoverUri.value != null -> {
-                                    AsyncImage(
-                                        model = backCoverUri.value,
-                                        contentDescription = "Book Back Cover",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        AsyncImage(
+                                            model = backCoverUri.value,
+                                            contentDescription = "Book Back Cover",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        // Add a small edit button overlay
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(8.dp)
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.Black.copy(alpha = 0.6f))
+                                                .clickable {
+                                                    // Show options to replace image
+                                                    backCoverUri.value = null
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Change Image",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
                                 }
                                 else -> {
+                                    // Option buttons for camera or gallery
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.AddAPhoto,
-                                            contentDescription = "Add Back Cover",
-                                            tint = primaryColor,
-                                            modifier = Modifier.size(40.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
                                         Text(
                                             text = "Back Cover",
                                             color = textColor,
-                                            fontSize = 14.sp,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium,
                                             textAlign = TextAlign.Center
                                         )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            // Camera button
+                                            IconButton(
+                                                onClick = {
+                                                    if (hasCameraPermission) {
+                                                        showBackCameraView = true
+                                                    } else {
+                                                        permissionLauncher.launch(Manifest.permission.CAMERA)
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .clip(CircleShape)
+                                                    .background(primaryColor.copy(alpha = 0.2f))
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CameraAlt,
+                                                    contentDescription = "Take Photo",
+                                                    tint = primaryColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+
+                                            // Gallery button
+                                            IconButton(
+                                                onClick = { backCoverGalleryLauncher.launch("image/*") },
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .clip(CircleShape)
+                                                    .background(primaryColor.copy(alpha = 0.2f))
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PhotoLibrary,
+                                                    contentDescription = "Choose from Gallery",
+                                                    tint = primaryColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -570,33 +783,33 @@ fun AddPage(
                     Button(
                         onClick = {
                             if (title.value.isEmpty()) {
-                                Toast.makeText(context, "Please enter title", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(localContext, "Please enter title", Toast.LENGTH_SHORT).show()
                             } else if (author.value.isEmpty()) {
-                                Toast.makeText(context, "Please enter author", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(localContext, "Please enter author", Toast.LENGTH_SHORT).show()
                             } else if (selectedType.isEmpty()) {
-                                Toast.makeText(context, "Please enter type", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(localContext, "Please enter type", Toast.LENGTH_SHORT).show()
                             } else if (condition.value.isEmpty()) {
-                                Toast.makeText(context, "Please enter condition", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(localContext, "Please enter condition", Toast.LENGTH_SHORT).show()
                             } else if (description.value.isEmpty()) {
-                                Toast.makeText(context, "Please enter description", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(localContext, "Please enter description", Toast.LENGTH_SHORT).show()
                             } else if (edition.value.isEmpty()) {
-                                Toast.makeText(context, "Please enter edition", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(localContext, "Please enter edition", Toast.LENGTH_SHORT).show()
                             } else if (year.value.isEmpty()) {
-                                Toast.makeText(context, "Please enter year", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(localContext, "Please enter year", Toast.LENGTH_SHORT).show()
                             } else {
                                 if (isEditing && bookId != null) {
                                     updateBookWithImages(
                                         bookId, title.value, author.value, selectedType,
                                         condition.value, description.value, edition.value,
                                         year.value, frontCoverUri.value, backCoverUri.value,
-                                        context, navController
+                                        localContext, navController
                                     )
                                 } else {
                                     addDataToFirebaseWithImages(
                                         title.value, author.value, selectedType,
                                         condition.value, description.value, edition.value,
                                         year.value, frontCoverUri.value, backCoverUri.value,
-                                        context, navController
+                                        localContext, navController
                                     )
                                 }
                             }
@@ -623,6 +836,153 @@ fun AddPage(
     }
 }
 
+// Camera view composable that handles the camera UI and photo capture
+@Composable
+fun CameraView(
+    onPhotoCaptured: (Uri) -> Unit,
+    onClose: () -> Unit,
+    cameraProviderFuture: ListenableFuture<ProcessCameraProvider>,
+    imageCapture: ImageCapture,
+    executor: Executor,
+    localContext: Context,
+    lifecycleOwner: androidx.lifecycle.LifecycleOwner,
+    primaryColor: Color
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        // Camera preview
+        AndroidView(
+            factory = { ctx ->
+                val previewView = PreviewView(ctx).apply {
+                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                }
+
+                try {
+                    cameraProviderFuture.addListener({
+                        try {
+                            val cameraProvider = cameraProviderFuture.get()
+
+                            val preview = Preview.Builder().build().also {
+                                it.setSurfaceProvider(previewView.surfaceProvider)
+                            }
+
+                            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                            try {
+                                cameraProvider.unbindAll()
+                                cameraProvider.bindToLifecycle(
+                                    lifecycleOwner,
+                                    cameraSelector,
+                                    preview,
+                                    imageCapture
+                                )
+                            } catch (e: Exception) {
+                                Log.e("CameraPreview", "Binding failed", e)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("CameraPreview", "Camera provider future failed", e)
+                        }
+                    }, ContextCompat.getMainExecutor(ctx))
+                } catch (e: Exception) {
+                    Log.e("CameraPreview", "Failed to add listener", e)
+                }
+
+                previewView
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Camera controls overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            // Close button
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.5f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close Camera",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Capture button
+            IconButton(
+                onClick = {
+                    takePhoto(
+                        context = localContext,
+                        imageCapture = imageCapture,
+                        executor = executor,
+                        onPhotoTaken = onPhotoCaptured
+                    )
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(primaryColor.copy(alpha = 0.7f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Camera,
+                    contentDescription = "Take Photo",
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        }
+    }
+}
+
+// Function to capture a photo and return the URI
+private fun takePhoto(
+    context: Context,
+    imageCapture: ImageCapture,
+    executor: Executor,
+    onPhotoTaken: (Uri) -> Unit
+) {
+    val photoFile = File(
+        context.cacheDir,
+        SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.ITALY)
+            .format(System.currentTimeMillis()) + ".jpg"
+    )
+
+    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+    imageCapture.takePicture(
+        outputOptions,
+        executor,
+        object : ImageCapture.OnImageSavedCallback {
+            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                val savedUri = Uri.fromFile(photoFile)
+                onPhotoTaken(savedUri)
+            }
+
+            override fun onError(exception: ImageCaptureException) {
+                Log.e("CameraCapture", "Error taking photo", exception)
+                Toast.makeText(
+                    context,
+                    "Error taking photo: ${exception.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    )
+}
+
+// The existing update and add functions remain unchanged
 fun updateBookWithImages(
     bookId: String,
     title: String,

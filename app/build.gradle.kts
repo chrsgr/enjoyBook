@@ -100,9 +100,6 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
     implementation("androidx.navigation:navigation-compose:2.7.5") // Controlla l'ultima versione
 
-    // Add the dependency for the Google Play services library
-    implementation("com.google.android.gms:play-services-auth:20.7.0")
-
     // Coil
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation(libs.androidx.appcompat)
@@ -118,6 +115,7 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
     implementation(libs.firebase.firestore)
+    implementation(libs.androidx.camera.core)
 
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     debugImplementation("androidx.compose.ui:ui-tooling")

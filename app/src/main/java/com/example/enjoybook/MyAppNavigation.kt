@@ -25,15 +25,12 @@ import com.example.enjoybook.pages.SignupPage
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
 import android.content.Context
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.enjoybook.data.ScreenState
 import com.example.enjoybook.pages.*
 
 
@@ -46,7 +43,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
     val scannedYear = remember { mutableStateOf("") }
     val scannedDescription = remember { mutableStateOf("") }
     val scannedCategory = remember { mutableStateOf("") }
-    var currentScreen by remember { mutableStateOf<ScreenState>(ScreenState.Home) }
 
     NavHost(navController = navController, startDestination = "login") {
         composable("login"){
@@ -89,7 +85,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
         composable("favourite"){
             FavouritePage(navController)
         }
-
         composable(
             route = "bookDetails/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
@@ -119,11 +114,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             FilteredBooksPage(category, navController, searchViewModel)
         }
 
-        composable("searchresults/{query}") { backStackEntry ->
-            val query = backStackEntry.arguments?.getString("query") ?: ""
-            QueryBooks(query, navController, searchViewModel, onNavigateToScreen = { screen -> currentScreen = screen })
-        }
-
         composable(
             "edit_screen/{bookId}",
             arguments = listOf(
@@ -143,23 +133,63 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             }
         }
 
-        // Schermata per la scansione del libro
         composable("book_scan_screen") {
             BookScanScreen(
                 navController = navController,
-                onBookInfoRetrieved = { title, author, year, description, category ->
-                    // Salva i dati scansionati nelle variabili
-                    scannedTitle.value = title
-                    scannedAuthor.value = author
-                    scannedYear.value = year
-                    scannedDescription.value = description
-                    scannedCategory.value = category
-
-                    // Naviga indietro all'AddPage
-                    navController.navigate("add_screen") {
-                        popUpTo("add_screen") { inclusive = true }
-                    }
+                onBookInfoRetrieved = { title, author, year, description, type ->
+                    // Navigate back to AddPage with the retrieved information
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("scanned_book_title", title)
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("scanned_book_author", author)
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("scanned_book_year", year)
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("scanned_book_description", description)
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("scanned_book_type", type)
                 }
+            )
+        }
+
+        composable("add_book_screen") {
+            // Get the data from the scan if available
+            val bookTitle = navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.get<String>("scanned_book_title") ?: ""
+            val bookAuthor = navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.get<String>("scanned_book_author") ?: ""
+            val bookYear = navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.get<String>("scanned_book_year") ?: ""
+            val bookDescription = navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.get<String>("scanned_book_description") ?: ""
+            val bookType = navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.get<String>("scanned_book_type") ?: ""
+
+            // Clear the saved state handle after reading
+            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_title")
+            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_author")
+            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_year")
+            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_description")
+            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_type")
+
+            AddPage(
+                navController = navController,
+                context = LocalContext.current,
+                initialTitle = bookTitle,
+                initialAuthor = bookAuthor,
+                initialYear = bookYear,
+                initialDescription = bookDescription,
+                initialCategory = bookType
             )
         }
     }
