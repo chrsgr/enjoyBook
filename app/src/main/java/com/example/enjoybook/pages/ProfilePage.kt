@@ -196,6 +196,7 @@ fun ProfilePage(
 
         val userData = hashMapOf(
             "name" to name,
+            "password" to password,
             "surname" to surname,
             "username" to username,
             "email" to email,
