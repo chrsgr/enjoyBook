@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.example.enjoybook.pages.FavoritesManager
 import com.example.enjoybook.theme.FirebaseAuthTheme
 import com.example.enjoybook.viewModel.AuthViewModel
@@ -27,10 +28,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FirebaseAuthTheme {
+                val context = LocalContext.current
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     MyAppNavigation(
                         modifier = Modifier.padding(innerPadding),
-                        authViewModel = AuthViewModel(),
+                        authViewModel = AuthViewModel(context),
                         searchViewModel = SearchViewModel()
 
 

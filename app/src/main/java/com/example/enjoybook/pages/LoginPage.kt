@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -54,20 +55,27 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
+import com.example.enjoybook.R
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+import kotlinx.coroutines.flow.collect
+
+
 @Composable
 fun FallingBooksAnimation(modifier: Modifier = Modifier) {
     Box(
@@ -170,6 +178,15 @@ fun FallingBook(delayMillis: Long, horizontalOffset: Float, size: Float, color: 
 fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authViewModel: AuthViewModel) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
+
+    /*val authenticationManager = remember{
+        AuthViewModel(context)
+    }*/
+
+    val coroutineScope = rememberCoroutineScope()
+
     var isEmailValid by remember { mutableStateOf(true) }
     var isPasswordValid by remember { mutableStateOf(true) }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -177,7 +194,6 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
 
 
     val authState = authViewModel.authState.observeAsState()
-    val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
@@ -356,6 +372,27 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
                 )
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "or continue with",
+                color = Color.Black,
+                fontWeight = FontWeight.Normal
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedButton(onClick = {
+                // Usare l'authViewModel passato come parametro
+                authViewModel.signInWithGoogle()
+            }){
+                Image(
+                    painter = painterResource(id = R.drawable.google_logo),
+                    contentDescription = null)
+
+                Text(text = " Sign-in with Google")
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             TextButton(
@@ -367,8 +404,6 @@ fun LoginPage(modifier: Modifier = Modifier, navController: NavController, authV
                     fontWeight = FontWeight.Medium
                 )
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
 
             TextButton(
                 onClick = { navController.navigate("forgotpass") }

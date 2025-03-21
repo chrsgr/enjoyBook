@@ -137,6 +137,15 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
+
+    val credentialsManagerVersion = "1.5.0-alpha05"
+    implementation("androidx.credentials:credentials:$credentialsManagerVersion")
+    implementation("androidx.credentials:credentials-play-services-auth:$credentialsManagerVersion")
+
+    // Google Identity
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.0")
 
     // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.7.5")
