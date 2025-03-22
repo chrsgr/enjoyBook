@@ -53,6 +53,7 @@ import androidx.compose.foundation.border
 import  androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -134,7 +135,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
     }
 
     Scaffold(
-
+        contentWindowInsets = WindowInsets(0)
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier

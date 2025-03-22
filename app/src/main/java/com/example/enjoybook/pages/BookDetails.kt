@@ -268,9 +268,11 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = backgroundColor,
                         titleContentColor = textColor
-                    )
+                    ),
+                    windowInsets = WindowInsets(0)
                 )
-            }
+            },
+            contentWindowInsets = WindowInsets(0)
         ) { paddingValues ->
 
             Column(
