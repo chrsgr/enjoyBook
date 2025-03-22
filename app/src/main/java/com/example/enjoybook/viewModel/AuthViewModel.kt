@@ -17,7 +17,9 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -243,7 +245,43 @@ class AuthViewModel(val context: Context): ViewModel() {
                             auth.signInWithCredential(firebaseCredential)
                                 .addOnCompleteListener {
                                     if (it.isSuccessful) {
-                                        _authState.value = AuthState.Authenticated
+                                        val user = auth.currentUser
+
+                                        // Estrai nome e cognome dal displayName
+                                        val displayName = user?.displayName ?: ""
+                                        val nameParts = displayName.split(" ", limit = 2)
+                                        val firstName = nameParts.getOrNull(0) ?: ""
+                                        val lastName = if (nameParts.size > 1) nameParts[1] else ""
+                                        val db = FirebaseFirestore.getInstance()
+
+                                        val userData = hashMapOf(
+                                            //"uid" to user?.uid,
+                                            "name" to firstName,
+                                            "surname" to lastName,
+                                            "email" to user?.email,
+                                            "photoUrl" to user?.photoUrl?.toString(),
+                                            "username" to "",
+                                            "phone" to "",
+                                            "password" to "",
+                                            "emailVerified" to false
+                                            //"lastLogin" to FieldValue.serverTimestamp()
+                                        )
+
+                                        // Salva i dati in Firestore (nella collezione "users")
+                                        user?.uid?.let { uid ->
+                                            db.collection("users").document(uid)
+                                                .set(userData, SetOptions.merge())
+                                                .addOnSuccessListener {
+                                                    // Dati salvati con successo
+                                                    _authState.value = AuthState.Authenticated
+                                                }
+                                                .addOnFailureListener { e ->
+                                                    // Errore nel salvare i dati
+                                                    _authState.value = AuthState.Error(message = e.message ?: "Error saving user data")
+                                                }
+                                        } ?: run {
+                                            _authState.value = AuthState.Authenticated
+                                        }
                                     } else {
                                         _authState.value = AuthState.Error(message = it.exception?.message ?: "Unknown error")
                                     }
@@ -262,30 +300,6 @@ class AuthViewModel(val context: Context): ViewModel() {
             }
         }
     }
-
-
-
-    /*fun getGoogleSignInClient(context: Context): GoogleSignInClient {
-        val googleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(context.getString(R.string.default_web_client_id)) // guarda in google-services.json
-            .requestEmail()
-            .build()
-
-        return GoogleSignIn.getClient(context, googleSignInOptions)
-    }
-
-    fun signInWithGoogle(idToken: String, onResult: (Boolean, String?) -> Unit) {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    onResult(true, null)
-                } else {
-                    onResult(false, task.exception?.message)
-                }
-            }
-    }*/
-
 }
 
 sealed class AuthState {
