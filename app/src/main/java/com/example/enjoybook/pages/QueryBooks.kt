@@ -30,7 +30,7 @@ import com.example.enjoybook.data.ScreenState
 import com.example.enjoybook.viewModel.SearchViewModel
 
 @Composable
-fun QueryBooks(query: String, navController: NavController, viewModel: SearchViewModel, onNavigateToScreen: (ScreenState) -> Unit) {
+fun QueryBooks(query: String, navController: NavController, viewModel: SearchViewModel) {
 
     Log.d("QueryBook", "Pagina caricata correttamente!")
     val books by viewModel.books.collectAsState() // Osserva lo stato dei libri
@@ -49,7 +49,7 @@ fun QueryBooks(query: String, navController: NavController, viewModel: SearchVie
             modifier = Modifier.fillMaxSize(), // Centra verticalmente i contenuti
             horizontalAlignment = Alignment.CenterHorizontally // Opzionale per centrare anche orizzontalmente
         ) {
-            Spacer(modifier = Modifier.height(88.dp))
+            //Spacer(modifier = Modifier.height(88.dp))
             Text("Results for: \"$query\"", style = MaterialTheme.typography.headlineSmall)
 
             if (books.isEmpty()) {

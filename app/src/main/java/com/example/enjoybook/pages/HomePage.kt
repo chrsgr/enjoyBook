@@ -144,7 +144,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
         ){
             // Genre
             item {
-                Spacer(modifier = Modifier.height(60.dp))
+                //Spacer(modifier = Modifier.height(60.dp))
                 Box(
                     modifier = Modifier.padding(start = 16.dp)
                 ) {

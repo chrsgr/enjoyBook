@@ -35,7 +35,6 @@ class MainActivity : ComponentActivity() {
                         authViewModel = AuthViewModel(context),
                         searchViewModel = SearchViewModel()
 
-
                     )
                 }
             }

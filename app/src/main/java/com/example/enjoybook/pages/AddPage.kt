@@ -1019,6 +1019,7 @@ fun updateBookWithImages(
 
             frontCoverUri?.let { uri ->
                 val frontCoverRef = storage.reference.child("book_covers/${bookId}_front")
+
                 val uploadTask = frontCoverRef.putFile(uri).continueWithTask { task ->
                     if (!task.isSuccessful) {
                         task.exception?.let { throw it }

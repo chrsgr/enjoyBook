@@ -27,7 +27,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
@@ -53,7 +52,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -63,9 +61,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.enjoybook.data.Book
-import com.example.enjoybook.data.ScreenState
 import com.example.enjoybook.data.User
 import com.example.enjoybook.viewModel.SearchViewModel
+
 @Composable
 fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavController){
     val primaryColor = Color(0xFF2CBABE)
@@ -102,7 +100,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
             .background(backgroundColor)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(modifier = Modifier.height(88.dp))
 
             // Top Bar with updated colors
             Row(
@@ -145,7 +142,8 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                         )
                     },
                     modifier = Modifier
-                        .width(250.dp)
+                        .width(350.dp)
+                        .padding(end = 20.dp)
                         .focusRequester(searchFocusRequester)
                         .onFocusChanged {
                             if (it.isFocused) {
@@ -182,13 +180,13 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     )
                 )
 
-                IconButton(onClick = { navController.navigate("profile") }) {
+                /*IconButton(onClick = { navController.navigate("profile") }) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = "Profile",
                         tint = Color.White
                     )
-                }
+                }*/
             }
 
             // Search Type Toggle
