@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -103,6 +104,8 @@ fun ProfilePage(
     var isReporting by remember { mutableStateOf(false) }
     var reportOptions = listOf("Inappropriate content", "Fake account", "Harassment", "Spam", "Other")
     var selectedReportOption by remember { mutableStateOf(reportOptions[0]) }
+    // Stato per tenere traccia del tipo di autenticazione
+    val isGoogleAccount = remember { mutableStateOf(false) }
 
     val context = LocalContext.current
 
@@ -115,6 +118,14 @@ fun ProfilePage(
 
     val secondaryColor = Color(0xFF1A8A8F)
     val backgroundColor = (primaryColor.copy(alpha = 0.1f))
+    val primaryColor = Color(0xFFA7E8EB)
+    val accentColor = Color(0xFF4DB6AC)
+    val primaryTextColor = Color(0xFF212121)
+    val secondaryTextColor = Color(0xFF757575)
+    val cardBackgroundColor = Color.White
+    val buttonTextColor = Color(0xFF212121)
+    val errorColor = Color(0xFFB00020)
+    val warningColor = Color(0xFFFF6D00)
 
 
     LaunchedEffect(Unit) {
@@ -147,6 +158,18 @@ fun ProfilePage(
             }
         }
     }
+
+    // Carica l'informazione all'avvio della schermata
+    LaunchedEffect(currentUser?.uid) {
+        currentUser?.uid?.let { uid ->
+            firestore.collection("users").document(uid)
+                .get()
+                .addOnSuccessListener { document ->
+                    isGoogleAccount.value = document.getBoolean("isGoogleAuth") ?: false
+                }
+        }
+    }
+
     fun fetchImagesFromApi() {
         isLoading = true
 
@@ -196,40 +219,68 @@ fun ProfilePage(
 
         val userData = hashMapOf(
             "name" to name,
-            "password" to password,
             "surname" to surname,
             "username" to username,
             "email" to email,
-            "phone" to phone
+            "phone" to phone,
+            "lastUpdated" to FieldValue.serverTimestamp()
         )
 
 
-        if (password != originalPassword) {
-            val user = FirebaseAuth.getInstance().currentUser
-            user?.updatePassword(password)
-                ?.addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                    } else {
-                        errorMessage = "Failed to update authentication: ${task.exception?.message}"
-                        showErrorDialog = true
-                    }
-                }
-        }
         imageUri?.let {
             userData["profilePictureUrl"] = it.toString()
         }
 
-        firestore.collection("users").document(currentUser.uid)
-            .update(userData as Map<String, Any>)
-            .addOnSuccessListener {
-                isSaving = false
-                isEditing = false
+        val updateFirestore = {
+            firestore.collection("users").document(currentUser.uid)
+                .update(userData as Map<String, Any>)
+                .addOnSuccessListener {
+                    isSaving = false
+                    isEditing = false
+                    Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                }
+                .addOnFailureListener { e ->
+                    isSaving = false
+                    errorMessage = "Failed to update profile: ${e.message}"
+                    showErrorDialog = true
+                }
+        }
 
-                Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+        // Verifica se l'utente è autenticato tramite Google
+        firestore.collection("users").document(currentUser.uid)
+            .get()
+            .addOnSuccessListener { document ->
+                val isGoogleAuth = document.getBoolean("isGoogleAuth") ?: false
+
+                // Gestione aggiornamento password (se necessario e non è un account Google)
+                if (password.isNotBlank() && password != originalPassword) {
+                    if (isGoogleAuth) {
+                        // Utente Google, non permettere la modifica della password
+                        isSaving = false
+                        errorMessage = "Google accounts cannot change their password through the app. Please manage your Google account settings instead."
+                        showErrorDialog = true
+                    } else {
+                        // Utente con email/password, procedi con l'aggiornamento
+                        currentUser.updatePassword(password)
+                            .addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    // Password aggiornata, ora aggiorna Firestore
+                                    updateFirestore()
+                                } else {
+                                    isSaving = false
+                                    errorMessage = "Failed to update password: ${task.exception?.message}"
+                                    showErrorDialog = true
+                                }
+                            }
+                    }
+                } else {
+                    // Nessun aggiornamento password necessario, aggiorna solo Firestore
+                    updateFirestore()
+                }
             }
             .addOnFailureListener { e ->
                 isSaving = false
-                errorMessage = "Failed to update profile: ${e.message}"
+                errorMessage = "Failed to retrieve account information: ${e.message}"
                 showErrorDialog = true
             }
     }
@@ -295,14 +346,6 @@ fun ProfilePage(
             }
     }
 
-    val primaryColor = Color(0xFFA7E8EB)
-    val accentColor = Color(0xFF4DB6AC)
-    val primaryTextColor = Color(0xFF212121)
-    val secondaryTextColor = Color(0xFF757575)
-    val cardBackgroundColor = Color.White
-    val buttonTextColor = Color(0xFF212121)
-    val errorColor = Color(0xFFB00020)
-    val warningColor = Color(0xFFFF6D00)
 
     val sheetState = rememberModalBottomSheetState()
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -497,8 +540,12 @@ fun ProfilePage(
                                     label = "Password",
                                     value = password,
                                     onValueChange = { password = it },
-                                    isEditing = true,
-                                    leadingIcon = Icons.Default.Password
+                                    isEditing = isEditing,
+                                    leadingIcon = Icons.Default.Lock,
+                                    isEnabled = !isGoogleAccount.value,
+                                    disabledMessage = if (isGoogleAccount.value)
+                                        "Password management is handled through your Google account"
+                                    else null
                                 )
 
                             } else {
@@ -1149,7 +1196,9 @@ fun ProfileField(
     keyboardType: KeyboardType = KeyboardType.Text,
     isPassword: Boolean = label.equals("Password", ignoreCase = true),
     passwordVisible: Boolean = false,
-    onTogglePasswordVisibility: () -> Unit = {}
+    onTogglePasswordVisibility: () -> Unit = {},
+    isEnabled: Boolean = true,
+    disabledMessage: String? = null
 ) {
     val accentColor = Color(0xFF4DB6AC)
     var isPasswordVisible by remember { mutableStateOf(passwordVisible) }
@@ -1168,7 +1217,7 @@ fun ProfileField(
                     .fillMaxWidth()
                     .animateContentSize(),
                 singleLine = true,
-                enabled = isEditing,
+                enabled = isEditing && isEnabled,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = if (isPassword) KeyboardType.Password else keyboardType
                 ),
@@ -1179,11 +1228,11 @@ fun ProfileField(
                         Icon(
                             imageVector = leadingIcon,
                             contentDescription = null,
-                            tint = accentColor
+                            tint = if (isEnabled) accentColor else accentColor.copy(alpha = 0.5f)
                         )
                     }
                 } else null,
-                trailingIcon = if (isPassword) {
+                trailingIcon = if (isPassword && isEnabled) {
                     {
                         IconButton(onClick = {
                             isPasswordVisible = !isPasswordVisible
@@ -1202,10 +1251,25 @@ fun ProfileField(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = accentColor,
                     focusedLabelColor = accentColor,
-                    cursorColor = accentColor
+                    cursorColor = accentColor,
+                    disabledBorderColor = Color.Gray.copy(alpha = 0.3f),
+                    disabledLabelColor = Color.Gray.copy(alpha = 0.5f),
+                    disabledTextColor = Color.Gray.copy(alpha = 0.5f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             )
+
+            if (!isEnabled && disabledMessage != null) {
+                Text(
+                    text = disabledMessage,
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    modifier = Modifier
+                        .padding(start = 16.dp, top = 4.dp)
+                        .fillMaxWidth()
+                )
+            }
+
         } else {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -1241,6 +1305,15 @@ fun ProfileField(
                     color = if (value.isEmpty()) Color.Gray else Color.Black,
                     modifier = Modifier.padding(start = 22.dp, bottom = 12.dp)
                 )
+
+                if (isPassword && !isEnabled && disabledMessage != null) {
+                    Text(
+                        text = disabledMessage,
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(start = 22.dp, bottom = 8.dp)
+                    )
+                }
 
                 Divider(
                     color = Color.LightGray.copy(alpha = 0.5f),

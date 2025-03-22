@@ -247,37 +247,57 @@ class AuthViewModel(val context: Context): ViewModel() {
                                     if (it.isSuccessful) {
                                         val user = auth.currentUser
 
-                                        // Estrai nome e cognome dal displayName
-                                        val displayName = user?.displayName ?: ""
-                                        val nameParts = displayName.split(" ", limit = 2)
-                                        val firstName = nameParts.getOrNull(0) ?: ""
-                                        val lastName = if (nameParts.size > 1) nameParts[1] else ""
-                                        val db = FirebaseFirestore.getInstance()
-
-                                        val userData = hashMapOf(
-                                            //"uid" to user?.uid,
-                                            "name" to firstName,
-                                            "surname" to lastName,
+                                        // Aggiorna solo i campi che vuoi sempre mantenere aggiornati con Google
+                                        val googleUpdates = hashMapOf(
+                                            "uid" to user?.uid,
                                             "email" to user?.email,
-                                            "photoUrl" to user?.photoUrl?.toString(),
-                                            "username" to "",
-                                            "phone" to "",
-                                            "password" to "",
-                                            "emailVerified" to false
-                                            //"lastLogin" to FieldValue.serverTimestamp()
+                                            "profilePictureUrl" to user?.photoUrl?.toString(),
+                                            "lastLogin" to FieldValue.serverTimestamp()
                                         )
 
                                         // Salva i dati in Firestore (nella collezione "users")
                                         user?.uid?.let { uid ->
-                                            db.collection("users").document(uid)
-                                                .set(userData, SetOptions.merge())
-                                                .addOnSuccessListener {
-                                                    // Dati salvati con successo
-                                                    _authState.value = AuthState.Authenticated
+                                            db.collection("users").document(uid).get()
+                                                .addOnSuccessListener { document ->
+                                                    if (document.exists()) {
+                                                        // L'utente esiste, aggiorna solo i campi di Google
+                                                        db.collection("users").document(uid)
+                                                            .update(googleUpdates as Map<String, Any>)
+                                                            .addOnSuccessListener {
+                                                                _authState.value = AuthState.Authenticated
+                                                            }
+                                                            .addOnFailureListener { e ->
+                                                                _authState.value = AuthState.Error(message = e.message ?: "Error updating user data")
+                                                            }
+                                                    } else {
+                                                        // Primo accesso: crea un nuovo utente con tutti i dati
+                                                        val displayName = user.displayName ?: ""
+                                                        val nameParts = displayName.split(" ", limit = 2)
+                                                        val firstName = nameParts.getOrNull(0) ?: ""
+                                                        val lastName = if (nameParts.size > 1) nameParts[1] else ""
+
+                                                        val fullUserData = googleUpdates.apply {
+                                                            put("name", firstName)
+                                                            put("surname", lastName)
+                                                            put("username","")
+                                                            put("phone","")
+                                                            put("emailVerified", false)
+                                                            put("isGoogleAuth", true)
+                                                            put("createdAt", FieldValue.serverTimestamp())
+                                                        }
+
+                                                        db.collection("users").document(uid)
+                                                            .set(fullUserData)
+                                                            .addOnSuccessListener {
+                                                                _authState.value = AuthState.Authenticated
+                                                            }
+                                                            .addOnFailureListener { e ->
+                                                                _authState.value = AuthState.Error(message = e.message ?: "Error saving user data")
+                                                            }
+                                                    }
                                                 }
                                                 .addOnFailureListener { e ->
-                                                    // Errore nel salvare i dati
-                                                    _authState.value = AuthState.Error(message = e.message ?: "Error saving user data")
+                                                    _authState.value = AuthState.Error(message = e.message ?: "Error checking user data")
                                                 }
                                         } ?: run {
                                             _authState.value = AuthState.Authenticated
