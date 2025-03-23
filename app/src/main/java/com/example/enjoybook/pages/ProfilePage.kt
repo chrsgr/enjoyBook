@@ -524,7 +524,8 @@ fun ProfilePage(
                                     value = email,
                                     onValueChange = { email = it },
                                     isEditing = false,
-                                    leadingIcon = Icons.Default.Email
+                                    leadingIcon = Icons.Default.Email,
+                                    isEnabled = !isGoogleAccount.value,
                                 )
 
                                 ProfileField(

@@ -16,6 +16,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -54,23 +55,41 @@ class AuthViewModel(val context: Context): ViewModel() {
         }
 
         _authState.value = AuthState.Loading
-        auth.signInWithEmailAndPassword(email, password)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val user = auth.currentUser
-                    if (user != null && user.isEmailVerified) {
-                        _authState.value = AuthState.Authenticated
-                    } else {
-                        auth.signOut()
-                        _authState.value =
-                            AuthState.Error("Please verify your email before logging in")
-                    }
-                } else {
-                    _authState.value =
-                        AuthState.Error(task.exception?.message ?: "Something went wrong")
+
+        //verifica se l'email è già usata per autenticazione Google
+        db.collection("users")
+            .whereEqualTo("email", email)
+            .whereEqualTo("isGoogleAuth", true)
+            .get()
+            .addOnSuccessListener { documents ->
+                if (!documents.isEmpty) {
+                    _authState.value = AuthState.Error("This email is already used with Google authentication. Please sign in with Google.")
+                    return@addOnSuccessListener
                 }
+
+                // Se l'email non è usata con Google, procedi con il login tradizionale
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val user = auth.currentUser
+                            if (user != null && user.isEmailVerified) {
+                                _authState.value = AuthState.Authenticated
+                            } else {
+                                auth.signOut()
+                                _authState.value =
+                                    AuthState.Error("Please verify your email before logging in")
+                            }
+                        } else {
+                            _authState.value =
+                                AuthState.Error(task.exception?.message ?: "Something went wrong")
+                        }
+                    }
+            }
+            .addOnFailureListener { e ->
+                _authState.value = AuthState.Error(e.message ?: "Error checking email authentication method")
             }
     }
+
 
     fun signup(
         name: String,
@@ -79,7 +98,6 @@ class AuthViewModel(val context: Context): ViewModel() {
         email: String,
         password: String,
         phone: String,
-
     ) {
         // Validate all fields
         if (name.isEmpty() || surname.isEmpty() || username.isEmpty() ||
@@ -90,58 +108,78 @@ class AuthViewModel(val context: Context): ViewModel() {
 
         _authState.value = AuthState.Loading
 
-        auth.createUserWithEmailAndPassword(email, password)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-
-                    val user = auth.currentUser
-                    user?.sendEmailVerification()
-                        ?.addOnCompleteListener { verificationTask ->
-                            if (verificationTask.isSuccessful) {
-
-                                val userId = auth.currentUser?.uid
-
-                                if (userId != null) {
-                                    val userMap = hashMapOf(
-                                        "name" to name,
-                                        "surname" to surname,
-                                        "username" to username,
-                                        "email" to email,
-                                        "phone" to phone,
-                                        "password" to password,
-                                        "emailVerified" to false
-                                    )
-
-                                    db.collection("users").document(userId)
-                                        .set(userMap)
-                                        .addOnSuccessListener {
-                                            auth.signOut()
-                                            _authState.value = AuthState.WaitingForVerification
-                                        }
-                                        .addOnFailureListener { e ->
-                                            user.delete()
-                                            _authState.value = AuthState.Error(
-                                                e.message ?: "Failed to save user data"
-                                            )
-                                        }
-                                } else {
-                                    user.delete()
-                                    _authState.value =
-                                        AuthState.Error("Failed to create user profile")
-                                }
-                            } else {
-                                user.delete()  // Se l'email di verifica non viene inviata, elimina l'account
-                                _authState.value =
-                                    AuthState.Error("Failed to send verification email")
-                            }
+        // Prima verifica se l'email è già usata per autenticazione Google
+        db.collection("users")
+            .whereEqualTo("email", email)
+            .get()
+            .addOnSuccessListener { documents ->
+                if (!documents.isEmpty) {
+                    // Controlla se l'utente esiste con Google Auth
+                    for (document in documents) {
+                        val isGoogleAuth = document.getBoolean("isGoogleAuth") ?: false
+                        if (isGoogleAuth) {
+                            _authState.value = AuthState.Error("This email is already used with Google authentication. Please sign in with Google.")
+                            return@addOnSuccessListener
                         }
-
-                } else {
-                    _authState.value =
-                        AuthState.Error(task.exception?.message ?: "Something went wrong")
+                    }
                 }
+
+                // Se l'email non è usata con Google, procedi con la registrazione
+                auth.createUserWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val user = auth.currentUser
+                            user?.sendEmailVerification()
+                                ?.addOnCompleteListener { verificationTask ->
+                                    if (verificationTask.isSuccessful) {
+                                        val userId = auth.currentUser?.uid
+
+                                        if (userId != null) {
+                                            val userMap = hashMapOf(
+                                                "name" to name,
+                                                "surname" to surname,
+                                                "username" to username,
+                                                "email" to email,
+                                                "phone" to phone,
+                                                "emailVerified" to false,
+                                                "isGoogleAuth" to false,
+                                                "createdAt" to FieldValue.serverTimestamp()
+                                            )
+
+                                            db.collection("users").document(userId)
+                                                .set(userMap)
+                                                .addOnSuccessListener {
+                                                    auth.signOut()
+                                                    _authState.value = AuthState.WaitingForVerification
+                                                }
+                                                .addOnFailureListener { e ->
+                                                    user.delete()
+                                                    _authState.value = AuthState.Error(
+                                                        e.message ?: "Failed to save user data"
+                                                    )
+                                                }
+                                        } else {
+                                            user.delete()
+                                            _authState.value =
+                                                AuthState.Error("Failed to create user profile")
+                                        }
+                                    } else {
+                                        user.delete()
+                                        _authState.value =
+                                            AuthState.Error("Failed to send verification email")
+                                    }
+                                }
+                        } else {
+                            _authState.value =
+                                AuthState.Error(task.exception?.message ?: "Something went wrong")
+                        }
+                    }
+            }
+            .addOnFailureListener { e ->
+                _authState.value = AuthState.Error(e.message ?: "Error checking email authentication method")
             }
     }
+
 
     fun signout() {
         auth.signOut()
@@ -152,7 +190,7 @@ class AuthViewModel(val context: Context): ViewModel() {
     fun updatePassword(newPassword: String) {
         val user = auth.currentUser
         if (user == null) {
-            _authState.value = AuthState.Error("Utente non autenticato")
+            _authState.value = AuthState.Error("Unauthenticated user")
             return
         }
 
@@ -189,13 +227,33 @@ class AuthViewModel(val context: Context): ViewModel() {
 
         _authState.value = AuthState.Loading
 
-        auth.sendPasswordResetEmail(email)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    _authState.value = AuthState.PasswordResetSent
-                } else {
-                    _authState.value = AuthState.Error(task.exception?.message ?: "Errore durante l'invio della mail")
+        // Prima controlla se l'utente è registrato con Google
+        db.collection("users")
+            .whereEqualTo("email", email)
+            .get()
+            .addOnSuccessListener { documents ->
+                if (!documents.isEmpty) {
+                    for (document in documents) {
+                        val isGoogleAuth = document.getBoolean("isGoogleAuth") ?: false
+                        if (isGoogleAuth) {
+                            _authState.value = AuthState.Error("This email is registered with Google. Please sign in with Google instead.")
+                            return@addOnSuccessListener
+                        }
+                    }
                 }
+
+                // Procedi con il reset della password
+                auth.sendPasswordResetEmail(email)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            _authState.value = AuthState.PasswordResetSent
+                        } else {
+                            _authState.value = AuthState.Error(task.exception?.message ?: "Error during the send of the email")
+                        }
+                    }
+            }
+            .addOnFailureListener { e ->
+                _authState.value = AuthState.Error(e.message ?: "Error in the check of the authentication method")
             }
     }
 
@@ -212,6 +270,7 @@ class AuthViewModel(val context: Context): ViewModel() {
         }
 
     }
+
 
     fun signInWithGoogle() {
         _authState.value = AuthState.Loading
@@ -242,70 +301,92 @@ class AuthViewModel(val context: Context): ViewModel() {
                                     googleIdTokenCredential.idToken,
                                     null
                                 )
-                            auth.signInWithCredential(firebaseCredential)
-                                .addOnCompleteListener {
-                                    if (it.isSuccessful) {
-                                        val user = auth.currentUser
 
-                                        // Aggiorna solo i campi che vuoi sempre mantenere aggiornati con Google
-                                        val googleUpdates = hashMapOf(
-                                            "uid" to user?.uid,
-                                            "email" to user?.email,
-                                            "profilePictureUrl" to user?.photoUrl?.toString(),
-                                            "lastLogin" to FieldValue.serverTimestamp()
-                                        )
+                            // Ottiene l'email dal token prima dell'autenticazione
+                            val email = googleIdTokenCredential.id
 
-                                        // Salva i dati in Firestore (nella collezione "users")
-                                        user?.uid?.let { uid ->
-                                            db.collection("users").document(uid).get()
-                                                .addOnSuccessListener { document ->
-                                                    if (document.exists()) {
-                                                        // L'utente esiste, aggiorna solo i campi di Google
-                                                        db.collection("users").document(uid)
-                                                            .update(googleUpdates as Map<String, Any>)
-                                                            .addOnSuccessListener {
-                                                                _authState.value = AuthState.Authenticated
-                                                            }
-                                                            .addOnFailureListener { e ->
-                                                                _authState.value = AuthState.Error(message = e.message ?: "Error updating user data")
-                                                            }
-                                                    } else {
-                                                        // Primo accesso: crea un nuovo utente con tutti i dati
-                                                        val displayName = user.displayName ?: ""
-                                                        val nameParts = displayName.split(" ", limit = 2)
-                                                        val firstName = nameParts.getOrNull(0) ?: ""
-                                                        val lastName = if (nameParts.size > 1) nameParts[1] else ""
-
-                                                        val fullUserData = googleUpdates.apply {
-                                                            put("name", firstName)
-                                                            put("surname", lastName)
-                                                            put("username","")
-                                                            put("phone","")
-                                                            put("emailVerified", false)
-                                                            put("isGoogleAuth", true)
-                                                            put("createdAt", FieldValue.serverTimestamp())
-                                                        }
-
-                                                        db.collection("users").document(uid)
-                                                            .set(fullUserData)
-                                                            .addOnSuccessListener {
-                                                                _authState.value = AuthState.Authenticated
-                                                            }
-                                                            .addOnFailureListener { e ->
-                                                                _authState.value = AuthState.Error(message = e.message ?: "Error saving user data")
-                                                            }
-                                                    }
-                                                }
-                                                .addOnFailureListener { e ->
-                                                    _authState.value = AuthState.Error(message = e.message ?: "Error checking user data")
-                                                }
-                                        } ?: run {
-                                            _authState.value = AuthState.Authenticated
-                                        }
-                                    } else {
-                                        _authState.value = AuthState.Error(message = it.exception?.message ?: "Unknown error")
+                            // Verifica se l'email è già in uso con autenticazione standard
+                            db.collection("users")
+                                .whereEqualTo("email", email)
+                                .whereEqualTo("isGoogleAuth", false)
+                                .get()
+                                .addOnSuccessListener { documents ->
+                                    if (!documents.isEmpty) {
+                                        // L'email è già usata con autenticazione standard
+                                        _authState.value = AuthState.Error("This email is already registered with email/password. Please use that method to sign in.")
+                                        return@addOnSuccessListener
                                     }
+
+                                    // Procedi con l'autenticazione Google
+                                    auth.signInWithCredential(firebaseCredential)
+                                        .addOnCompleteListener {
+                                            if (it.isSuccessful) {
+                                                val user = auth.currentUser
+
+                                                // Aggiorna solo i campi che vuoi sempre mantenere aggiornati con Google
+                                                val googleUpdates = hashMapOf(
+                                                    "uid" to user?.uid,
+                                                    "email" to user?.email,
+                                                    "profilePictureUrl" to user?.photoUrl?.toString(),
+                                                    "lastLogin" to FieldValue.serverTimestamp()
+                                                )
+
+                                                // Salva i dati in Firestore (nella collezione "users")
+                                                user?.uid?.let { uid ->
+                                                    db.collection("users").document(uid).get()
+                                                        .addOnSuccessListener { document ->
+                                                            if (document.exists()) {
+                                                                // L'utente esiste, aggiorna solo i campi di Google
+                                                                db.collection("users").document(uid)
+                                                                    .update(googleUpdates as Map<String, Any>)
+                                                                    .addOnSuccessListener {
+                                                                        _authState.value = AuthState.Authenticated
+                                                                    }
+                                                                    .addOnFailureListener { e ->
+                                                                        _authState.value = AuthState.Error(message = e.message ?: "Error updating user data")
+                                                                    }
+                                                            } else {
+                                                                // Primo accesso: crea un nuovo utente con tutti i dati
+                                                                val displayName = user.displayName ?: ""
+                                                                val nameParts = displayName.split(" ", limit = 2)
+                                                                val firstName = nameParts.getOrNull(0) ?: ""
+                                                                val lastName = if (nameParts.size > 1) nameParts[1] else ""
+
+                                                                val fullUserData = googleUpdates.apply {
+                                                                    put("name", firstName)
+                                                                    put("surname", lastName)
+                                                                    put("username","")
+                                                                    put("phone","")
+                                                                    put("emailVerified", false)
+                                                                    put("isGoogleAuth", true)
+                                                                    put("createdAt", FieldValue.serverTimestamp())
+                                                                }
+
+                                                                db.collection("users").document(uid)
+                                                                    .set(fullUserData)
+                                                                    .addOnSuccessListener {
+                                                                        _authState.value = AuthState.Authenticated
+                                                                    }
+                                                                    .addOnFailureListener { e ->
+                                                                        _authState.value = AuthState.Error(message = e.message ?: "Error saving user data")
+                                                                    }
+                                                            }
+                                                        }
+                                                        .addOnFailureListener { e ->
+                                                            _authState.value = AuthState.Error(message = e.message ?: "Error checking user data")
+                                                        }
+                                                } ?: run {
+                                                    _authState.value = AuthState.Authenticated
+                                                }
+                                            } else {
+                                                _authState.value = AuthState.Error(message = it.exception?.message ?: "Unknown error")
+                                            }
+                                        }
                                 }
+                                .addOnFailureListener { e ->
+                                    _authState.value = AuthState.Error(message = e.message ?: "Error checking email authentication method")
+                                }
+
                         } catch (e: GoogleIdTokenParsingException) {
                             _authState.value = AuthState.Error(message = e.message ?: "Error parsing Google token")
                         }
