@@ -1,13 +1,15 @@
 package com.example.enjoybook.data
 
+import com.google.type.DateTime
+
 data class User(
-    val id: String = "",
+    val userId: String = "",
     val name: String = "",
-    val phone: String? = "",
     val surname: String = "",
-    val userEmail : String = "",
     val username: String = "",
-    val password: String = ""
-
-
+    val email : String = "",
+    val phone: String? = "",
+    val emailVerified: Boolean = false,
+    val isGoogleAuth: Boolean = false,
+    val profilePictureUrl: String = "",
     )

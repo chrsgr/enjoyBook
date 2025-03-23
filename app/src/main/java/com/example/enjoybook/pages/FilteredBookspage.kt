@@ -100,7 +100,7 @@ fun FilteredBooksPage(category: String, navController: NavController, viewModel:
                 windowInsets = WindowInsets(0)
             )
         },
-        contentWindowInsets = WindowInsets(0),
+        contentWindowInsets = WindowInsets(0), //metti per scaffold
         containerColor = backgroundColor
     ) { paddingValues ->
         // Layout della pagina con la lista di libri

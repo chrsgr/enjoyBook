@@ -92,172 +92,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 
 
-/*@Composable
-fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel, searchViewModel: SearchViewModel){
-    val navController = rememberNavController()
-    val context = LocalContext.current.applicationContext
-    val scannedTitle = remember { mutableStateOf("") }
-    val scannedAuthor = remember { mutableStateOf("") }
-    val scannedYear = remember { mutableStateOf("") }
-    val scannedDescription = remember { mutableStateOf("") }
-    val scannedCategory = remember { mutableStateOf("") }
-
-    NavHost(navController = navController, startDestination = "login") {
-        composable("login"){
-            LoginPage(modifier, navController, authViewModel)
-        }
-
-        composable("forgotpass"){
-            ForgotPasswordPage(modifier, navController, authViewModel)
-        }
-
-        composable("signup"){
-            SignupPage(modifier, navController, authViewModel)
-        }
-        composable("main"){
-            MainPage(modifier, navController, authViewModel, searchViewModel)
-        }
-        composable("home"){
-            HomePage(navController, authViewModel)
-        }
-
-        composable(
-            route = "addPage?bookId={bookId}&isEditing={isEditing}",
-            arguments = listOf(
-                navArgument("bookId") { type = NavType.StringType; nullable = true; defaultValue = null },
-                navArgument("isEditing") { type = NavType.BoolType; defaultValue = false }
-            )
-        ) { backStackEntry ->
-            val bookId = backStackEntry.arguments?.getString("bookId")
-            val isEditing = backStackEntry.arguments?.getBoolean("isEditing") ?: false
-
-            AddPage(
-                navController = navController,
-                context = LocalContext.current,
-                isEditing = isEditing,
-                bookId = bookId
-            )
-        }
-
-        composable("search"){
-            SearchPage(searchViewModel, navController)
-        }
-        composable("profile"){
-            ProfilePage(navController)
-        }
-        composable("favourite"){
-            FavouritePage(navController)
-        }
-        composable(
-            route = "bookDetails/{bookId}",
-            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
-        ) {
-            val bookId = it.arguments?.getString("bookId") ?: ""
-            BookDetails(navController, authViewModel, bookId)
-        }
-        composable("bookUser"){
-            BookPage(navController)
-        }
-
-        composable("library"){
-            LibraryPage(navController)
-        }
-
-        composable("listBookAdd"){
-            ListBookAddPage(navController)
-        }
-
-
-
-        composable("filteredbooks/{category}", arguments = listOf(navArgument("category") { type = NavType.StringType })){
-                backStackEntry ->
-            val category = backStackEntry.arguments?.getString("category") ?: ""
-            Log.d("NavHost", "Navigato a filteredbooks con categoria: $category")
-            // Passa category al ViewModel
-            FilteredBooksPage(category, navController, searchViewModel)
-        }
-
-        composable(
-            "edit_screen/{bookId}",
-            arguments = listOf(
-                navArgument("bookId") {
-                    type = NavType.StringType
-                }
-            )
-        ) { backStackEntry ->
-            val bookId = backStackEntry.arguments?.getString("bookId")
-            if (bookId != null) {
-                AddPage(
-                    navController = navController,
-                    context = context,
-                    isEditing = true,
-                    bookId = bookId
-                )
-            }
-        }
-
-        composable("book_scan_screen") {
-            BookScanScreen(
-                navController = navController,
-                onBookInfoRetrieved = { title, author, year, description, type ->
-                    // Navigate back to AddPage with the retrieved information
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("scanned_book_title", title)
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("scanned_book_author", author)
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("scanned_book_year", year)
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("scanned_book_description", description)
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("scanned_book_type", type)
-                }
-            )
-        }
-
-        composable("add_book_screen") {
-            // Get the data from the scan if available
-            val bookTitle = navController.currentBackStackEntry
-                ?.savedStateHandle
-                ?.get<String>("scanned_book_title") ?: ""
-            val bookAuthor = navController.currentBackStackEntry
-                ?.savedStateHandle
-                ?.get<String>("scanned_book_author") ?: ""
-            val bookYear = navController.currentBackStackEntry
-                ?.savedStateHandle
-                ?.get<String>("scanned_book_year") ?: ""
-            val bookDescription = navController.currentBackStackEntry
-                ?.savedStateHandle
-                ?.get<String>("scanned_book_description") ?: ""
-            val bookType = navController.currentBackStackEntry
-                ?.savedStateHandle
-                ?.get<String>("scanned_book_type") ?: ""
-
-            // Clear the saved state handle after reading
-            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_title")
-            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_author")
-            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_year")
-            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_description")
-            navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_type")
-
-            AddPage(
-                navController = navController,
-                context = LocalContext.current,
-                initialTitle = bookTitle,
-                initialAuthor = bookAuthor,
-                initialYear = bookYear,
-                initialDescription = bookDescription,
-                initialCategory = bookType
-            )
-        }
-    }
-}*/
-
 @Composable
 fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel, searchViewModel: SearchViewModel) {
     val navController = rememberNavController()
@@ -376,6 +210,15 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                 val bookId = it.arguments?.getString("bookId") ?: ""
                 BookDetails(navController, authViewModel, bookId)
             }
+
+            composable(
+                route = "userDetails/{userId}",
+                arguments = listOf(navArgument("userId") { type = NavType.StringType })
+            ) {
+                val userId = it.arguments?.getString("userId") ?: ""
+                UserDetails(navController, authViewModel, userId)
+            }
+
 
             composable("bookUser"){
                 BookPage(navController)

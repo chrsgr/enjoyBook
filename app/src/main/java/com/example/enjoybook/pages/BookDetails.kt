@@ -1220,7 +1220,7 @@ fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
         bookId = bookId,
         title = title
     )
-4
+
     // Add to Firestore
     FirebaseFirestore.getInstance()
         .collection("notifications")

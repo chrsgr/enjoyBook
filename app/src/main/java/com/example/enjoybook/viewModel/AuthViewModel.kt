@@ -1,6 +1,7 @@
 package com.example.enjoybook.viewModel
 
 import android.content.Context
+import android.net.Uri
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -18,6 +19,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.userProfileChangeRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -25,6 +27,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
+import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -97,11 +100,11 @@ class AuthViewModel(val context: Context): ViewModel() {
         username: String,
         email: String,
         password: String,
-        phone: String,
+        phone: String?,
     ) {
         // Validate all fields
         if (name.isEmpty() || surname.isEmpty() || username.isEmpty() ||
-            email.isEmpty() || password.isEmpty() || phone.isEmpty()) {
+            email.isEmpty() || password.isEmpty()) {
             _authState.value = AuthState.Error("All fields are required")
             return
         }
@@ -135,7 +138,19 @@ class AuthViewModel(val context: Context): ViewModel() {
                                         val userId = auth.currentUser?.uid
 
                                         if (userId != null) {
+
+                                            val displayName = "$name $surname"
+                                            val encodedName = URLEncoder.encode(displayName, "UTF-8")
+                                            val profilePictureUrl = "https://ui-avatars.com/api/?name=$encodedName&background=random&color=fff&size=200"
+
+                                            // Aggiorna anche il profilo utente di Firebase Auth
+                                            val profileUpdates = userProfileChangeRequest {
+                                                photoUri = Uri.parse(profilePictureUrl)
+                                            }
+                                            user.updateProfile(profileUpdates)
+
                                             val userMap = hashMapOf(
+                                                "userId" to userId,
                                                 "name" to name,
                                                 "surname" to surname,
                                                 "username" to username,
@@ -143,6 +158,7 @@ class AuthViewModel(val context: Context): ViewModel() {
                                                 "phone" to phone,
                                                 "emailVerified" to false,
                                                 "isGoogleAuth" to false,
+                                                "profilePictureUrl" to profilePictureUrl,
                                                 "createdAt" to FieldValue.serverTimestamp()
                                             )
 
@@ -179,6 +195,7 @@ class AuthViewModel(val context: Context): ViewModel() {
                 _authState.value = AuthState.Error(e.message ?: "Error checking email authentication method")
             }
     }
+
 
 
     fun signout() {
@@ -325,7 +342,7 @@ class AuthViewModel(val context: Context): ViewModel() {
 
                                                 // Aggiorna solo i campi che vuoi sempre mantenere aggiornati con Google
                                                 val googleUpdates = hashMapOf(
-                                                    "uid" to user?.uid,
+                                                    "userId" to user?.uid,
                                                     "email" to user?.email,
                                                     "profilePictureUrl" to user?.photoUrl?.toString(),
                                                     "lastLogin" to FieldValue.serverTimestamp()

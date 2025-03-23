@@ -26,8 +26,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.enjoybook.data.Book
-import com.example.enjoybook.data.ScreenState
 import com.example.enjoybook.viewModel.SearchViewModel
+
+
+
+/* DA ELIMINARE SE NON SERVE PIU' */
 
 @Composable
 fun QueryBooks(query: String, navController: NavController, viewModel: SearchViewModel) {

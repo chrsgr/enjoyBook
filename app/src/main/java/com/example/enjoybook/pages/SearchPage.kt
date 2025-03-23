@@ -354,7 +354,7 @@ fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: N
                 .padding(16.dp)
                 .clickable {
                     // Navigate to UserProfile screen when the user is clicked
-                    navController.navigate("profile/${user.id}")
+                    navController.navigate("userDetails/${user.userId}")
                 },
             verticalAlignment = Alignment.CenterVertically
         ) {

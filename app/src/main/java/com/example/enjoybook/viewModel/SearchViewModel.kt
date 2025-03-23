@@ -54,7 +54,7 @@ class SearchViewModel : ViewModel() {
                         val nameList = nameResults.toObjects(User::class.java)
 
                         // Combine results and remove duplicates by ID
-                        val combinedList = (usernameList + nameList).distinctBy { it.id }
+                        val combinedList = (usernameList + nameList).distinctBy { it.userId }
                         _users.value = combinedList
                     }
                     .addOnFailureListener { exception ->
