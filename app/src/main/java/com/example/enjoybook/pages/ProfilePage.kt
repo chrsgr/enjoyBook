@@ -112,6 +112,7 @@ fun ProfilePage(
     val firestore = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
+
     var originalPassword by remember { mutableStateOf("") }
     var userId by remember { mutableStateOf("") }
     var isCurrentUserProfile by remember { mutableStateOf(true) }

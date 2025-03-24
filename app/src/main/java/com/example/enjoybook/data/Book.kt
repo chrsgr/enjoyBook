@@ -12,6 +12,7 @@ data class Book(
     val titleLower: String = "",
     val type: String = "",
     val userEmail: String? = "",
+    val userUsername: String = "",
     val userId: String? = "",
     val year : String = "",
     val frontCoverUrl: String? = null,

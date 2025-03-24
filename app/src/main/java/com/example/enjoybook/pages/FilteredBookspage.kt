@@ -30,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -66,6 +67,7 @@ TO DO: un'iconcina per il caricamento dei libri*/
 fun FilteredBooksPage(category: String, navController: NavController, viewModel: SearchViewModel) {
 
     val books by viewModel.books.collectAsState() // Osserva lo stato dei libri
+    val isLoading by viewModel.isLoading.collectAsState()
 
     // Carica i libri filtrati per categoria all'apertura della schermata
     LaunchedEffect(category) {
@@ -105,27 +107,46 @@ fun FilteredBooksPage(category: String, navController: NavController, viewModel:
     ) { paddingValues ->
         // Layout della pagina con la lista di libri
 
-        Log.d("Padding values", "$paddingValues")
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .padding(horizontal = 16.dp)
                 .background(backgroundColor)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(), // Centra verticalmente i contenuti
                 horizontalAlignment = Alignment.CenterHorizontally // Opzionale per centrare anche orizzontalmente
             ) {
+                when {
+                    isLoading -> {
+                        // Mostra l'indicatore di caricamento centrato
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = primaryColor,
+                                modifier = Modifier.size(50.dp)
+                            )
+                        }
+                    }
 
-                // Se non ci sono libri, mostra un messaggio
-                if (books.isEmpty()) {
-                    Text(
-                        text = "No books available in this category."
-                    )
-                } else {
-                    LazyColumn {
-                        items(books) { book ->
-                            BookListItem(book, navController)
+                    else -> {
+
+                        // Se non ci sono libri, mostra un messaggio
+                        if (books.isEmpty()) {
+                            Text(
+                                text = "No books available in this category."
+                            )
+                        } else {
+                            LazyColumn {
+                                items(books) { book ->
+                                    BookListItem(book, navController)
+                                }
+                            }
                         }
                     }
                 }

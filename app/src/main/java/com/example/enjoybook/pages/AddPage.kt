@@ -77,6 +77,14 @@ fun AddPage(
     val textColor = Color(0xFF333333)
 
     val db = FirebaseFirestore.getInstance()
+    val currentUser = FirebaseAuth.getInstance().currentUser
+
+    var username by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var userId by remember { mutableStateOf("") }
+
+    var errorMessage by remember { mutableStateOf("") }
+
     val localContext = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -124,6 +132,23 @@ fun AddPage(
         }
     }
 
+    LaunchedEffect(Unit) {
+        if (currentUser != null) {
+            db.collection("users").document(currentUser.uid)
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        username = document.getString("username") ?: ""
+                        email = document.getString("email") ?: ""
+                        userId = currentUser?.uid.toString()
+                    }
+                }
+                .addOnFailureListener { e ->
+                    errorMessage = "Error: ${e.message}"
+                }
+        }
+    }
+
     // Camera components
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(localContext) }
     val imageCapture = remember { ImageCapture.Builder().build() }
@@ -147,6 +172,10 @@ fun AddPage(
         "Horror", "Literary fiction", "Mystery", "Poetry", "Plays",
         "Romance", "Science fiction", "Short stories", "Thrillers",
         "War", "Women's fiction", "Young adult"
+    )
+
+    val conditionTypes = listOf(
+        "New", "Fine", "As New", "Very good", "Good", "Fair", "Poor"
     )
 
     var expanded by remember { mutableStateOf(false) }
@@ -810,7 +839,7 @@ fun AddPage(
                                     addDataToFirebaseWithImages(
                                         title.value, author.value, selectedType,
                                         condition.value, description.value, edition.value,
-                                        year.value, frontCoverUri.value, backCoverUri.value,
+                                        year.value, userId, username, frontCoverUri.value, backCoverUri.value,
                                         localContext, navController
                                     )
                                 }
@@ -1091,6 +1120,8 @@ fun addDataToFirebaseWithImages(
     description: String,
     edition: String,
     year: String,
+    userId: String,
+    userUsername: String,
     frontCoverUri: Uri?,
     backCoverUri: Uri?,
     context: Context,
@@ -1105,6 +1136,7 @@ fun addDataToFirebaseWithImages(
     val docRef = dbCourses.document()
     val documentId = docRef.id
 
+
     val bookData = HashMap<String, Any>().apply {
         put("id", documentId)
         put("author", author)
@@ -1114,8 +1146,9 @@ fun addDataToFirebaseWithImages(
         put("title", title)
         put("titleLower", titleLower)
         put("type", type)
+        put("userUsername", userUsername)
         put("userEmail", currentUser?.email.toString())
-        put("userId", currentUser?.uid.toString())
+        put("userId", userId)
         put("year", year)
     }
 
@@ -1176,7 +1209,7 @@ private fun saveBookToFirestore(
         .addOnSuccessListener {
             Toast.makeText(
                 context,
-                "Your book has been added to Firebase Firestore",
+                "Your book has been added in the library!",
                 Toast.LENGTH_SHORT
             ).show()
             navController.popBackStack()

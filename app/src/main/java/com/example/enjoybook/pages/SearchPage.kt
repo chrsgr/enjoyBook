@@ -33,6 +33,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +64,7 @@ import androidx.navigation.NavController
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.User
 import com.example.enjoybook.viewModel.SearchViewModel
+import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
 fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavController){
@@ -88,6 +90,8 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
         "Horror", "Literary fiction", "Mystery", "Poetry", "Plays", "Romance",
         "Science fiction", "Short stories", "Thrillers", "War", "Women's fiction", "Young adult"
     )
+
+    val isLoading by viewModel.isLoading.collectAsState()
 
     LaunchedEffect(Unit) {
         searchFocusRequester.requestFocus()
@@ -238,61 +242,79 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
                 )
-
-                when (searchType) {
-                    // Books search results
-                    "Books" -> {
-                        LazyColumn(
+                when {
+                    isLoading -> {
+                        // Mostra l'indicatore di caricamento centrato
+                        Box(
                             modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .weight(1f)
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
                         ) {
-                            items(books) { book ->
-                                BookItem(book, primaryColor, textColor, navController)
-                            }
+                            CircularProgressIndicator(
+                                color = primaryColor,
+                                modifier = Modifier.size(50.dp)
+                            )
+                        }
+                    }
 
-                            if (books.isEmpty()) {
-                                item {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 24.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "No books found",
-                                            color = textColor.copy(alpha = 0.7f),
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
+                    else -> {
+                        when (searchType) {
+                            // Books search results
+                            "Books" -> {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp)
+                                        .weight(1f)
+                                ) {
+                                    items(books) { book ->
+                                        BookItem(book, primaryColor, textColor, navController)
+                                    }
+
+                                    if (books.isEmpty()) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 24.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "No books found",
+                                                    color = textColor.copy(alpha = 0.7f),
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
-                    }
-                    // Users search results
-                    "Users" -> {
-                        LazyColumn(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .weight(1f)
-                        ) {
-                            items(users) { user ->
-                                UserItem(user, primaryColor, textColor, navController)
-                            }
+                            // Users search results
+                            "Users" -> {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp)
+                                        .weight(1f)
+                                ) {
+                                    items(users) { user ->
+                                        UserItem(user, primaryColor, textColor, navController)
+                                    }
 
-                            if (users.isEmpty()) {
-                                item {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 24.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "No users found",
-                                            color = textColor.copy(alpha = 0.7f),
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
+                                    if (users.isEmpty()) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 24.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "No users found",
+                                                    color = textColor.copy(alpha = 0.7f),
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -309,7 +331,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
                 )
 
-                // Categories grid
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     modifier = Modifier
@@ -319,14 +340,9 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (categories.isEmpty()) {
-                        Log.e("LazyVerticalGrid", "Attenzione: Nessuna categoria disponibile!")
-                    }
-
                     items(categories) { category ->
-                        Log.d("LazyVerticalGrid", "Categoria caricata: $category")
-                        CategoryButton(category, navController, primaryColor) {
-                            viewModel.filterForCategories(category)
+                         CategoryButton(category, navController, primaryColor) {
+                             viewModel.filterForCategories(category)
                         }
                     }
                 }
