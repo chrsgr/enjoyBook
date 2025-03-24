@@ -9,6 +9,8 @@ data class User(
     val username: String = "",
     val email : String = "",
     val phone: String? = "",
+    val role: String = "",
+    val isBanned: Boolean? = false,
     val emailVerified: Boolean = false,
     val isGoogleAuth: Boolean = false,
     val profilePictureUrl: String = "",

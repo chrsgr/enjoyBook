@@ -86,17 +86,12 @@ import com.google.firebase.firestore.FirebaseFirestore
 @Composable
 fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
     val primaryColor = Color(0xFF2CBABE)
-    val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
     val errorColor = Color(0xFFD32F2F)
 
-    var query by remember { mutableStateOf("") }
     val authState = authViewModel.authState.observeAsState()
-    var searchQuery by remember { mutableStateOf(query) }
     val favorites by FavoritesManager.favoritesFlow.collectAsState()
 
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
     var selectedGenre by remember { mutableStateOf<String?>(null) }
 
     val categories = listOf(

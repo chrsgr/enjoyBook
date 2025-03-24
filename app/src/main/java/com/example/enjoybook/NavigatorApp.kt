@@ -44,6 +44,7 @@ import androidx.compose.material.Divider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -80,7 +81,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.enjoybook.admin.AdminListReports
+import com.example.enjoybook.admin.AdminPanel
 import com.example.enjoybook.data.Notification
+import com.example.enjoybook.data.User
 import com.example.enjoybook.pages.*
 import com.example.enjoybook.theme.errorColor
 import com.example.enjoybook.utils.deleteNotification
@@ -172,6 +176,14 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
 
             composable("home"){
                 HomePage(navController, authViewModel)
+            }
+
+            composable("admin"){
+                AdminPanel(navController, authViewModel)
+            }
+
+            composable("adminReports"){
+                AdminListReports(navController, authViewModel)
             }
 
             composable(
@@ -385,10 +397,13 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
     val textColor = Color(0xFF333333)
     val notificationcolor = Color(0xFFF5F5F5)
     var userId = "";
+    var user by remember { mutableStateOf<User?>(null) }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
-            userId = currentUser.uid.toString()
+            userId = currentUser.uid
             val db = FirebaseFirestore.getInstance()
             db.collection("notifications")
                 .whereEqualTo("recipientId", currentUser.uid)
@@ -406,6 +421,17 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                         notifications = notificationsList
                         unreadNotifications = notificationsList.count { !it.isRead }
                     }
+                }
+            db.collection("users").document(userId)
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        user = document.toObject(User::class.java)
+                    }
+                }
+                .addOnFailureListener { e ->
+                    errorMessage = "Error: ${e.message}"
+                    showErrorDialog = true
                 }
         }
     }
@@ -455,8 +481,26 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            //se sono admin vedo questo
+            if (user?.role == "admin"){
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = { navController.navigate("admin") },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.2f))
+                        .padding(horizontal = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Build,
+                        contentDescription = "Admin",
+                        tint = Color.Black
+                    )
+                }
+            }
 
+            Spacer(modifier = Modifier.width(8.dp))
             // Settings icon
             IconButton(
                 onClick = { navController.navigate("profile") },

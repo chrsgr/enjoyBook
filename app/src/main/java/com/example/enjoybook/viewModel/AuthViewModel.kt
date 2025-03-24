@@ -2,6 +2,7 @@ package com.example.enjoybook.viewModel
 
 import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -9,6 +10,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavController
 import com.example.enjoybook.R
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -70,26 +72,50 @@ class AuthViewModel(val context: Context): ViewModel() {
                     return@addOnSuccessListener
                 }
 
-                // Se l'email non è usata con Google, procedi con il login tradizionale
-                auth.signInWithEmailAndPassword(email, password)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            val user = auth.currentUser
-                            if (user != null && user.isEmailVerified) {
-                                _authState.value = AuthState.Authenticated
-                            } else {
-                                auth.signOut()
-                                _authState.value =
-                                    AuthState.Error("Please verify your email before logging in")
-                            }
+                db.collection("users")
+                    .whereEqualTo("email", email)
+                    .get()
+                    .addOnSuccessListener { userDocs ->
+                        val userDoc = userDocs.documents.firstOrNull()
+                        val isBanned = userDoc?.getBoolean("isBanned") ?: false
+
+                        if (isBanned) {
+                            FirebaseAuth.getInstance().signOut()
+                            Toast.makeText(
+                                context,
+                                "Banned account. Denied access.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            _authState.value = AuthState.Error("Banned account. Denied access.")
                         } else {
-                            _authState.value =
-                                AuthState.Error(task.exception?.message ?: "Something went wrong")
+
+                            // Se l'utente non è bannato e l'email non è usata con Google, procedi con il login tradizionale
+                            auth.signInWithEmailAndPassword(email, password)
+                                .addOnCompleteListener { task ->
+
+                                    if (task.isSuccessful) {
+                                        val user = auth.currentUser
+                                        if (user != null && user.isEmailVerified) {
+                                            _authState.value = AuthState.Authenticated
+                                        } else {
+                                            auth.signOut()
+                                            _authState.value =
+                                                AuthState.Error("Please verify your email before logging in")
+                                        }
+                                    } else {
+                                        _authState.value =
+                                            AuthState.Error(
+                                                task.exception?.message ?: "Something went wrong"
+                                            )
+                                    }
+                                }
+                            }
                         }
+                    .addOnFailureListener { e ->
+                        _authState.value = AuthState.Error(
+                            e.message ?: "Error checking email authentication method"
+                        )
                     }
-            }
-            .addOnFailureListener { e ->
-                _authState.value = AuthState.Error(e.message ?: "Error checking email authentication method")
             }
     }
 
@@ -157,7 +183,9 @@ class AuthViewModel(val context: Context): ViewModel() {
                                                 "email" to email,
                                                 "phone" to phone,
                                                 "emailVerified" to false,
+                                                "isBanned" to false,
                                                 "isGoogleAuth" to false,
+                                                "role" to "user",
                                                 "profilePictureUrl" to profilePictureUrl,
                                                 "createdAt" to FieldValue.serverTimestamp()
                                             )
@@ -298,6 +326,7 @@ class AuthViewModel(val context: Context): ViewModel() {
             .setAutoSelectEnabled(false)
             .setNonce(createNonce())
             .build()
+
         val request = GetCredentialRequest.Builder()
             .addCredentialOption(googleIdOption)
             .build()
@@ -308,113 +337,121 @@ class AuthViewModel(val context: Context): ViewModel() {
                 val result = credentialManager.getCredential(context, request)
                 val credential = result.credential
 
-                if (credential is CustomCredential) {
-                    if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                        try {
-                            val googleIdTokenCredential = GoogleIdTokenCredential
-                                .createFrom(credential.data)
-                            val firebaseCredential = GoogleAuthProvider
-                                .getCredential(
-                                    googleIdTokenCredential.idToken,
-                                    null
-                                )
+                if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                    try {
+                        val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                        val firebaseCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
 
-                            // Ottiene l'email dal token prima dell'autenticazione
-                            val email = googleIdTokenCredential.id
+                        // Ottiene l'email dal token prima dell'autenticazione
+                        val email = googleIdTokenCredential.id
 
-                            // Verifica se l'email è già in uso con autenticazione standard
-                            db.collection("users")
-                                .whereEqualTo("email", email)
-                                .whereEqualTo("isGoogleAuth", false)
-                                .get()
-                                .addOnSuccessListener { documents ->
-                                    if (!documents.isEmpty) {
-                                        // L'email è già usata con autenticazione standard
-                                        _authState.value = AuthState.Error("This email is already registered with email/password. Please use that method to sign in.")
-                                        return@addOnSuccessListener
-                                    }
+                        // Controlla se l'email è già usata con autenticazione standard
+                        db.collection("users")
+                            .whereEqualTo("email", email)
+                            .whereEqualTo("isGoogleAuth", false)
+                            .get()
+                            .addOnSuccessListener { documents ->
+                                if (!documents.isEmpty) {
+                                    _authState.value = AuthState.Error("This email is already registered with email/password. Please use that method to sign in.")
+                                    return@addOnSuccessListener
+                                }
 
-                                    // Procedi con l'autenticazione Google
-                                    auth.signInWithCredential(firebaseCredential)
-                                        .addOnCompleteListener {
-                                            if (it.isSuccessful) {
-                                                val user = auth.currentUser
+                                // Verifica se l'utente è bannato
+                                db.collection("users")
+                                    .whereEqualTo("email", email)
+                                    .get()
+                                    .addOnSuccessListener { userDocs ->
+                                        val userDoc = userDocs.documents.firstOrNull()
+                                        val isBanned = userDoc?.getBoolean("isBanned") ?: false
 
-                                                // Aggiorna solo i campi che vuoi sempre mantenere aggiornati con Google
-                                                val googleUpdates = hashMapOf(
-                                                    "userId" to user?.uid,
-                                                    "email" to user?.email,
-                                                    "profilePictureUrl" to user?.photoUrl?.toString(),
-                                                    "lastLogin" to FieldValue.serverTimestamp()
-                                                )
+                                        if (isBanned) {
+                                            FirebaseAuth.getInstance().signOut()
+                                            Toast.makeText(context, "Banned account. Denied access.", Toast.LENGTH_LONG).show()
+                                            _authState.value = AuthState.Error("Banned account. Denied access.")
+                                        } else {
 
-                                                // Salva i dati in Firestore (nella collezione "users")
-                                                user?.uid?.let { uid ->
-                                                    db.collection("users").document(uid).get()
-                                                        .addOnSuccessListener { document ->
-                                                            if (document.exists()) {
-                                                                // L'utente esiste, aggiorna solo i campi di Google
-                                                                db.collection("users").document(uid)
-                                                                    .update(googleUpdates as Map<String, Any>)
-                                                                    .addOnSuccessListener {
-                                                                        _authState.value = AuthState.Authenticated
+                                            // Se l'utente non è bannato, procedi con l'autenticazione Google
+                                            auth.signInWithCredential(firebaseCredential)
+                                                .addOnCompleteListener {
+                                                    if (it.isSuccessful) {
+                                                        val user = auth.currentUser
+                                                        val userId = user?.uid
+
+                                                        val googleUpdates = hashMapOf(
+                                                            "userId" to userId,
+                                                            "email" to user?.email,
+                                                            "profilePictureUrl" to user?.photoUrl?.toString(),
+                                                            "lastLogin" to FieldValue.serverTimestamp()
+                                                        )
+
+                                                        userId?.let { uid ->
+                                                            db.collection("users").document(uid).get()
+                                                                .addOnSuccessListener { document ->
+                                                                    if (document.exists()) {
+                                                                        // L'utente esiste, aggiorna solo i campi di Google
+                                                                        db.collection("users").document(uid)
+                                                                            .update(googleUpdates as Map<String, Any>)
+                                                                            .addOnSuccessListener {
+                                                                                _authState.value = AuthState.Authenticated
+                                                                            }
+                                                                            .addOnFailureListener { e ->
+                                                                                _authState.value = AuthState.Error(e.message ?: "Error updating user data")
+                                                                            }
+                                                                    } else {
+                                                                        // Primo accesso: crea un nuovo utente
+                                                                        val displayName = user.displayName ?: ""
+                                                                        val nameParts = displayName.split(" ", limit = 2)
+                                                                        val firstName = nameParts.getOrNull(0) ?: ""
+                                                                        val lastName = nameParts.getOrNull(1) ?: ""
+
+                                                                        val fullUserData = googleUpdates.apply {
+                                                                            put("name", firstName)
+                                                                            put("surname", lastName)
+                                                                            put("role", "user")
+                                                                            put("username", "")
+                                                                            put("phone", "")
+                                                                            put("emailVerified", false)
+                                                                            put("isGoogleAuth", true)
+                                                                            put("isBanned", false)
+                                                                            put("createdAt", FieldValue.serverTimestamp())
+                                                                        }
+
+                                                                        db.collection("users").document(uid)
+                                                                            .set(fullUserData)
+                                                                            .addOnSuccessListener {
+                                                                                _authState.value = AuthState.Authenticated
+                                                                            }
+                                                                            .addOnFailureListener { e ->
+                                                                                _authState.value = AuthState.Error(e.message ?: "Error saving user data")
+                                                                            }
                                                                     }
-                                                                    .addOnFailureListener { e ->
-                                                                        _authState.value = AuthState.Error(message = e.message ?: "Error updating user data")
-                                                                    }
-                                                            } else {
-                                                                // Primo accesso: crea un nuovo utente con tutti i dati
-                                                                val displayName = user.displayName ?: ""
-                                                                val nameParts = displayName.split(" ", limit = 2)
-                                                                val firstName = nameParts.getOrNull(0) ?: ""
-                                                                val lastName = if (nameParts.size > 1) nameParts[1] else ""
-
-                                                                val fullUserData = googleUpdates.apply {
-                                                                    put("name", firstName)
-                                                                    put("surname", lastName)
-                                                                    put("username","")
-                                                                    put("phone","")
-                                                                    put("emailVerified", false)
-                                                                    put("isGoogleAuth", true)
-                                                                    put("createdAt", FieldValue.serverTimestamp())
                                                                 }
-
-                                                                db.collection("users").document(uid)
-                                                                    .set(fullUserData)
-                                                                    .addOnSuccessListener {
-                                                                        _authState.value = AuthState.Authenticated
-                                                                    }
-                                                                    .addOnFailureListener { e ->
-                                                                        _authState.value = AuthState.Error(message = e.message ?: "Error saving user data")
-                                                                    }
-                                                            }
+                                                                .addOnFailureListener { e ->
+                                                                    _authState.value = AuthState.Error(e.message ?: "Error checking user data")
+                                                                }
                                                         }
-                                                        .addOnFailureListener { e ->
-                                                            _authState.value = AuthState.Error(message = e.message ?: "Error checking user data")
-                                                        }
-                                                } ?: run {
-                                                    _authState.value = AuthState.Authenticated
+                                                    } else {
+                                                        _authState.value = AuthState.Error(it.exception?.message ?: "Unknown error")
+                                                    }
                                                 }
-                                            } else {
-                                                _authState.value = AuthState.Error(message = it.exception?.message ?: "Unknown error")
-                                            }
                                         }
-                                }
-                                .addOnFailureListener { e ->
-                                    _authState.value = AuthState.Error(message = e.message ?: "Error checking email authentication method")
-                                }
+                                    }
+                                    .addOnFailureListener { e ->
+                                        _authState.value = AuthState.Error(e.message ?: "Error checking banned status")
+                                    }
+                            }
+                            .addOnFailureListener { e ->
+                                _authState.value = AuthState.Error(e.message ?: "Error checking email authentication method")
+                            }
 
-                        } catch (e: GoogleIdTokenParsingException) {
-                            _authState.value = AuthState.Error(message = e.message ?: "Error parsing Google token")
-                        }
-                    } else {
-                        _authState.value = AuthState.Error("Unsupported credential type")
+                    } catch (e: GoogleIdTokenParsingException) {
+                        _authState.value = AuthState.Error(e.message ?: "Error parsing Google token")
                     }
                 } else {
-                    _authState.value = AuthState.Error("Invalid credential")
+                    _authState.value = AuthState.Error("Unsupported credential type")
                 }
             } catch (e: Exception) {
-                _authState.value = AuthState.Error(message = e.message ?: "Authentication failed")
+                _authState.value = AuthState.Error(e.message ?: "Authentication failed")
             }
         }
     }
