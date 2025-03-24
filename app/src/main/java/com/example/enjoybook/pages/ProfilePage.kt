@@ -98,12 +98,7 @@ fun ProfilePage(
     var isSaving by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
-    var showReportDialog by remember { mutableStateOf(false) }
-    var reportReason by remember { mutableStateOf("") }
-    var showReportSuccessDialog by remember { mutableStateOf(false) }
-    var isReporting by remember { mutableStateOf(false) }
-    var reportOptions = listOf("Inappropriate content", "Fake account", "Harassment", "Spam", "Other")
-    var selectedReportOption by remember { mutableStateOf(reportOptions[0]) }
+
     // Stato per tenere traccia del tipo di autenticazione
     val isGoogleAccount = remember { mutableStateOf(false) }
 
@@ -114,7 +109,6 @@ fun ProfilePage(
     val currentUser = auth.currentUser
 
     var originalPassword by remember { mutableStateOf("") }
-    var userId by remember { mutableStateOf("") }
     var isCurrentUserProfile by remember { mutableStateOf(true) }
 
     val secondaryColor = Color(0xFF1A8A8F)
@@ -285,68 +279,6 @@ fun ProfilePage(
                 showErrorDialog = true
             }
     }
-
-    fun reportUser() {
-        if (currentUser == null) {
-            errorMessage = "You must be logged in to report accounts"
-            showErrorDialog = true
-            return
-        }
-
-        if (reportReason.isBlank() && selectedReportOption == "Other") {
-            errorMessage = "Please provide a reason for the report"
-            showErrorDialog = true
-            return
-        }
-
-        isReporting = true
-
-        // report document
-        val reportData = hashMapOf(
-            "reportedUserId" to userId,
-            "reportedBy" to currentUser.uid,
-            "reason" to if (selectedReportOption == "Other") reportReason else selectedReportOption,
-            "timestamp" to FieldValue.serverTimestamp()
-        )
-
-        firestore.collection("reports").add(reportData)
-            .addOnSuccessListener {
-                firestore.collection("reports")
-                    .whereEqualTo("reportedUserId", userId)
-                    .get()
-                    .addOnSuccessListener { reports ->
-                        if (reports.size() >= 5) {
-                            firestore.collection("users").document(userId)
-                                .update("isBanned", true)
-                                .addOnSuccessListener {
-                                    isReporting = false
-                                    showReportDialog = false
-                                    showReportSuccessDialog = true
-                                }
-                                .addOnFailureListener { e ->
-                                    isReporting = false
-                                    errorMessage = "Failed to ban user: ${e.message}"
-                                    showErrorDialog = true
-                                }
-                        } else {
-                            isReporting = false
-                            showReportDialog = false
-                            showReportSuccessDialog = true
-                        }
-                    }
-                    .addOnFailureListener { e ->
-                        isReporting = false
-                        errorMessage = "Failed to count reports: ${e.message}"
-                        showErrorDialog = true
-                    }
-            }
-            .addOnFailureListener { e ->
-                isReporting = false
-                errorMessage = "Failed to submit report: ${e.message}"
-                showErrorDialog = true
-            }
-    }
-
 
     val sheetState = rememberModalBottomSheetState()
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -709,40 +641,6 @@ fun ProfilePage(
                                     }
                                 }
                             }
-
-                            // Only show report button if this is NOT the current user's profile
-                            if (!isCurrentUserProfile) {
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                OutlinedButton(
-                                    onClick = { showReportDialog = true },
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.7f)
-                                        .height(50.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = warningColor
-                                    ),
-                                    border = BorderStroke(1.dp, warningColor),
-                                    shape = RoundedCornerShape(25.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Report,
-                                            contentDescription = "Report",
-                                            tint = warningColor,
-                                            modifier = Modifier.padding(end = 8.dp)
-                                        )
-                                        Text(
-                                            "Report Account",
-                                            color = warningColor,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
 
@@ -999,192 +897,6 @@ fun ProfilePage(
                 }
             }
         }
-    }
-
-    // Report Dialog
-    if (showReportDialog) {
-        AlertDialog(
-            onDismissRequest = { showReportDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Report,
-                        contentDescription = "Report",
-                        tint = warningColor,
-                        modifier = Modifier.padding(end = 12.dp)
-                    )
-                    Text(
-                        "Report Account",
-                        fontWeight = FontWeight.Bold,
-                        color = primaryTextColor
-                    )
-                }
-            },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        "Why are you reporting this user?",
-                        fontWeight = FontWeight.Medium,
-                        color = primaryTextColor,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    ExposedDropdownMenuBox(
-                        expanded = false,
-                        onExpandedChange = {  },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column {
-                            reportOptions.forEach { option ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp)
-                                        .clickable { selectedReportOption = option },
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(
-                                        selected = selectedReportOption == option,
-                                        onClick = { selectedReportOption = option },
-                                        colors = RadioButtonDefaults.colors(
-                                            selectedColor = accentColor
-                                        )
-                                    )
-                                    Text(
-                                        text = option,
-                                        modifier = Modifier.padding(start = 8.dp),
-                                        color = primaryTextColor
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    AnimatedVisibility(visible = selectedReportOption == "Other") {
-                        OutlinedTextField(
-                            value = reportReason,
-                            onValueChange = { reportReason = it },
-                            label = { Text("Please specify") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp),
-                            maxLines = 3,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = accentColor,
-                                focusedLabelColor = accentColor,
-                                cursorColor = accentColor
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                    }
-
-                    Text(
-                        "Users will be automatically banned after receiving 5 reports.",
-                        color = secondaryTextColor,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(top = 16.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { reportUser() },
-                    enabled = !isReporting,
-                    colors = ButtonDefaults.buttonColors(containerColor = warningColor),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    if (isReporting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text("Submit Report", color = Color.White)
-                    }
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showReportDialog = false },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryTextColor),
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, Color.LightGray)
-                ) {
-                    Text("Cancel")
-                }
-            },
-            containerColor = cardBackgroundColor,
-            shape = RoundedCornerShape(16.dp)
-        )
-    }
-
-    // Report Success Dialog
-    if (showReportSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = { showReportSuccessDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Success",
-                        tint = accentColor,
-                        modifier = Modifier.padding(end = 12.dp)
-                    )
-                    Text(
-                        "Report Submitted",
-                        fontWeight = FontWeight.Bold,
-                        color = primaryTextColor
-                    )
-                }
-            },
-            text = {
-                Text(
-                    "Thank you for your report. We take all reports seriously and will review this account. Users who receive multiple reports may be banned automatically.",
-                    lineHeight = 20.sp
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showReportSuccessDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text("OK", color = Color.White)
-                }
-            },
-            containerColor = cardBackgroundColor,
-            shape = RoundedCornerShape(16.dp)
-        )
-    }
-
-    if (showErrorDialog) {
-        AlertDialog(
-            onDismissRequest = { showErrorDialog = false },
-            title = {
-                Text(
-                    "Error",
-                    fontWeight = FontWeight.Bold,
-                    color = errorColor
-                )
-            },
-            text = {
-                Text(
-                    errorMessage,
-                    lineHeight = 20.sp
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showErrorDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text("OK", color = Color.White)
-                }
-            },
-            containerColor = cardBackgroundColor,
-            shape = RoundedCornerShape(16.dp)
-        )
     }
 }
 

@@ -15,7 +15,13 @@ val lightRed = Color(0xFFD23333)
 
 //colori da usare
 val primaryColor = Color(0xFF2CBABE)
+val secondaryColor = Color(0xFF1A8A8F)
 val backgroundColor = Color(0xFFF5F5F5)
 val textColor = Color(0xFF333333)
 val errorColor = Color(0xFFD32F2F)
+
+val successColor = Color(0xFF4CAF50)
+val warningColor = Color(0xFFFF9800)
+val cardBackground = Color.White
+
 

@@ -1,6 +1,7 @@
 package com.example.enjoybook.pages
 
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Icon
@@ -25,11 +27,14 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Report
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -68,6 +73,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 //import com.google.firebase.firestore.auth.User
 import com.example.enjoybook.data.User
+import com.example.enjoybook.utils.reportHandler
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,8 +94,12 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     var user by remember { mutableStateOf<User?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
+    val auth = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+
     val authState = authViewModel.authState.observeAsState().value
 
+    var showReportDialog by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
@@ -190,9 +200,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Visualizzazione dei dettagli dell'utente
                 if (user != null) {
-                    // Immagine profilo (se disponibile)
                     user?.profilePictureUrl?.let { url ->
                         AsyncImage(
                             model = url,
@@ -227,7 +235,48 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    //Spacer(modifier = Modifier.height(24.dp))
+
+                    //show only if is not the current user
+                    if (currentUser != null) {
+                        if(currentUser.uid != userId) {
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            OutlinedButton(
+                                onClick = { showReportDialog = true },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.7f)
+                                    .height(50.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = warningColor
+                                ),
+                                border = BorderStroke(1.dp, warningColor),
+                                shape = RoundedCornerShape(25.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    androidx.compose.material3.Icon(
+                                        imageVector = Icons.Default.Report,
+                                        contentDescription = "Report",
+                                        tint = warningColor,
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                    Text(
+                                        "Report Account",
+                                        color = warningColor,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                }
+                            }
+
+                            if(showReportDialog){
+                                reportHandler(userId, showReportDialog)
+                            }
+                        }
+                    }
 
                     // Altre informazioni dell'utente
                     Card(
@@ -242,6 +291,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         Column(
                             modifier = Modifier.padding(16.dp)
                         ) {
+
                             // Email
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -301,3 +351,4 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     }
 
 }
+
