@@ -719,30 +719,6 @@ fun AddPage(
                         }
                     }
 
-                    // Condition field
-                    /*OutlinedTextField(
-                        value = condition.value,
-                        onValueChange = { condition.value = it },
-                        label = { Text("Condition") },
-                        placeholder = { Text("Enter the condition of the book") },
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = TextStyle(color = textColor, fontSize = 16.sp),
-                        singleLine = true,
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Book,
-                                contentDescription = null,
-                                tint = primaryColor
-                            )
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = primaryColor,
-                            unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
-                            focusedLabelColor = primaryColor,
-                            cursorColor = primaryColor
-                        )
-                    )*/
-
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Description field
@@ -1266,6 +1242,7 @@ fun addDataToFirebaseWithImages(
             }
         }.addOnFailureListener { e ->
             Toast.makeText(context, "Failed to upload front cover: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.d("Camera", "${e.message}")
         }
     }
 
@@ -1286,6 +1263,7 @@ fun addDataToFirebaseWithImages(
             }
         }.addOnFailureListener { e ->
             Toast.makeText(context, "Failed to upload back cover: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.d("Camera", "${e.message}")
         }
     }
 

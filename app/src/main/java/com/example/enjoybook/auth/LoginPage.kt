@@ -1,4 +1,4 @@
-package com.example.enjoybook.pages
+package com.example.enjoybook.auth
 
 
 import android.widget.Toast
@@ -73,7 +73,6 @@ import com.example.enjoybook.viewModel.AuthViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
-import kotlinx.coroutines.flow.collect
 
 
 @Composable

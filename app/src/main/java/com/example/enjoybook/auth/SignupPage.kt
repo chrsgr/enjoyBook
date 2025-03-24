@@ -1,4 +1,4 @@
-package com.example.enjoybook.pages
+package com.example.enjoybook.auth
 
 import android.widget.Toast
 import androidx.compose.animation.core.*

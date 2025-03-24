@@ -18,10 +18,10 @@ import com.example.enjoybook.pages.FilteredBooksPage
 import com.example.enjoybook.pages.HomePage
 import com.example.enjoybook.pages.LibraryPage
 import com.example.enjoybook.pages.ListBookAddPage
-import com.example.enjoybook.pages.LoginPage
+import com.example.enjoybook.auth.LoginPage
 import com.example.enjoybook.pages.ProfilePage
 import com.example.enjoybook.pages.SearchPage
-import com.example.enjoybook.pages.SignupPage
+import com.example.enjoybook.auth.SignupPage
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
 import androidx.compose.foundation.background
@@ -83,6 +83,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.enjoybook.admin.AdminListReports
 import com.example.enjoybook.admin.AdminPanel
+import com.example.enjoybook.auth.ForgotPasswordPage
 import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.User
 import com.example.enjoybook.pages.*
