@@ -174,17 +174,29 @@ fun AddPage(
         "War", "Women's fiction", "Young adult"
     )
 
-    val conditionTypes = listOf(
+    val bookConditions = listOf(
         "New", "Fine", "As New", "Very good", "Good", "Fair", "Poor"
     )
 
-    var expanded by remember { mutableStateOf(false) }
+    var expandedType by remember { mutableStateOf(false) }
+    var expandedCondition by remember { mutableStateOf(false) }
+
     var selectedType by remember {
         mutableStateOf(
             if (initialCategory.isNotEmpty() && bookTypes.contains(initialCategory)) {
                 initialCategory
             } else {
                 bookTypes.first()
+            }
+        )
+    }
+
+    var selectedCondition by remember {
+        mutableStateOf(
+            if (initialCategory.isNotEmpty() && bookConditions.contains(initialCategory)) {
+                initialCategory
+            } else {
+                bookConditions.first()
             }
         )
     }
@@ -201,7 +213,10 @@ fun AddPage(
                         book?.let {
                             title.value = it.title
                             author.value = it.author
-                            condition.value = it.condition
+                            if (bookConditions.contains(it.condition)) {
+                                selectedCondition = it.condition
+                            }
+                            //condition.value = it.condition
                             description.value = it.description
                             edition.value = it.edition
                             year.value = it.year
@@ -624,8 +639,88 @@ fun AddPage(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    ExposedDropdownMenuBox(
+                        expanded = expandedCondition,
+                        onExpandedChange = { expandedCondition = !expandedCondition },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = selectedCondition,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Book Condition") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Book,
+                                    contentDescription = null,
+                                    tint = primaryColor
+                                )
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = if (expandedCondition) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = primaryColor
+                                )
+                            },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = primaryColor,
+                                unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
+                                focusedLabelColor = primaryColor,
+                                cursorColor = primaryColor,
+                                focusedContainerColor = backgroundColor,
+                                unfocusedContainerColor = backgroundColor
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = expandedCondition,
+                            onDismissRequest = { expandedCondition = false },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(backgroundColor)
+                        ) {
+                            bookConditions.forEach { condition ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = condition,
+                                            color = textColor,
+                                            fontWeight = if (condition == selectedCondition) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    onClick = {
+                                        selectedCondition = condition
+                                        expandedCondition = false
+                                    },
+                                    colors = MenuDefaults.itemColors(
+                                        textColor = textColor
+                                    ),
+                                    leadingIcon = {
+                                        if (condition == selectedCondition) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = primaryColor
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            if (condition == selectedCondition) primaryColor.copy(alpha = 0.1f) else Color.Transparent
+                                        )
+                                )
+                            }
+                        }
+                    }
+
                     // Condition field
-                    OutlinedTextField(
+                    /*OutlinedTextField(
                         value = condition.value,
                         onValueChange = { condition.value = it },
                         label = { Text("Condition") },
@@ -646,7 +741,7 @@ fun AddPage(
                             focusedLabelColor = primaryColor,
                             cursorColor = primaryColor
                         )
-                    )
+                    )*/
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -730,8 +825,8 @@ fun AddPage(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded },
+                        expanded = expandedType,
+                        onExpandedChange = { expandedType = !expandedType },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
@@ -748,7 +843,7 @@ fun AddPage(
                             },
                             trailingIcon = {
                                 Icon(
-                                    imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                    imageVector = if (expandedType) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                                     contentDescription = null,
                                     tint = primaryColor
                                 )
@@ -768,8 +863,8 @@ fun AddPage(
                         )
 
                         ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
+                            expanded = expandedType,
+                            onDismissRequest = { expandedType = false },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(backgroundColor)
@@ -785,7 +880,7 @@ fun AddPage(
                                     },
                                     onClick = {
                                         selectedType = type
-                                        expanded = false
+                                        expandedType = false
                                     },
                                     colors = MenuDefaults.itemColors(
                                         textColor = textColor
@@ -819,7 +914,7 @@ fun AddPage(
                                 Toast.makeText(localContext, "Please enter author", Toast.LENGTH_SHORT).show()
                             } else if (selectedType.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter type", Toast.LENGTH_SHORT).show()
-                            } else if (condition.value.isEmpty()) {
+                            } else if (selectedCondition.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter condition", Toast.LENGTH_SHORT).show()
                             } else if (description.value.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter description", Toast.LENGTH_SHORT).show()
@@ -831,14 +926,14 @@ fun AddPage(
                                 if (isEditing && bookId != null) {
                                     updateBookWithImages(
                                         bookId, title.value, author.value, selectedType,
-                                        condition.value, description.value, edition.value,
+                                        selectedCondition, description.value, edition.value,
                                         year.value, frontCoverUri.value, backCoverUri.value,
                                         localContext, navController
                                     )
                                 } else {
                                     addDataToFirebaseWithImages(
                                         title.value, author.value, selectedType,
-                                        condition.value, description.value, edition.value,
+                                        selectedCondition, description.value, edition.value,
                                         year.value, userId, username, frontCoverUri.value, backCoverUri.value,
                                         localContext, navController
                                     )
