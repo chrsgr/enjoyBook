@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Output
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -383,9 +384,11 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
     val primaryColor = Color(0xFFB4E4E8)
     val textColor = Color(0xFF333333)
     val notificationcolor = Color(0xFFF5F5F5)
+    var userId = "";
 
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
+            userId = currentUser.uid.toString()
             val db = FirebaseFirestore.getInstance()
             db.collection("notifications")
                 .whereEqualTo("recipientId", currentUser.uid)
@@ -454,9 +457,27 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Profile icon
+            // Settings icon
             IconButton(
                 onClick = { navController.navigate("profile") },
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.2f))
+                    .padding(horizontal = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = Color.Black
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Profile icon
+            IconButton(
+                onClick = { navController.navigate("userDetails/${userId}") },
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)

@@ -64,6 +64,7 @@ import androidx.navigation.NavController
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.User
 import com.example.enjoybook.viewModel.SearchViewModel
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
@@ -90,6 +91,11 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
         "Horror", "Literary fiction", "Mystery", "Poetry", "Plays", "Romance",
         "Science fiction", "Short stories", "Thrillers", "War", "Women's fiction", "Young adult"
     )
+
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+
+    //filtro la ricerca utenti: escludo il mio profilo
+    val filteredUsers = users.filter { it.userId != currentUserId }
 
     val isLoading by viewModel.isLoading.collectAsState()
 
@@ -296,11 +302,11 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                                         .padding(horizontal = 16.dp)
                                         .weight(1f)
                                 ) {
-                                    items(users) { user ->
+                                    items(filteredUsers) { user ->
                                         UserItem(user, primaryColor, textColor, navController)
                                     }
 
-                                    if (users.isEmpty()) {
+                                    if (filteredUsers.isEmpty()) {
                                         item {
                                             Box(
                                                 modifier = Modifier
