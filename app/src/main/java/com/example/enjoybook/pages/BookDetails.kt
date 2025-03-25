@@ -318,14 +318,18 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                 if (isFrontCover.value) book?.frontCoverUrl else book?.backCoverUrl
 
                             val painter = rememberAsyncImagePainter(imageUrl)
-                            val state = painter.state
 
-                            if (state is AsyncImagePainter.State.Loading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (painter.state is AsyncImagePainter.State.Loading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                }
                             }
 
                             AsyncImage(
