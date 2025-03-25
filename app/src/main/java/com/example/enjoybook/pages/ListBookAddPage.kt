@@ -109,7 +109,8 @@ fun ListBookAddPage(navController: NavController) {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = secondaryBackgroundColor,
                     titleContentColor = textColor
-                )
+                ),
+                windowInsets = WindowInsets(0)
             )
         },
         floatingActionButton = {
@@ -126,6 +127,7 @@ fun ListBookAddPage(navController: NavController) {
                 )
             }
         },
+        contentWindowInsets = WindowInsets(0),
         containerColor = backgroundColor
     ) { paddingValues ->
         Box(

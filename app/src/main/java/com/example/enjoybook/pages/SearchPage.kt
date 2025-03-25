@@ -1,6 +1,8 @@
 package com.example.enjoybook.pages
 
+import android.content.Context
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +55,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -98,6 +101,8 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
     val filteredUsers = users.filter { it.userId != currentUserId }
 
     val isLoading by viewModel.isLoading.collectAsState()
+
+    val localContext = LocalContext.current
 
     LaunchedEffect(Unit) {
         searchFocusRequester.requestFocus()
@@ -303,7 +308,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                                         .weight(1f)
                                 ) {
                                     items(filteredUsers) { user ->
-                                        UserItem(user, primaryColor, textColor, navController)
+                                        UserItem(user, primaryColor, textColor, navController, localContext)
                                     }
 
                                     if (filteredUsers.isEmpty()) {
@@ -359,7 +364,7 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 
 // User Item Composable for displaying search results
 @Composable
-fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: NavController) {
+fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: NavController, context: Context) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -375,7 +380,6 @@ fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: N
             modifier = Modifier
                 .padding(16.dp)
                 .clickable {
-                    // Navigate to UserProfile screen when the user is clicked
                     navController.navigate("userDetails/${user.userId}")
                 },
             verticalAlignment = Alignment.CenterVertically

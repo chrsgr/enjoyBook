@@ -904,14 +904,20 @@ fun AddPage(
                                         bookId, title.value, author.value, selectedType,
                                         selectedCondition, description.value, edition.value,
                                         year.value, frontCoverUri.value, backCoverUri.value,
-                                        localContext, navController
+                                        localContext, navController,
+                                        onLoadingChanged = { loading ->
+                                            isLoading = loading
+                                        }
                                     )
                                 } else {
                                     addDataToFirebaseWithImages(
                                         title.value, author.value, selectedType,
                                         selectedCondition, description.value, edition.value,
                                         year.value, userId, username, frontCoverUri.value, backCoverUri.value,
-                                        localContext, navController
+                                        localContext, navController,
+                                        onLoadingChanged = { loading ->
+                                            isLoading = loading
+                                        }
                                     )
                                 }
                             }
@@ -1097,8 +1103,12 @@ fun updateBookWithImages(
     frontCoverUri: Uri?,
     backCoverUri: Uri?,
     context: Context,
-    navController: NavController
+    navController: NavController,
+    onLoadingChanged: (Boolean) -> Unit // Add this parameter
 ) {
+    // Set loading state to true at the beginning
+    onLoadingChanged(true)
+
     val db: FirebaseFirestore = FirebaseFirestore.getInstance()
     val storage = FirebaseStorage.getInstance()
     val docRef = db.collection("books").document(bookId)
@@ -1133,8 +1143,10 @@ fun updateBookWithImages(
                 uploadTask.addOnSuccessListener { downloadUri ->
                     updates["frontCoverUrl"] = downloadUri.toString()
                     if (backCoverUri == null || uploadTasks.size == 2) {
-                        updateDocumentWithChanges(docRef, updates, context, navController)
+                        updateDocumentWithChanges(docRef, updates, context, navController, onLoadingChanged)
                     }
+                }.addOnFailureListener {
+                    onLoadingChanged(false)
                 }
             }
 
@@ -1151,18 +1163,22 @@ fun updateBookWithImages(
                 uploadTask.addOnSuccessListener { downloadUri ->
                     updates["backCoverUrl"] = downloadUri.toString()
                     if (frontCoverUri == null || uploadTasks.size == 2) {
-                        updateDocumentWithChanges(docRef, updates, context, navController)
+                        updateDocumentWithChanges(docRef, updates, context, navController, onLoadingChanged)
                     }
+                }.addOnFailureListener {
+                    onLoadingChanged(false)
                 }
             }
 
             if (uploadTasks.isEmpty()) {
-                updateDocumentWithChanges(docRef, updates, context, navController)
+                updateDocumentWithChanges(docRef, updates, context, navController, onLoadingChanged)
             }
         } else {
+            onLoadingChanged(false)
             Toast.makeText(context, "Book not found", Toast.LENGTH_SHORT).show()
         }
     }.addOnFailureListener { e ->
+        onLoadingChanged(false)
         Toast.makeText(context, "Error getting book data: ${e.message}", Toast.LENGTH_SHORT).show()
     }
 }
@@ -1171,14 +1187,17 @@ private fun updateDocumentWithChanges(
     docRef: DocumentReference,
     updates: HashMap<String, Any>,
     context: Context,
-    navController: NavController
+    navController: NavController,
+    onLoadingChanged: (Boolean) -> Unit
 ) {
     docRef.update(updates)
         .addOnSuccessListener {
+            onLoadingChanged(false)
             Toast.makeText(context, "Book updated successfully", Toast.LENGTH_SHORT).show()
             navController.popBackStack()
         }
         .addOnFailureListener { e ->
+            onLoadingChanged(false)
             Toast.makeText(context, "Failed to update book: ${e.message}", Toast.LENGTH_SHORT).show()
         }
 }
@@ -1196,8 +1215,12 @@ fun addDataToFirebaseWithImages(
     frontCoverUri: Uri?,
     backCoverUri: Uri?,
     context: Context,
-    navController: NavController
+    navController: NavController,
+    onLoadingChanged: (Boolean) -> Unit
 ) {
+
+    onLoadingChanged(true)
+
     val db: FirebaseFirestore = FirebaseFirestore.getInstance()
     val storage = FirebaseStorage.getInstance()
     val dbCourses: CollectionReference = db.collection("books")
@@ -1238,11 +1261,11 @@ fun addDataToFirebaseWithImages(
         uploadTask.addOnSuccessListener { downloadUri ->
             bookData["frontCoverUrl"] = downloadUri.toString()
             if (backCoverUri == null || (backCoverUri != null && bookData.containsKey("backCoverUrl"))) {
-                saveBookToFirestore(docRef, bookData, context, navController)
+                saveBookToFirestore(docRef, bookData, context, navController, onLoadingChanged)
             }
         }.addOnFailureListener { e ->
+            onLoadingChanged(false)
             Toast.makeText(context, "Failed to upload front cover: ${e.message}", Toast.LENGTH_SHORT).show()
-            Log.d("Camera", "${e.message}")
         }
     }
 
@@ -1259,16 +1282,16 @@ fun addDataToFirebaseWithImages(
         uploadTask.addOnSuccessListener { downloadUri ->
             bookData["backCoverUrl"] = downloadUri.toString()
             if (frontCoverUri == null || (frontCoverUri != null && bookData.containsKey("frontCoverUrl"))) {
-                saveBookToFirestore(docRef, bookData, context, navController)
+                saveBookToFirestore(docRef, bookData, context, navController, onLoadingChanged)
             }
         }.addOnFailureListener { e ->
+            onLoadingChanged(false)
             Toast.makeText(context, "Failed to upload back cover: ${e.message}", Toast.LENGTH_SHORT).show()
-            Log.d("Camera", "${e.message}")
         }
     }
 
     if (uploadTasks.isEmpty()) {
-        saveBookToFirestore(docRef, bookData, context, navController)
+        saveBookToFirestore(docRef, bookData, context, navController, onLoadingChanged)
     }
 }
 
@@ -1276,10 +1299,12 @@ private fun saveBookToFirestore(
     docRef: DocumentReference,
     bookData: HashMap<String, Any>,
     context: Context,
-    navController: NavController
+    navController: NavController,
+    onLoadingChanged: (Boolean) -> Unit
 ) {
     docRef.set(bookData)
         .addOnSuccessListener {
+            onLoadingChanged(false)
             Toast.makeText(
                 context,
                 "Your book has been added in the library!",
@@ -1288,6 +1313,7 @@ private fun saveBookToFirestore(
             navController.popBackStack()
         }
         .addOnFailureListener { e ->
+            onLoadingChanged(false)
             Toast.makeText(context, "Failed to add book: ${e.message}", Toast.LENGTH_SHORT).show()
         }
 }
