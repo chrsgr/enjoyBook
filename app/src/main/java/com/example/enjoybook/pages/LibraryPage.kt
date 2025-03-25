@@ -1,5 +1,6 @@
 package com.example.enjoybook.pages
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -91,7 +92,9 @@ fun LibraryPage(navController: NavController) {
                                         type = doc.getString("type") ?: "",
                                         userId = doc.getString("userId") ?: "",
                                         isAvailable = false,
-                                        userEmail = doc.getString("userEmail") ?: ""
+                                        userEmail = doc.getString("userEmail") ?: "",
+                                        frontCoverUrl = doc.getString("frontCoverUrl") ?: null,
+                                        backCoverUrl = doc.getString("backCoverUrl") ?: null
                                     )
                                 }
                             }
@@ -113,7 +116,9 @@ fun LibraryPage(navController: NavController) {
                             type = doc.getString("type") ?: "",
                             userId = doc.getString("userId") ?: "",
                             isAvailable = false,
-                            userEmail = doc.getString("userEmail") ?: ""
+                            userEmail = doc.getString("userEmail") ?: "",
+                            frontCoverUrl = doc.getString("frontCoverUrl") ?: null,
+                            backCoverUrl = doc.getString("backCoverUrl") ?: null
                         )
                     }
                     isLoading = false
@@ -207,6 +212,7 @@ fun LibraryPage(navController: NavController) {
 
 @Composable
 fun BookGrid(books: List<Book>, navController: NavController, emptyMessage: String) {
+
     if (books.isEmpty()) {
         Box(
             modifier = Modifier
@@ -248,6 +254,7 @@ fun BookGrid(books: List<Book>, navController: NavController, emptyMessage: Stri
 }
 @Composable
 fun BookCard(book: Book, navController: NavController) {
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -263,6 +270,8 @@ fun BookCard(book: Book, navController: NavController) {
         ) {
             // Book cover image section
             val isFrontCover = remember { mutableStateOf(true) }
+
+            Log.d("Lent books", "${book.frontCoverUrl}")
 
             Box(
                 modifier = Modifier
