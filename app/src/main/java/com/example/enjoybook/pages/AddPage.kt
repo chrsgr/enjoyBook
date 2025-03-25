@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.IconButton
@@ -36,8 +38,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,6 +101,7 @@ fun AddPage(
     val description = remember { mutableStateOf(initialDescription) }
     val edition = remember { mutableStateOf("") }
     val year = remember { mutableStateOf(initialYear) }
+    val yearPattern = "^[0-9]{4}$".toRegex()
     val frontCoverUri = remember { mutableStateOf<Uri?>(null) }
     val backCoverUri = remember { mutableStateOf<Uri?>(null) }
 
@@ -181,6 +188,8 @@ fun AddPage(
 
     var expandedType by remember { mutableStateOf(false) }
     var expandedCondition by remember { mutableStateOf(false) }
+
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     var selectedType by remember {
         mutableStateOf(
@@ -609,7 +618,15 @@ fun AddPage(
                             unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
                             focusedLabelColor = primaryColor,
                             cursorColor = primaryColor
-                        )
+                        ),
+                        keyboardOptions = KeyboardOptions.Default.copy(
+                            keyboardType = KeyboardType.Text,
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                        ),
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -635,7 +652,15 @@ fun AddPage(
                             unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
                             focusedLabelColor = primaryColor,
                             cursorColor = primaryColor
-                        )
+                        ),
+                        keyboardOptions = KeyboardOptions.Default.copy(
+                            keyboardType = KeyboardType.Text,
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                        ),
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -744,7 +769,15 @@ fun AddPage(
                             unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
                             focusedLabelColor = primaryColor,
                             cursorColor = primaryColor
-                        )
+                        ),
+                        keyboardOptions = KeyboardOptions.Default.copy(
+                            keyboardType = KeyboardType.Text,
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                        ),
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -770,7 +803,15 @@ fun AddPage(
                             unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
                             focusedLabelColor = primaryColor,
                             cursorColor = primaryColor
-                        )
+                        ),
+                        keyboardOptions = KeyboardOptions.Default.copy(
+                            keyboardType = KeyboardType.Text,
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                        ),
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -796,7 +837,15 @@ fun AddPage(
                             unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
                             focusedLabelColor = primaryColor,
                             cursorColor = primaryColor
-                        )
+                        ),
+                        keyboardOptions = KeyboardOptions.Default.copy(
+                            keyboardType = KeyboardType.Text,
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                        ),
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))

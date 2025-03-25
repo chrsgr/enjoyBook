@@ -193,7 +193,7 @@ fun ReportCard(report: Report, navController: NavController) {
                 modifier = Modifier.padding(8.dp)
             ) {
                 Text(
-                    text = "Reported user: ${report.reportedUserId}",
+                    text = "Reported user: ${report.reportedUsername}",
                     color = textColor,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium

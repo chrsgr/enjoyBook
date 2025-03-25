@@ -338,7 +338,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                     }
 
                                     if (showReportDialog) {
-                                        reportHandler(userId, showReportDialog)
+                                        reportHandler(userId, user?.username, showReportDialog)
                                     }
                                 }
                             }

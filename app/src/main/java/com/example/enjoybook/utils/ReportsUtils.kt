@@ -45,7 +45,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun reportHandler(userId: String, showReportDialog: Boolean){
+fun reportHandler(userId: String, username: String?, showReportDialog: Boolean){
     // Report Dialog
 
     val backgroundColor = (primaryColor.copy(alpha = 0.1f))
@@ -91,6 +91,7 @@ fun reportHandler(userId: String, showReportDialog: Boolean){
         val reportData = hashMapOf(
             "reportedUserId" to userId,
             "reportedBy" to currentUser.uid,
+            "reportedUsername" to username,
             "reason" to if (selectedReportOption == "Other") reportReason else selectedReportOption,
             "timestamp" to FieldValue.serverTimestamp()
         )
