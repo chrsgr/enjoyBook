@@ -58,6 +58,7 @@ import java.util.*
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.firebase.firestore.FieldValue
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1124,7 +1125,8 @@ fun updateBookWithImages(
                 "condition" to condition,
                 "description" to description,
                 "edition" to edition,
-                "year" to year
+                "year" to year,
+                "lastUpdated" to FieldValue.serverTimestamp()
             )
 
             val uploadTasks = mutableListOf<Task<Uri>>()
@@ -1240,6 +1242,7 @@ fun addDataToFirebaseWithImages(
         put("title", title)
         put("titleLower", titleLower)
         put("type", type)
+        put("timestamp", FieldValue.serverTimestamp())
         put("userUsername", userUsername)
         put("userEmail", currentUser?.email.toString())
         put("userId", userId)

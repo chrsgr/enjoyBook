@@ -1,5 +1,7 @@
 package com.example.enjoybook.data
 
+import com.google.firebase.Timestamp
+
 data class Book(
     val id: String = "",
     val isAvailable: Boolean? = true,
@@ -17,6 +19,8 @@ data class Book(
     val year : String = "",
     val frontCoverUrl: String? = null,
     val backCoverUrl: String? = null,
+    val timestamp: Timestamp = Timestamp.now(),
+    val lastUpdated: Timestamp? = null
 
 )
 

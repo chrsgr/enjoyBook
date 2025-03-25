@@ -1,6 +1,7 @@
 package com.example.enjoybook.pages
 
 
+import android.icu.util.Calendar
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -84,7 +85,9 @@ import com.example.enjoybook.utils.NotificationItem
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -458,6 +461,12 @@ fun FeatureBookCard(
     onClick: () -> Unit
 ) {
 
+    val calendar = Calendar.getInstance()
+    calendar.add(Calendar.DAY_OF_YEAR, -7)
+    val sevenDaysAgo = Timestamp(calendar.time)
+
+    val isNew = book.timestamp?.toDate()?.after(sevenDaysAgo.toDate()) == true
+
     val isFrontCover = remember { mutableStateOf(true) }
 
     Card(
@@ -501,6 +510,22 @@ fun FeatureBookCard(
                         modifier = Modifier.fillMaxSize(),
                         //contentScale = ContentScale.Crop
                     )
+
+                    if (isNew) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .background(primaryColor, shape = RoundedCornerShape(bottomEnd = 8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "NEW",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
                 }
             }
 
@@ -519,8 +544,26 @@ fun FeatureBookCard(
                         tint = primaryColor,
                         modifier = Modifier.size(36.dp)
                     )
+
+                    if (isNew) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .background(primaryColor, shape = RoundedCornerShape(bottomEnd = 8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "NEW",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
                 }
             }
+
+
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -550,7 +593,6 @@ fun FeatureBookCard(
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
-
 
 
                 Text(
@@ -652,6 +694,7 @@ private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
     db.collection("books")
+        .orderBy("timestamp", Query.Direction.DESCENDING)
         .limit(10)  // Limit to 10 books
         .get()
         .addOnSuccessListener { documents ->
@@ -669,3 +712,4 @@ private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
             onComplete(emptyList())
         }
 }
+

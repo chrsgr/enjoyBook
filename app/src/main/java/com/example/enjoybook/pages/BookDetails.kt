@@ -48,6 +48,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.Review
@@ -314,6 +316,17 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         ) {
                             val imageUrl =
                                 if (isFrontCover.value) book?.frontCoverUrl else book?.backCoverUrl
+
+                            val painter = rememberAsyncImagePainter(imageUrl)
+                            val state = painter.state
+
+                            if (state is AsyncImagePainter.State.Loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            }
 
                             AsyncImage(
                                 model = imageUrl,

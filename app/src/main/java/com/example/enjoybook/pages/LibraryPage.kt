@@ -52,6 +52,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 
 @Composable
 fun LibraryPage(navController: NavController) {
@@ -271,8 +273,6 @@ fun BookCard(book: Book, navController: NavController) {
             // Book cover image section
             val isFrontCover = remember { mutableStateOf(true) }
 
-            Log.d("Lent books", "${book.frontCoverUrl}")
-
             Box(
                 modifier = Modifier
                     .weight(3f)
@@ -287,6 +287,17 @@ fun BookCard(book: Book, navController: NavController) {
                     (!isFrontCover.value && book.backCoverUrl != null)) {
 
                     val imageUrl = if (isFrontCover.value) book.frontCoverUrl else book.backCoverUrl
+
+                    val painter = rememberAsyncImagePainter(imageUrl)
+                    val state = painter.state
+
+                    if (state is AsyncImagePainter.State.Loading) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
 
                     AsyncImage(
                         model = imageUrl,
