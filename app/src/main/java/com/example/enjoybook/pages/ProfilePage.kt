@@ -212,70 +212,95 @@ fun ProfilePage(
 
         isSaving = true
 
-        val userData = hashMapOf(
-            "name" to name,
-            "surname" to surname,
-            "username" to username,
-            "email" to email,
-            "phone" to phone,
-            "lastUpdated" to FieldValue.serverTimestamp()
-        )
-
-
-        imageUri?.let {
-            userData["profilePictureUrl"] = it.toString()
-        }
-
-        val updateFirestore = {
-            firestore.collection("users").document(currentUser.uid)
-                .update(userData as Map<String, Any>)
-                .addOnSuccessListener {
-                    isSaving = false
-                    isEditing = false
-                    Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
-                }
-                .addOnFailureListener { e ->
-                    isSaving = false
-                    errorMessage = "Failed to update profile: ${e.message}"
-                    showErrorDialog = true
-                }
-        }
-
-        // Verifica se l'utente è autenticato tramite Google
-        firestore.collection("users").document(currentUser.uid)
+        // Check username uniqueness before saving
+        firestore.collection("users")
+            .whereEqualTo("username", username)
             .get()
-            .addOnSuccessListener { document ->
-                val isGoogleAuth = document.getBoolean("isGoogleAuth") ?: false
+            .addOnSuccessListener { querySnapshot ->
+                // Filter out the current user's document
+                val otherUsersWithUsername = querySnapshot.documents
+                    .filter { it.id != currentUser.uid }
 
-                // Gestione aggiornamento password (se necessario e non è un account Google)
-                if (password.isNotBlank() && password != originalPassword) {
-                    if (isGoogleAuth) {
-                        // Utente Google, non permettere la modifica della password
-                        isSaving = false
-                        errorMessage = "Google accounts cannot change their password through the app. Please manage your Google account settings instead."
-                        showErrorDialog = true
-                    } else {
-                        // Utente con email/password, procedi con l'aggiornamento
-                        currentUser.updatePassword(password)
-                            .addOnCompleteListener { task ->
-                                if (task.isSuccessful) {
-                                    // Password aggiornata, ora aggiorna Firestore
-                                    updateFirestore()
-                                } else {
-                                    isSaving = false
-                                    errorMessage = "Failed to update password: ${task.exception?.message}"
-                                    showErrorDialog = true
-                                }
+                if (otherUsersWithUsername.isNotEmpty()) {
+                    // Username already exists for another user
+                    isSaving = false
+                    errorMessage = "Username is already taken. Please choose a different username."
+                    showErrorDialog = true
+                    Toast.makeText(context, "Username is already taken. Please choose a different username.", Toast.LENGTH_SHORT).show()
+
+                } else {
+                    // Username is unique, proceed with saving
+                    val userData = hashMapOf(
+                        "name" to name,
+                        "surname" to surname,
+                        "username" to username,
+                        "email" to email,
+                        "phone" to phone,
+                        "lastUpdated" to FieldValue.serverTimestamp()
+                    )
+
+                    imageUri?.let {
+                        userData["profilePictureUrl"] = it.toString()
+                    }
+
+                    val updateFirestore = {
+                        firestore.collection("users").document(currentUser.uid)
+                            .update(userData as Map<String, Any>)
+                            .addOnSuccessListener {
+                                isSaving = false
+                                isEditing = false
+                                Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                            }
+                            .addOnFailureListener { e ->
+                                isSaving = false
+                                errorMessage = "Failed to update profile: ${e.message}"
+                                showErrorDialog = true
+                                Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
                             }
                     }
-                } else {
-                    // Nessun aggiornamento password necessario, aggiorna solo Firestore
-                    updateFirestore()
+
+                    // Verifica se l'utente è autenticato tramite Google
+                    firestore.collection("users").document(currentUser.uid)
+                        .get()
+                        .addOnSuccessListener { document ->
+                            val isGoogleAuth = document.getBoolean("isGoogleAuth") ?: false
+
+                            // Gestione aggiornamento password (se necessario e non è un account Google)
+                            if (password.isNotBlank() && password != originalPassword) {
+                                if (isGoogleAuth) {
+                                    // Utente Google, non permettere la modifica della password
+                                    isSaving = false
+                                    errorMessage = "Google accounts cannot change their password through the app. Please manage your Google account settings instead."
+                                    showErrorDialog = true
+                                } else {
+                                    // Utente con email/password, procedi con l'aggiornamento
+                                    currentUser.updatePassword(password)
+                                        .addOnCompleteListener { task ->
+                                            if (task.isSuccessful) {
+                                                // Password aggiornata, ora aggiorna Firestore
+                                                updateFirestore()
+                                            } else {
+                                                isSaving = false
+                                                errorMessage = "Failed to update password: ${task.exception?.message}"
+                                                showErrorDialog = true
+                                            }
+                                        }
+                                }
+                            } else {
+                                // Nessun aggiornamento password necessario, aggiorna solo Firestore
+                                updateFirestore()
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            isSaving = false
+                            errorMessage = "Failed to retrieve account information: ${e.message}"
+                            showErrorDialog = true
+                        }
                 }
             }
             .addOnFailureListener { e ->
                 isSaving = false
-                errorMessage = "Failed to retrieve account information: ${e.message}"
+                errorMessage = "Failed to check username uniqueness: ${e.message}"
                 showErrorDialog = true
             }
     }

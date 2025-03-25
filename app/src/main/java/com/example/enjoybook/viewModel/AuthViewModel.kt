@@ -2,6 +2,7 @@ package com.example.enjoybook.viewModel
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -150,85 +151,117 @@ class AuthViewModel(val context: Context): ViewModel() {
                             _authState.value = AuthState.Error("This email is already used with Google authentication. Please sign in with Google.")
                             return@addOnSuccessListener
                         }
+
                     }
                 }
 
-                // Se l'email non è usata con Google, procedi con la registrazione
-                auth.createUserWithEmailAndPassword(email, password)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            val user = auth.currentUser
-                            user?.sendEmailVerification()
-                                ?.addOnCompleteListener { verificationTask ->
-                                    if (verificationTask.isSuccessful) {
-                                        val userId = auth.currentUser?.uid
+                isUsernameTaken(username) { isTaken ->
+                    if (isTaken) {
+                        // Mostra un messaggio di errore (l'username è già preso)
+                        _authState.value = AuthState.Error("This username is already.")
+                        return@isUsernameTaken
 
-                                        if (userId != null) {
+                    } else {
+                        // Se l'email non è usata con Google, procedi con la registrazione
+                        auth.createUserWithEmailAndPassword(email, password)
+                            .addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    val user = auth.currentUser
+                                    user?.sendEmailVerification()
+                                        ?.addOnCompleteListener { verificationTask ->
+                                            if (verificationTask.isSuccessful) {
+                                                val userId = auth.currentUser?.uid
 
-                                            val displayName = "$name $surname"
-                                            val encodedName = URLEncoder.encode(displayName, "UTF-8")
-                                            val profilePictureUrl = "https://ui-avatars.com/api/?name=$encodedName&background=random&color=fff&size=200"
+                                                if (userId != null) {
 
-                                            // Aggiorna anche il profilo utente di Firebase Auth
-                                            val profileUpdates = userProfileChangeRequest {
-                                                photoUri = Uri.parse(profilePictureUrl)
-                                            }
-                                            user.updateProfile(profileUpdates)
+                                                    val displayName = "$name $surname"
+                                                    val encodedName =
+                                                        URLEncoder.encode(displayName, "UTF-8")
+                                                    val profilePictureUrl =
+                                                        "https://ui-avatars.com/api/?name=$encodedName&background=random&color=fff&size=200"
 
-                                            val userMap = hashMapOf(
-                                                "userId" to userId,
-                                                "name" to name,
-                                                "surname" to surname,
-                                                "username" to username,
-                                                "email" to email,
-                                                "phone" to phone,
-                                                "emailVerified" to false,
-                                                "isBanned" to false,
-                                                "isGoogleAuth" to false,
-                                                "role" to "user",
-                                                "profilePictureUrl" to profilePictureUrl,
-                                                "createdAt" to FieldValue.serverTimestamp()
-                                            )
+                                                    // Aggiorna anche il profilo utente di Firebase Auth
+                                                    val profileUpdates = userProfileChangeRequest {
+                                                        photoUri = Uri.parse(profilePictureUrl)
+                                                    }
+                                                    user.updateProfile(profileUpdates)
 
-                                            db.collection("users").document(userId)
-                                                .set(userMap)
-                                                .addOnSuccessListener {
-                                                    auth.signOut()
-                                                    _authState.value = AuthState.WaitingForVerification
-                                                }
-                                                .addOnFailureListener { e ->
-                                                    user.delete()
-                                                    _authState.value = AuthState.Error(
-                                                        e.message ?: "Failed to save user data"
+                                                    val userMap = hashMapOf(
+                                                        "userId" to userId,
+                                                        "name" to name,
+                                                        "surname" to surname,
+                                                        "username" to username,
+                                                        "email" to email,
+                                                        "phone" to phone,
+                                                        "emailVerified" to false,
+                                                        "isBanned" to false,
+                                                        "isGoogleAuth" to false,
+                                                        "role" to "user",
+                                                        "profilePictureUrl" to profilePictureUrl,
+                                                        "createdAt" to FieldValue.serverTimestamp()
                                                     )
+
+                                                    db.collection("users").document(userId)
+                                                        .set(userMap)
+                                                        .addOnSuccessListener {
+                                                            auth.signOut()
+                                                            _authState.value =
+                                                                AuthState.WaitingForVerification
+                                                        }
+                                                        .addOnFailureListener { e ->
+                                                            user.delete()
+                                                            _authState.value = AuthState.Error(
+                                                                e.message
+                                                                    ?: "Failed to save user data"
+                                                            )
+                                                        }
+                                                } else {
+                                                    user.delete()
+                                                    _authState.value =
+                                                        AuthState.Error("Failed to create user profile")
                                                 }
-                                        } else {
-                                            user.delete()
-                                            _authState.value =
-                                                AuthState.Error("Failed to create user profile")
+                                            } else {
+                                                user.delete()
+                                                _authState.value =
+                                                    AuthState.Error("Failed to send verification email")
+                                            }
                                         }
-                                    } else {
-                                        user.delete()
-                                        _authState.value =
-                                            AuthState.Error("Failed to send verification email")
-                                    }
+                                } else {
+                                    _authState.value =
+                                        AuthState.Error(
+                                            task.exception?.message ?: "Something went wrong"
+                                        )
                                 }
-                        } else {
-                            _authState.value =
-                                AuthState.Error(task.exception?.message ?: "Something went wrong")
-                        }
+                            }
                     }
+                }
             }
             .addOnFailureListener { e ->
                 _authState.value = AuthState.Error(e.message ?: "Error checking email authentication method")
             }
     }
 
-
-
     fun signout() {
         auth.signOut()
         _authState.value = AuthState.Unauthenticated
+    }
+
+
+    fun isUsernameTaken(username: String, onComplete: (Boolean) -> Unit) {
+        val usersRef = db.collection("users")
+        val query = usersRef.whereEqualTo("username", username)
+
+        query.get().addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val documents = task.result
+                // Se ci sono documenti, significa che l'username è già preso
+                onComplete(documents?.isEmpty == false)
+            } else {
+                // In caso di errore nella query
+                Log.w("Signup", "Error checking username", task.exception)
+                onComplete(false)
+            }
+        }
     }
 
 
