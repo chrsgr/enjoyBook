@@ -29,11 +29,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -270,6 +274,7 @@ fun BookItem(
     val scope = rememberCoroutineScope()
     val db = FirebaseFirestore.getInstance()
     val context = LocalContext.current
+    val isFrontCover = remember { mutableStateOf(true) }
 
     // Dialog to confirm availability change
     if (showDialog) {
@@ -323,19 +328,52 @@ fun BookItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Book cover placeholder
-            Box(
-                modifier = Modifier
-                    .size(70.dp, 100.dp)
-                    .background(primaryColor.copy(alpha = 0.1f))
-                    .clip(RoundedCornerShape(4.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MenuBook,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = primaryColor
-                )
+            if (isFrontCover.value && book?.frontCoverUrl != null)
+            {
+                Box(
+                    modifier = Modifier
+                        .size(70.dp, 100.dp)
+                        .background(primaryColor.copy(alpha = 0.1f))
+                        .clip(RoundedCornerShape(4.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val imageUrl = book?.frontCoverUrl
+
+                    val painter = rememberAsyncImagePainter(imageUrl)
+                    val state = painter.state
+
+                    if (state is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Front Cover",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            else {
+                Box(
+                    modifier = Modifier
+                        .size(70.dp, 100.dp)
+                        .background(primaryColor.copy(alpha = 0.1f))
+                        .clip(RoundedCornerShape(4.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MenuBook,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = primaryColor
+                    )
+                }
             }
 
             Column(

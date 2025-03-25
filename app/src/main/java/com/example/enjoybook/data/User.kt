@@ -13,5 +13,5 @@ data class User(
     val isBanned: Boolean? = false,
     val emailVerified: Boolean = false,
     val isGoogleAuth: Boolean = false,
-    val profilePictureUrl: String = "",
+    val profilePictureUrl: String? = "",
     )

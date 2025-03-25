@@ -2,6 +2,7 @@ package com.example.enjoybook.pages
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -32,10 +33,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
+import com.example.enjoybook.theme.primaryColor
 import com.google.common.reflect.TypeToken
 import com.google.gson.Gson
 
@@ -52,11 +58,14 @@ object FavoritesManager {
 
     fun initialize(context: Context) {
         sharedPreferences = context.getSharedPreferences("favorites_prefs", Context.MODE_PRIVATE)
+        val json = sharedPreferences.getString("favorites", null)
+        Log.d("SharedPreferences", "Initialize, Favorites JSON: $json")
         loadFavorites()
     }
 
     private fun loadFavorites() {
         val favoritesJson = sharedPreferences.getString("favorites", null)
+        Log.d("SharedPreferences", "Load, Favorites JSON: $favoritesJson")
         if (favoritesJson != null) {
             val type = object : TypeToken<List<Book>>() {}.type
             val loadedFavorites = gson.fromJson<List<Book>>(favoritesJson, type)
@@ -68,11 +77,14 @@ object FavoritesManager {
 
     private fun saveFavorites() {
         val favoritesJson = gson.toJson(_favorites.toList())
+        Log.d("SharedPreferences", "Save, Favorites JSON: $favoritesJson")
         sharedPreferences.edit().putString("favorites", favoritesJson).apply()
     }
 
     fun addFavorite(book: Book) {
+        Log.d("FavoritesManager", "Aggiungendo: ${book.title}, Cover: ${book.frontCoverUrl ?: "No Cover"}")
         if (!isBookFavorite(book.id)) {
+            Log.d("FavoritesManager", "Aggiungendo: ${book.title}, Cover: ${book.frontCoverUrl}")
             _favorites.add(book)
             _favoritesFlow.value = _favorites.toList()
             saveFavorites()
@@ -265,6 +277,9 @@ fun FavoriteBookItem(
     onClick: () -> Unit,
     onRemove: () -> Unit
 ) {
+
+    val isFrontCover = remember { mutableStateOf(true) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -280,21 +295,53 @@ fun FavoriteBookItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Book cover
-            Box(
-                modifier = Modifier
-                    .size(70.dp, 100.dp)
-                    .background(Color(0xFF2CBABE).copy(alpha = 0.3f))
-                    .clip(RoundedCornerShape(4.dp))
-
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MenuBook,
-                    contentDescription = null,
+            if (isFrontCover.value && book?.frontCoverUrl != null)  {
+                Box(
                     modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(40.dp),
-                    tint = Color(0xFF2CBABE)
-                )
+                        .size(70.dp, 100.dp)
+                        .background(Color(0xFF2CBABE).copy(alpha = 0.3f))
+                        .clip(RoundedCornerShape(4.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val imageUrl = book?.frontCoverUrl
+
+                    val painter = rememberAsyncImagePainter(imageUrl)
+                    val state = painter.state
+
+                    if (state is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Front Cover",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            else {
+                Box(
+                    modifier = Modifier
+                        .size(70.dp, 100.dp)
+                        .background(Color(0xFF2CBABE).copy(alpha = 0.3f))
+                        .clip(RoundedCornerShape(4.dp))
+
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MenuBook,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(40.dp),
+                        tint = Color(0xFF2CBABE)
+                    )
+                }
             }
 
             Column(

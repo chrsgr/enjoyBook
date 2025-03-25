@@ -372,6 +372,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                             userEmail = book!!.userEmail,
                                             userId = book!!.userId,
                                             year = book!!.year,
+                                            frontCoverUrl = book?.frontCoverUrl,
+                                            backCoverUrl = book?.backCoverUrl
                                         )
                                         FavoritesManager.addFavorite(favoriteBook)
                                         isAnimating = true

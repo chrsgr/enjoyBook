@@ -51,10 +51,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -64,6 +66,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.User
 import com.example.enjoybook.viewModel.SearchViewModel
@@ -365,6 +370,9 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 // User Item Composable for displaying search results
 @Composable
 fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: NavController, context: Context) {
+
+    val isAvatar = remember { mutableStateOf(true) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -385,19 +393,54 @@ fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: N
             verticalAlignment = Alignment.CenterVertically
         ) {
             // User avatar placeholder
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .background(primaryColor.copy(alpha = 0.2f), CircleShape)
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = primaryColor,
-                    modifier = Modifier.size(32.dp)
-                )
+            if (isAvatar.value && user?.profilePictureUrl != null)
+             {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .background(primaryColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val imageUrl = user?.profilePictureUrl
+
+                    val painter = rememberAsyncImagePainter(imageUrl)
+                    val state = painter.state
+
+                    if (state is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Avatar",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(primaryColor, CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            else {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(primaryColor.copy(alpha = 0.2f), CircleShape)
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = primaryColor,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -423,11 +466,9 @@ fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: N
 
 @Composable
 fun CategoryButton(category: String, navController: NavController, primaryColor: Color, onClick: () -> Unit) {
-    Log.d("CategoryButton", "Funzione chiamata per categoria: $category")
 
     Button(
         onClick = {
-            Log.d("CategoryButton", "Navigating to filteredbooks/$category")
             if (category.isNotEmpty()) {
                 navController.navigate("filteredbooks/$category")
             } else {
@@ -454,6 +495,9 @@ fun CategoryButton(category: String, navController: NavController, primaryColor:
 // Updated BookItem with the new color scheme
 @Composable
 fun BookItem(book: Book, primaryColor: Color, textColor: Color, navController: NavController) {
+
+    val isFrontCover = remember { mutableStateOf(true) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -475,19 +519,53 @@ fun BookItem(book: Book, primaryColor: Color, textColor: Color, navController: N
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Book cover placeholder
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(primaryColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Book,
-                    contentDescription = null,
-                    tint = primaryColor,
-                    modifier = Modifier.size(36.dp)
-                )
+
+            if (isFrontCover.value && book?.frontCoverUrl != null)
+             {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(com.example.enjoybook.theme.primaryColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val imageUrl = book?.frontCoverUrl
+
+                    val painter = rememberAsyncImagePainter(imageUrl)
+                    val state = painter.state
+
+                    if (state is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Front Cover",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            else {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .background(primaryColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Book,
+                        contentDescription = null,
+                        tint = primaryColor,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
