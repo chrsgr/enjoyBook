@@ -20,7 +20,10 @@ data class Book(
     val frontCoverUrl: String? = null,
     val backCoverUrl: String? = null,
     val timestamp: Timestamp = Timestamp.now(),
-    val lastUpdated: Timestamp? = null
+    val lastUpdated: Timestamp? = null,
+    val favoritesCount: Int = 0
+
+
 
 )
 

@@ -13,12 +13,12 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
@@ -29,15 +29,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -54,8 +54,6 @@ fun ListBookAddPage(navController: NavController) {
 
     val currentUser = FirebaseAuth.getInstance().currentUser
     val userId = currentUser?.uid
-
-    var book by remember { mutableStateOf<Book?>(null) }
 
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
@@ -113,8 +111,7 @@ fun ListBookAddPage(navController: NavController) {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = secondaryBackgroundColor,
                     titleContentColor = textColor
-                ),
-                windowInsets = WindowInsets(0)
+                )
             )
         },
         floatingActionButton = {
@@ -131,7 +128,6 @@ fun ListBookAddPage(navController: NavController) {
                 )
             }
         },
-        contentWindowInsets = WindowInsets(0),
         containerColor = backgroundColor
     ) { paddingValues ->
         Box(
@@ -248,7 +244,6 @@ private fun loadUserBooks(db: FirebaseFirestore, userId: String?, onComplete: (L
         }
 }
 
-// Function to delete a book
 private suspend fun deleteBook(db: FirebaseFirestore, bookId: String) {
     try {
         db.collection("books").document(bookId).delete().await()
@@ -271,12 +266,18 @@ fun BookItem(
 ) {
     var isAvailable by remember { mutableStateOf(book.isAvailable == true) }
     var showDialog by remember { mutableStateOf(false) }
+    var favoritesCount by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     val db = FirebaseFirestore.getInstance()
     val context = LocalContext.current
-    val isFrontCover = remember { mutableStateOf(true) }
 
-    // Dialog to confirm availability change
+
+    LaunchedEffect(book.id) {
+        fetchFavoritesCount(db, book.id) { count ->
+            favoritesCount = count
+        }
+    }
+
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -323,13 +324,13 @@ fun BookItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Book cover placeholder
-            if (isFrontCover.value && book?.frontCoverUrl != null)
-            {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Box(
                     modifier = Modifier
                         .size(70.dp, 100.dp)
@@ -337,192 +338,190 @@ fun BookItem(
                         .clip(RoundedCornerShape(4.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    val imageUrl = book?.frontCoverUrl
+                    if (!book?.frontCoverUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = book.frontCoverUrl,
+                            contentDescription = "Book Cover",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
 
-                    val painter = rememberAsyncImagePainter(imageUrl)
-                    val state = painter.state
 
-                    if (state is AsyncImagePainter.State.Loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = null,
+                            modifier = Modifier.size(40.dp),
+                            tint = primaryColor
                         )
                     }
-
-                    AsyncImage(
-                        model = imageUrl,
-                        contentDescription = "Front Cover",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
                 }
-            }
 
-            else {
-                Box(
+                Column(
                     modifier = Modifier
-                        .size(70.dp, 100.dp)
-                        .background(primaryColor.copy(alpha = 0.1f))
-                        .clip(RoundedCornerShape(4.dp)),
-                    contentAlignment = Alignment.Center
+                        .weight(1f)
+                        .padding(start = 16.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.MenuBook,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = primaryColor
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 16.dp)
-            ) {
-                Text(
-                    text = book.title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = book.author,
-                        fontSize = 14.sp,
-                        color = Color.Gray
+                        text = book.title,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
                     )
-                }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Category,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = book.type,
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                }
-
-                if (book.year != null) {
                     Spacer(modifier = Modifier.height(4.dp))
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.DateRange,
+                            imageVector = Icons.Default.Person,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             tint = Color.Gray
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = book.year.toString(),
+                            text = book.author,
                             fontSize = 14.sp,
                             color = Color.Gray
                         )
                     }
-                }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(30.dp)
-                ) {
-                    // Available/Unavailable button
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color =  availableColor.copy(alpha = 0.2f) ,
-                        modifier = Modifier
-                            .clickable { showDialog = true }
-                            .padding(end = 4.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Category,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = book.type,
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                    }
+
+                    if (book.year != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector =  Icons.Default.CheckCircle,
+                                imageVector = Icons.Default.DateRange,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint =  availableColor
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.Gray
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text =  "Available",
-                                fontSize = 12.sp,
-                                color = availableColor
+                                text = book.year.toString(),
+                                fontSize = 14.sp,
+                                color = Color.Gray
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    IconButton(
-                        onClick = onEditClick,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(primaryColor.copy(alpha = 0.1f), CircleShape)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(30.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            modifier = Modifier.size(16.dp),
-                            tint = primaryColor
-                        )
-                    }
+                        // Available
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = availableColor.copy(alpha = 0.2f),
+                            modifier = Modifier
+                                .clickable { showDialog = true }
+                                .padding(end = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = availableColor
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Available",
+                                    fontSize = 12.sp,
+                                    color = availableColor
+                                )
+                            }
+                        }
 
-                    IconButton(
-                        onClick = onDeleteClick,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(deleteColor.copy(alpha = 0.1f), CircleShape)
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            modifier = Modifier.size(16.dp),
-                            tint = deleteColor
-                        )
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        IconButton(
+                            onClick = onEditClick,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(primaryColor.copy(alpha = 0.1f), CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Edit",
+                                modifier = Modifier.size(16.dp),
+                                tint = primaryColor
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onDeleteClick,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(deleteColor.copy(alpha = 0.1f), CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                modifier = Modifier.size(16.dp),
+                                tint = deleteColor
+                            )
+                        }
                     }
                 }
+            }
+
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 10.dp, end = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Color.Red
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "$favoritesCount",
+                    fontSize = 14.sp,
+                    color = Color.Black
+                )
             }
         }
     }
 }
 
-// Function to update book availability in Firebase
 private suspend fun updateBookAvailability(db: FirebaseFirestore, bookId: String, isAvailable: Boolean, context: Context) {
     try {
-        // Update the availability field in Firebase
         db.collection("books").document(bookId)
             .update("isAvailable", isAvailable)
             .await()
 
-        // Show success message
         withContext(Dispatchers.Main) {
             Toast.makeText(
                 context,
@@ -531,7 +530,6 @@ private suspend fun updateBookAvailability(db: FirebaseFirestore, bookId: String
             ).show()
         }
     } catch (e: Exception) {
-        // Show error message
         withContext(Dispatchers.Main) {
             Toast.makeText(
                 context,
@@ -540,4 +538,21 @@ private suspend fun updateBookAvailability(db: FirebaseFirestore, bookId: String
             ).show()
         }
     }
+}
+
+private fun fetchFavoritesCount(
+    db: FirebaseFirestore,
+    bookId: String,
+    onComplete: (Int) -> Unit
+) {
+    db.collection("favorites")
+        .whereEqualTo("bookId", bookId)
+        .get()
+        .addOnSuccessListener { documents ->
+            onComplete(documents.size())
+        }
+        .addOnFailureListener { exception ->
+            println("Error getting favorites count: $exception")
+            onComplete(0)
+        }
 }
