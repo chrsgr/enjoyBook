@@ -7,11 +7,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -210,6 +207,49 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         ),
         label = "heart alpha animation"
     )
+
+
+    fun toggleFavorite(book: Book) {
+        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+        val db = FirebaseFirestore.getInstance()
+
+        if (!FavoritesManager.isBookFavorite(book.id)) {
+            // Save book to favorites collection
+            val favoriteBook = hashMapOf(
+                "bookId" to book.id,
+                "userId" to currentUser.uid,
+                "title" to book.title,
+                "author" to book.author,
+                "frontCoverUrl" to book.frontCoverUrl,
+                "addedAt" to FieldValue.serverTimestamp()
+            )
+
+            db.collection("favorites")
+                .add(favoriteBook)
+                .addOnSuccessListener { documentReference ->
+                    Log.d("FavoriteBook", "Book added to favorites with ID: ${documentReference.id}")
+                    FavoritesManager.addFavorite(book)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("FavoriteBook", "Error adding book to favorites", e)
+                }
+        } else {
+            // Remove book from favorites
+            db.collection("favorites")
+                .whereEqualTo("bookId", book.id)
+                .whereEqualTo("userId", currentUser.uid)
+                .get()
+                .addOnSuccessListener { documents ->
+                    for (document in documents) {
+                        db.collection("favorites").document(document.id).delete()
+                    }
+                    FavoritesManager.removeFavorite(book.id)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("FavoriteBook", "Error removing book from favorites", e)
+                }
+        }
+    }
 
     fun toggleLoanRequest() {
         when {
@@ -412,10 +452,10 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                             frontCoverUrl = book?.frontCoverUrl,
                                             backCoverUrl = book?.backCoverUrl
                                         )
-                                        FavoritesManager.addFavorite(favoriteBook)
+                                        toggleFavorite(favoriteBook)
                                         isAnimating = true
                                     } else {
-                                        FavoritesManager.removeFavorite(bookId)
+                                        toggleFavorite(book!!)
                                     }
                                     isFavorite = !isFavorite
                                 },
