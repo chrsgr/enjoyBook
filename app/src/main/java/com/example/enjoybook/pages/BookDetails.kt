@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
@@ -49,6 +50,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.times
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
@@ -297,6 +302,18 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                ClickableTextWithNavigation(
+                    fullText = "pubblicated by ${book?.userUsername}",
+                    clickableWord = "${book?.userUsername}",
+                    navController = navController,
+                    destinationRoute = "userDetails/${book?.userId}",
+                    normalColor = textColor
+                )
+
+                Log.d("Userid", "${book?.userId}")
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -1254,18 +1271,26 @@ fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
 }
 
 @Composable
-fun ScrollableTextWithScrollbar(text: String, textColor: Color, scrollbarColor: Color) {
+fun ScrollableTextWithScrollbar(
+    text: String,
+    textColor: Color,
+    scrollbarColor: Color,
+    maxHeight: Dp = 120.dp
+) {
     val scrollState = rememberScrollState()
+
+    // Determina se la scrollbar deve essere mostrata
+    val shouldShowScrollbar = scrollState.maxValue > 0
 
     Box(
         modifier = Modifier
-            .height(120.dp)
+            .heightIn(max = maxHeight)
             .fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
-                .verticalScroll(scrollState) // Attiva lo scrolling
-                .padding(end = 8.dp) // Evita che il testo tocchi la scrollbar
+                .verticalScroll(scrollState)
+                .padding(end = if (shouldShowScrollbar) 16.dp else 0.dp)
         ) {
             Text(
                 text = text,
@@ -1275,11 +1300,14 @@ fun ScrollableTextWithScrollbar(text: String, textColor: Color, scrollbarColor: 
             )
         }
 
-        VerticalScrollbar(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            scrollState = scrollState,
-            color = scrollbarColor
-        )
+        // Mostra la scrollbar solo se necessario
+        if (shouldShowScrollbar) {
+            VerticalScrollbar(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                scrollState = scrollState,
+                color = scrollbarColor
+            )
+        }
     }
 }
 
@@ -1287,17 +1315,24 @@ fun ScrollableTextWithScrollbar(text: String, textColor: Color, scrollbarColor: 
 fun VerticalScrollbar(
     modifier: Modifier = Modifier,
     scrollState: ScrollState,
-    color: Color
+    color: Color,
+    scrollbarWidth: Dp = 6.dp
 ) {
-    val scrollbarHeight = 120.dp
-    val thumbHeight = (scrollbarHeight * 0.2f)
+    // Calcolo dinamico dell'altezza della scrollbar (spero funzioni)
+    val scrollbarHeight = scrollState.maxValue.toFloat().let { maxValue ->
+        if (maxValue > 0) 120.dp else 0.dp
+    }
+
+    // Calcolo dinamico dell'altezza del thumb (spero funzioni pt 2)
+    val thumbHeight = scrollbarHeight * 0.2f
 
     Box(
         modifier = modifier
-            .width(6.dp) // Larghezza della scrollbar
-            .fillMaxHeight()
-            .background(Color.LightGray.copy(alpha = 0.3f), shape = RoundedCornerShape(3.dp)) // Sfondo
+            .width(scrollbarWidth)
+            .height(scrollbarHeight)
+            .background(Color.LightGray.copy(alpha = 0.3f), shape = RoundedCornerShape(3.dp))
     ) {
+        // Calcolo della posizione del thumb
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1306,4 +1341,55 @@ fun VerticalScrollbar(
                 .background(color, shape = RoundedCornerShape(3.dp))
         )
     }
+}
+
+@Composable
+fun ClickableTextWithNavigation(
+    fullText: String,
+    clickableWord: String,
+    navController: NavController,
+    destinationRoute: String,
+    normalColor: Color,
+    clickableColor: Color = MaterialTheme.colorScheme.primary
+) {
+    // Costruisce un testo annotato
+    val annotatedString = buildAnnotatedString {
+        // Divide il testo in parti
+        val parts = fullText.split(clickableWord)
+
+        parts.forEachIndexed { index, part ->
+            // Aggiungi la parte normale del testo
+            append(part)
+
+            // Aggiungi la parola cliccabile solo se non è l'ultima iterazione
+            if (index < parts.size - 1) {
+                // Stile per la parola cliccabile
+                withStyle(
+                    style = SpanStyle(
+                        color = clickableColor,
+                        fontWeight = MaterialTheme.typography.bodyMedium.fontWeight
+                    )
+                ) {
+                    // Aggiungi un tag per l'identificazione del click
+                    pushStringAnnotation(tag = "clickable", annotation = destinationRoute)
+                    append(clickableWord)
+                    pop()
+                }
+            }
+        }
+    }
+
+    // Testo cliccabile
+    ClickableText(
+        text = annotatedString,
+        style = MaterialTheme.typography.bodyMedium.copy(color = normalColor),
+        onClick = { offset ->
+            // Verifica se il click è su un'area annotata
+            annotatedString.getStringAnnotations(tag = "clickable", start = offset, end = offset)
+                .firstOrNull()?.let { annotation ->
+                    // Naviga alla destinazione
+                    navController.navigate(annotation.item)
+                }
+        }
+    )
 }

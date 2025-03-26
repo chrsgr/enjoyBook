@@ -34,9 +34,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
@@ -77,7 +79,8 @@ fun AddPage(
     initialAuthor: String = "",
     initialYear: String = "",
     initialDescription: String = "",
-    initialCategory: String = ""
+    initialCategory: String = "",
+    onNextField: (() -> Unit)? = null
 ) {
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
@@ -190,6 +193,7 @@ fun AddPage(
     var expandedCondition by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     var selectedType by remember {
         mutableStateOf(
@@ -600,7 +604,9 @@ fun AddPage(
                     // Title field
                     OutlinedTextField(
                         value = title.value,
-                        onValueChange = { title.value = it },
+                        onValueChange = { newValue ->
+                            title.value = newValue.capitalize()
+                        },
                         label = { Text("Book Title") },
                         placeholder = { Text("Enter the title of the book") },
                         modifier = Modifier.fillMaxWidth(),
@@ -621,11 +627,15 @@ fun AddPage(
                         ),
                         keyboardOptions = KeyboardOptions.Default.copy(
                             keyboardType = KeyboardType.Text,
-                            capitalization = KeyboardCapitalization.Words,
+                            capitalization = KeyboardCapitalization.None,
                             imeAction = ImeAction.Next
                         ),
                         keyboardActions = KeyboardActions(
-                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                            onNext = {
+                                keyboardController?.hide()
+                                focusManager.moveFocus(FocusDirection.Next)
+                                onNextField?.invoke()
+                            }
                         ),
                     )
 
@@ -659,7 +669,11 @@ fun AddPage(
                             imeAction = ImeAction.Next
                         ),
                         keyboardActions = KeyboardActions(
-                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                            onNext = {
+                                keyboardController?.hide()
+                                focusManager.moveFocus(FocusDirection.Next)
+                                onNextField?.invoke()
+                            }
                         ),
                     )
 
@@ -772,11 +786,15 @@ fun AddPage(
                         ),
                         keyboardOptions = KeyboardOptions.Default.copy(
                             keyboardType = KeyboardType.Text,
-                            capitalization = KeyboardCapitalization.Words,
+                            capitalization = KeyboardCapitalization.None,
                             imeAction = ImeAction.Next
                         ),
                         keyboardActions = KeyboardActions(
-                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                            onNext = {
+                                keyboardController?.hide()
+                                focusManager.moveFocus(FocusDirection.Next)
+                                onNextField?.invoke()
+                            }
                         ),
                     )
 
@@ -806,11 +824,15 @@ fun AddPage(
                         ),
                         keyboardOptions = KeyboardOptions.Default.copy(
                             keyboardType = KeyboardType.Text,
-                            capitalization = KeyboardCapitalization.Words,
+                            capitalization = KeyboardCapitalization.None,
                             imeAction = ImeAction.Next
                         ),
                         keyboardActions = KeyboardActions(
-                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                            onNext = {
+                                keyboardController?.hide()
+                                focusManager.moveFocus(FocusDirection.Next)
+                                onNextField?.invoke()
+                            }
                         ),
                     )
 
@@ -819,7 +841,19 @@ fun AddPage(
                     // Year field
                     OutlinedTextField(
                         value = year.value,
-                        onValueChange = { year.value = it },
+                        onValueChange = { newValue ->
+                            // Accetta solo numeri e limita a 4 caratteri
+                            if (newValue.length <= 4 && newValue.all { it.isDigit() }) {
+                                year.value = newValue
+
+                                val anno = newValue.toIntOrNull()
+                                errorMessage = when {
+                                    anno == null -> ""
+                                    anno < 100 || anno > 2024 -> "Year is not valid"
+                                    else -> ""
+                                }
+                            }
+                        },
                         label = { Text("Year") },
                         placeholder = { Text("Enter the year") },
                         modifier = Modifier.fillMaxWidth(),
@@ -839,12 +873,15 @@ fun AddPage(
                             cursorColor = primaryColor
                         ),
                         keyboardOptions = KeyboardOptions.Default.copy(
-                            keyboardType = KeyboardType.Text,
-                            capitalization = KeyboardCapitalization.Words,
+                            keyboardType = KeyboardType.Number,
                             imeAction = ImeAction.Next
                         ),
                         keyboardActions = KeyboardActions(
-                            onNext = { keyboardController?.hide() } // Chiude la tastiera
+                            onNext = {
+                                keyboardController?.hide()
+                                focusManager.moveFocus(FocusDirection.Next)
+                                onNextField?.invoke()
+                            } // Chiude la tastiera
                         ),
                     )
 
@@ -1368,4 +1405,11 @@ private fun saveBookToFirestore(
             onLoadingChanged(false)
             Toast.makeText(context, "Failed to add book: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+}
+
+private fun String.capitalize(): String {
+    return if (isNotEmpty())
+        this[0].uppercase() + substring(1).lowercase()
+    else
+        this
 }
