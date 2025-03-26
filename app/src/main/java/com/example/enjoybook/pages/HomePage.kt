@@ -110,7 +110,6 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
         }
     }
 
-    var unreadNotifications by remember { mutableStateOf(3) }
     var showNotificationPopup by remember { mutableStateOf(false) }
 
     val notifications = remember {

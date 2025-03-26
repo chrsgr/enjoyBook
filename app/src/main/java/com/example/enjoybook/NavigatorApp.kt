@@ -234,8 +234,8 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             }
 
 
-            composable("bookUser"){
-                BookPage(navController)
+            composable("bookUser") {
+                BookPage(navController, authViewModel)
             }
 
             composable("library"){
