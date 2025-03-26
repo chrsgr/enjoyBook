@@ -41,7 +41,6 @@ import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
-import com.example.enjoybook.theme.primaryColor
 import com.google.common.reflect.TypeToken
 import com.google.gson.Gson
 

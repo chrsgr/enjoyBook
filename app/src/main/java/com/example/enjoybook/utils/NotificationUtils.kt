@@ -15,7 +15,6 @@ import androidx.compose.material.TabRowDefaults.Divider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -143,95 +142,93 @@ fun handleAcceptLoanRequest(notification: Notification) {
     val db = FirebaseFirestore.getInstance()
     val currentUser = FirebaseAuth.getInstance().currentUser
 
-    db.collection("books").document(notification.bookId)
-        .update("isAvailable", false)
+    db.collection("notifications").document(notification.id)
+        .delete()
         .addOnSuccessListener {
-            Log.d("Notifications", "Book marked as unavailable")
+            Log.d("Notifications", "Original notification deleted immediately")
 
-            val requesterId = notification.senderId
+            db.collection("books").document(notification.bookId)
+                .update("isAvailable", false)
+                .addOnSuccessListener {
+                    Log.d("Notifications", "Book marked as unavailable")
 
-            // Create a new borrow record
-            val borrowData = hashMapOf(
-                "bookId" to notification.bookId,
-                "ownerId" to currentUser?.uid,
-                "borrowerId" to requesterId,
-                "borrowDate" to System.currentTimeMillis(),
-                "status" to "accepted",
-                "title" to notification.title
-            )
+                    val requesterId = notification.senderId
 
-            db.collection("borrows").add(borrowData)
-                .addOnSuccessListener { documentReference ->
-                    Log.d("Notifications", "Borrow record created with ID: ${documentReference.id}")
-
-                    val confirmationNotification = Notification(
-                        recipientId = requesterId,
-                        senderId = currentUser?.uid ?: "",
-                        message = "La tua richiesta per il libro '${notification.title}' è stata accettata",
-                        timestamp = System.currentTimeMillis(),
-                        isRead = false,
-                        type = "LOAN_ACCEPTED",
-                        bookId = notification.bookId,
-                        title = notification.title
+                    val borrowData = hashMapOf(
+                        "bookId" to notification.bookId,
+                        "ownerId" to currentUser?.uid,
+                        "borrowerId" to requesterId,
+                        "borrowDate" to System.currentTimeMillis(),
+                        "status" to "accepted",
+                        "title" to notification.title
                     )
 
-                    db.collection("notifications").add(confirmationNotification)
-                        .addOnSuccessListener {
-                            Log.d("Notifications", "Acceptance notification sent")
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e("Notifications", "Error sending acceptance notification", e)
-                        }
+                    db.collection("borrows").add(borrowData)
+                        .addOnSuccessListener { documentReference ->
+                            Log.d("Notifications", "Borrow record created with ID: ${documentReference.id}")
 
-                    db.collection("notifications").document(notification.id)
-                        .delete()
-                        .addOnSuccessListener {
-                            Log.d("Notifications", "Original notification deleted")
+                            val confirmationNotification = Notification(
+                                recipientId = requesterId,
+                                senderId = currentUser?.uid ?: "",
+                                message = "La tua richiesta per il libro '${notification.title}' è stata accettata",
+                                timestamp = System.currentTimeMillis(),
+                                isRead = false,
+                                type = "LOAN_ACCEPTED",
+                                bookId = notification.bookId,
+                                title = notification.title
+                            )
+
+                            db.collection("notifications").add(confirmationNotification)
+                                .addOnSuccessListener {
+                                    Log.d("Notifications", "Acceptance notification sent")
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.e("Notifications", "Error sending acceptance notification", e)
+                                }
                         }
                         .addOnFailureListener { e ->
-                            Log.e("Notifications", "Error deleting notification", e)
+                            Log.e("Notifications", "Error creating borrow record", e)
                         }
                 }
                 .addOnFailureListener { e ->
-                    Log.e("Notifications", "Error creating borrow record", e)
+                    Log.e("Notifications", "Error updating book status", e)
                 }
         }
         .addOnFailureListener { e ->
-            Log.e("Notifications", "Error updating book status", e)
+            Log.e("Notifications", "Error deleting notification", e)
         }
 }
 
 fun handleRejectLoanRequest(notification: Notification) {
     val db = FirebaseFirestore.getInstance()
-
-    val requesterId = notification.senderId
-
-    val rejectionNotification = Notification(
-        recipientId = requesterId,
-        senderId = FirebaseAuth.getInstance().currentUser?.uid ?: "",
-        message = "La tua richiesta per il libro '${notification.title}' è stata rifiutata",
-        timestamp = System.currentTimeMillis(),
-        isRead = false,
-        type = "LOAN_REJECTED",
-        bookId = notification.bookId,
-        title = notification.title
-    )
-
-    db.collection("notifications").add(rejectionNotification)
+    db.collection("notifications").document(notification.id)
+        .delete()
         .addOnSuccessListener {
-            Log.d("Notifications", "Rejection notification sent")
+            Log.d("Notifications", "Original notification deleted immediately")
 
-            db.collection("notifications").document(notification.id)
-                .delete()
+            val requesterId = notification.senderId
+
+            val rejectionNotification = Notification(
+                recipientId = requesterId,
+                senderId = FirebaseAuth.getInstance().currentUser?.uid ?: "",
+                message = "La tua richiesta per il libro '${notification.title}' è stata rifiutata",
+                timestamp = System.currentTimeMillis(),
+                isRead = false,
+                type = "LOAN_REJECTED",
+                bookId = notification.bookId,
+                title = notification.title
+            )
+
+            db.collection("notifications").add(rejectionNotification)
                 .addOnSuccessListener {
-                    Log.d("Notifications", "Original notification deleted")
+                    Log.d("Notifications", "Rejection notification sent")
                 }
                 .addOnFailureListener { e ->
-                    Log.e("Notifications", "Error deleting notification", e)
+                    Log.e("Notifications", "Error sending rejection notification", e)
                 }
         }
         .addOnFailureListener { e ->
-            Log.e("Notifications", "Error sending rejection notification", e)
+            Log.e("Notifications", "Error deleting notification", e)
         }
 }
 

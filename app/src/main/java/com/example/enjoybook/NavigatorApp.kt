@@ -84,6 +84,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.enjoybook.admin.AdminListReports
 import com.example.enjoybook.admin.AdminPanel
 import com.example.enjoybook.auth.ForgotPasswordPage
+import com.example.enjoybook.data.NavItem
 import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.User
 import com.example.enjoybook.pages.*
@@ -104,20 +105,16 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
     val context = LocalContext.current.applicationContext
     val authState = authViewModel.authState.observeAsState()
 
-    // Ottieni la rotta corrente
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
-    // Definisci le rotte che non dovrebbero mostrare le barre
     val routesWithoutBars = listOf("login", "signup", "forgotpass")
 
-    // Determina se mostrare le barre
     val shouldShowBars = remember(currentRoute) {
         currentRoute != null && !routesWithoutBars.any { route ->
             currentRoute.startsWith(route)
         }
     }
 
-    // Osserva lo stato di autenticazione per reindirizzare se necessario
     LaunchedEffect(authState.value) {
         when(authState.value) {
             is AuthState.Unauthenticated -> navController.navigate("login") {
@@ -279,7 +276,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                 BookScanScreen(
                     navController = navController,
                     onBookInfoRetrieved = { title, author, year, description, type ->
-                        // Navigate back to AddPage with the retrieved information
                         navController.previousBackStackEntry
                             ?.savedStateHandle
                             ?.set("scanned_book_title", title)
@@ -300,7 +296,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             }
 
             composable("add_book_screen") {
-                // Get the data from the scan if available
                 val bookTitle = navController.currentBackStackEntry
                     ?.savedStateHandle
                     ?.get<String>("scanned_book_title") ?: ""
@@ -317,7 +312,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                     ?.savedStateHandle
                     ?.get<String>("scanned_book_type") ?: ""
 
-                // Clear the saved state handle after reading
                 navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_title")
                 navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_author")
                 navController.currentBackStackEntry?.savedStateHandle?.remove<String>("scanned_book_year")
@@ -352,7 +346,6 @@ fun MainBottomBar(navController: NavHostController, currentRoute: String?) {
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
 
-    // Determina l'indice selezionato basandosi sulla rotta corrente
     val selectedIndex = navItemList.indexOfFirst { it.route == currentRoute }
         .takeIf { it >= 0 } ?: 0
 
@@ -363,15 +356,11 @@ fun MainBottomBar(navController: NavHostController, currentRoute: String?) {
             NavigationBarItem(
                 selected = index == selectedIndex,
                 onClick = {
-                    // Naviga alla destinazione corrispondente
                     navController.navigate(navItem.route) {
-                        // Evita di aggiungere la stessa destinazione ripetutamente allo stack
                         popUpTo(navController.graph.findStartDestination().id) {
                             saveState = true
                         }
-                        // Evita più copie della stessa destinazione
                         launchSingleTop = true
-                        // Ripristina lo stato se precedentemente salvato
                         restoreState = true
                     }
                 },
@@ -386,7 +375,6 @@ fun MainBottomBar(navController: NavHostController, currentRoute: String?) {
     }
 }
 
-// Componente separato per la TopBar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
@@ -402,15 +390,22 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
+    fun removeNotificationLocally(notificationId: String) {
+        notifications = notifications.filter { it.id != notificationId }
+        unreadNotifications = notifications.count { !it.isRead }
+    }
+
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             userId = currentUser.uid
             val db = FirebaseFirestore.getInstance()
+
             db.collection("notifications")
                 .whereEqualTo("recipientId", currentUser.uid)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
+                        Log.e("Notifications", "Error fetching notifications", e)
                         return@addSnapshotListener
                     }
 
@@ -419,6 +414,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                             val notification = doc.toObject(Notification::class.java)
                             notification?.copy(id = doc.id)
                         }
+
                         notifications = notificationsList
                         unreadNotifications = notificationsList.count { !it.isRead }
                     }
@@ -447,6 +443,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
         },
         actions = {
             IconButton(
+
                 onClick = {
                     showNotificationPopup = true
                     if (unreadNotifications > 0) {
@@ -454,7 +451,11 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                         unreadNotifications = 0
                     }
                 },
-                modifier = Modifier.padding(horizontal = 4.dp)
+                        modifier = Modifier
+                        .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.2f))
+                    .padding(horizontal = 4.dp)
             ) {
                 Box(contentAlignment = Alignment.TopEnd) {
                     Icon(
@@ -622,9 +623,18 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                                     primaryColor = primaryColor,
                                     textColor = textColor,
                                     errorColor = errorColor,
-                                    onAccept = { handleAcceptLoanRequest(notification) },
-                                    onReject = { handleRejectLoanRequest(notification) },
-                                    onDelete = { deleteNotification(notification.id) }
+                                    onAccept = {
+                                        handleAcceptLoanRequest(notification)
+                                        removeNotificationLocally(notification.id)
+                                    },
+                                    onReject = {
+                                        handleRejectLoanRequest(notification)
+                                        removeNotificationLocally(notification.id)
+                                    },
+                                    onDelete = {
+                                        deleteNotification(notification.id)
+                                        removeNotificationLocally(notification.id)
+                                    }
                                 )
                             }
                         }
@@ -635,9 +645,4 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
     }
 }
 
-// Estendi la classe NavItem per includere la rotta
-data class NavItem(
-    val label: String,
-    val icon: ImageVector,
-    val route: String
-)
+

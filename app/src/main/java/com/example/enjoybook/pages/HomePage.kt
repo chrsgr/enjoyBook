@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,28 +40,22 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import  androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.TabRowDefaults.Divider
+
 import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
@@ -80,7 +72,6 @@ import com.google.firebase.firestore.Query
 fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
     val primaryColor = Color(0xFF2CBABE)
     val textColor = Color(0xFF333333)
-    val errorColor = Color(0xFFD32F2F)
 
     val authState = authViewModel.authState.observeAsState()
     val favorites by FavoritesManager.favoritesFlow.collectAsState()
@@ -110,13 +101,6 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
         }
     }
 
-    var showNotificationPopup by remember { mutableStateOf(false) }
-
-    val notifications = remember {
-        listOf(
-           ""
-        )
-    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0)
@@ -346,66 +330,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
         }
     }
 
-    // Notification popup
-    if (showNotificationPopup) {
-        Dialog(onDismissRequest = { showNotificationPopup = false }) {
-            Surface(
-                modifier = Modifier.width(320.dp),
-                shape = RoundedCornerShape(16.dp),
-                tonalElevation = 8.dp
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = null,
-                                tint = primaryColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Notifications",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = textColor
-                            )
-                        }
 
-                        IconButton(
-                            onClick = { showNotificationPopup = false },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = Color.Gray
-                            )
-                        }
-                    }
-
-                    Divider(color = Color.LightGray.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // List of notifications
-                    notifications.forEach { notification ->
-                        NotificationItem(
-                            message = notification,
-                            primaryColor = primaryColor,
-                            textColor = textColor,
-                            errorColor = errorColor
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -549,7 +474,6 @@ fun FeatureBookCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 🔹 Informazioni sul libro
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -591,93 +515,14 @@ fun FeatureBookCard(
     }
 }
 
-@Composable
-fun NotificationItem(
-    message: String,
-    primaryColor: Color,
-    textColor: Color,
-    errorColor: Color
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(primaryColor.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Book,
-                        contentDescription = null,
-                        tint = primaryColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
 
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Text(
-                    text = message,
-                    fontSize = 14.sp,
-                    color = textColor,
-                    lineHeight = 20.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(
-                    onClick = { },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = errorColor.copy(alpha = 0.1f),
-                        contentColor = errorColor
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    elevation = null,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Text("REJECT", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Button(
-                    onClick = { },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Text("ACCEPT", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-            }
-        }
-    }
-}
 
 private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
     db.collection("books")
         .orderBy("timestamp", Query.Direction.DESCENDING)
-        .limit(10)  // Limit to 10 books
+        .limit(10)
         .get()
         .addOnSuccessListener { documents ->
             val booksList = mutableListOf<Book>()
