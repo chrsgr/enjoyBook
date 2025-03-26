@@ -123,6 +123,7 @@ fun LibraryPage(navController: NavController) {
                         .get()
                         .await()
 
+                    // Inside withContext(Dispatchers.IO) block
                     val lentBookDetails = borrowQuery.documents.mapNotNull { borrowDoc ->
                         val bookId = borrowDoc.getString("bookId")
                         val borrowerId = borrowDoc.getString("borrowerId")
@@ -130,25 +131,29 @@ fun LibraryPage(navController: NavController) {
                         if (bookId != null && borrowerId != null) {
                             // Fetch book details
                             val bookDoc = db.collection("books").document(bookId).get().await()
-                            val book = Book(
-                                id = bookId,
-                                title = bookDoc.getString("title") ?: "",
-                                author = bookDoc.getString("author") ?: "",
-                                type = bookDoc.getString("type") ?: "",
-                                userId = bookDoc.getString("userId") ?: "",
-                                isAvailable = false,
-                                userEmail = bookDoc.getString("userEmail") ?: "",
-                                frontCoverUrl = bookDoc.getString("frontCoverUrl") ?: null,
-                                backCoverUrl = bookDoc.getString("backCoverUrl") ?: null
-                            )
 
-                            val borrowerDoc = db.collection("users").document(borrowerId).get().await()
+                            // Only proceed if the book is NOT available
+                            if (bookDoc.getBoolean("isAvailable") != true) {
+                                val book = Book(
+                                    id = bookId,
+                                    title = bookDoc.getString("title") ?: "",
+                                    author = bookDoc.getString("author") ?: "",
+                                    type = bookDoc.getString("type") ?: "",
+                                    userId = bookDoc.getString("userId") ?: "",
+                                    isAvailable = false,
+                                    userEmail = bookDoc.getString("userEmail") ?: "",
+                                    frontCoverUrl = bookDoc.getString("frontCoverUrl") ?: null,
+                                    backCoverUrl = bookDoc.getString("backCoverUrl") ?: null
+                                )
 
-                            LentBook(
-                                book = book,
-                                borrowerName = borrowerDoc.getString("name") ?: "Unknown",
-                                borrowerEmail = borrowerDoc.getString("email") ?: ""
-                            )
+                                val borrowerDoc = db.collection("users").document(borrowerId).get().await()
+
+                                LentBook(
+                                    book = book,
+                                    borrowerName = borrowerDoc.getString("name") ?: "Unknown",
+                                    borrowerEmail = borrowerDoc.getString("email") ?: ""
+                                )
+                            } else null
                         } else null
                     }
 
