@@ -60,6 +60,7 @@ fun LibraryPage(navController: NavController) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     var lentBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
     var borrowedBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
+    var ownerId by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableStateOf(0) }
 

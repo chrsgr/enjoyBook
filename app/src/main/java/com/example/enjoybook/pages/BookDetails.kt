@@ -5,7 +5,9 @@ import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.times
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
@@ -490,12 +493,10 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             )
 
                             if (book?.description?.isNotEmpty() == true) {
-                                Text(
-                                    text = book?.description ?: "",
-                                    fontWeight = FontWeight.Normal,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = textColor,
-                                    modifier = Modifier.fillMaxWidth()
+                                ScrollableTextWithScrollbar(
+                                    text = book?.description?: "",
+                                    textColor = textColor,
+                                    scrollbarColor = primaryColor
                                 )
                             } else {
                                 Box(
@@ -1250,4 +1251,59 @@ fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
         .addOnFailureListener { e ->
             Log.e("Notifications", "Error sending notification", e)
         }
+}
+
+@Composable
+fun ScrollableTextWithScrollbar(text: String, textColor: Color, scrollbarColor: Color) {
+    val scrollState = rememberScrollState()
+
+    Box(
+        modifier = Modifier
+            .height(120.dp)
+            .fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(scrollState) // Attiva lo scrolling
+                .padding(end = 8.dp) // Evita che il testo tocchi la scrollbar
+        ) {
+            Text(
+                text = text,
+                fontWeight = FontWeight.Normal,
+                style = MaterialTheme.typography.bodyMedium,
+                color = textColor,
+            )
+        }
+
+        VerticalScrollbar(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            scrollState = scrollState,
+            color = scrollbarColor
+        )
+    }
+}
+
+@Composable
+fun VerticalScrollbar(
+    modifier: Modifier = Modifier,
+    scrollState: ScrollState,
+    color: Color
+) {
+    val scrollbarHeight = 120.dp
+    val thumbHeight = (scrollbarHeight * 0.2f)
+
+    Box(
+        modifier = modifier
+            .width(6.dp) // Larghezza della scrollbar
+            .fillMaxHeight()
+            .background(Color.LightGray.copy(alpha = 0.3f), shape = RoundedCornerShape(3.dp)) // Sfondo
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(thumbHeight)
+                .offset(y = (scrollState.value / scrollState.maxValue.toFloat()) * (scrollbarHeight - thumbHeight))
+                .background(color, shape = RoundedCornerShape(3.dp))
+        )
+    }
 }
