@@ -77,6 +77,8 @@ fun LibraryPage(navController: NavController) {
     val primaryColor = Color(0xFFB4E4E8)
     val secondaryColor = Color(0xFF1A8A8F)
     val backgroundColor = (primaryColor.copy(alpha = 0.1f))
+    val secondaryBackgroundColor = (primaryColor.copy(alpha = 0.1f))
+
 
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
@@ -179,7 +181,7 @@ fun LibraryPage(navController: NavController) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(backgroundColor)
+                    .background(secondaryBackgroundColor)
                     .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -199,7 +201,7 @@ fun LibraryPage(navController: NavController) {
                     text = "YOUR LIBRARY",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = Color.Black,
                 )
             }
 
