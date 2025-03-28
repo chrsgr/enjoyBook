@@ -46,13 +46,11 @@ fun UserMessagingScreen(
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
-    val scope = rememberCoroutineScope()
 
     var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
     var newMessageText by remember { mutableStateOf("") }
     var targetUserName by remember { mutableStateOf("Unknown User") }
 
-    // Nuovo stato per la modifica e la risposta
     var messageToEdit by remember { mutableStateOf<Message?>(null) }
     var messageToReply by remember { mutableStateOf<Message?>(null) }
     val listState = rememberLazyListState()
@@ -63,7 +61,6 @@ fun UserMessagingScreen(
 
         fetchMessages(db, currentUserId, targetUserId) { fetchedMessages ->
             messages = fetchedMessages.toList()
-            Log.d("MessagingSystem", "Fetched messages: ${fetchedMessages.size}")
             markMessagesAsRead(db, currentUserId, targetUserId)
         }
 
@@ -73,7 +70,6 @@ fun UserMessagingScreen(
         listState.animateScrollToItem(0)
     }
 
-    // Recupera i dettagli dell'utente di destinazione
     LaunchedEffect(targetUserId) {
         db.collection("users").document(targetUserId)
             .get()
@@ -90,21 +86,17 @@ fun UserMessagingScreen(
         replyToMessage: Message? = null,
         editedMessage: Message? = null
     ) {
-        // Validate inputs
         if (currentUser.uid.isBlank() || targetUserId.isBlank()) {
-            Log.e("MessagingSystem", "Invalid user IDs: Current User ID: ${currentUser.uid}, Target User ID: $targetUserId")
             return
         }
 
         if (messageContent.isBlank()) {
-            Log.e("MessagingSystem", "Cannot send empty message")
             return
         }
 
         // Create a unique chat document ID that is always the same regardless of sender/receiver order
         val chatDocumentId = listOf(currentUser.uid, targetUserId).sorted().joinToString("_")
 
-        // Prepare the message object
         val messageRef = when {
             editedMessage != null -> {
                 editedMessage.copy(
@@ -139,19 +131,11 @@ fun UserMessagingScreen(
             }
         }
 
-        // Detailed logging
-        Log.d("MessagingSystem", "Sending message:")
-        Log.d("MessagingSystem", "Message ID: ${messageRef.id}")
-        Log.d("MessagingSystem", "Sender ID: ${messageRef.senderId}")
-        Log.d("MessagingSystem", "Receiver ID: ${messageRef.receiverId}")
-        Log.d("MessagingSystem", "Content: ${messageRef.content}")
-
         // Save message to Firestore
         db.collection("messages")
             .document(messageRef.id)
             .set(messageRef)
             .addOnSuccessListener {
-                Log.d("MessagingSystem", "Message saved successfully")
 
                 // Update chat document
                 db.collection("chats")
@@ -178,16 +162,13 @@ fun UserMessagingScreen(
 
         val currentUser = auth.currentUser!!
 
-        // Prepara il messaggio da inviare
         val messageToSend = when {
-            // Editing an existing message
             messageToEdit != null -> {
                 messageToEdit!!.copy(
                     content = newMessageText,
                     isEdited = true
                 )
             }
-            // Replying to a message
             messageToReply != null -> {
                 Message(
                     senderId = currentUser.uid,
@@ -198,7 +179,6 @@ fun UserMessagingScreen(
                     replyToMessageContent = messageToReply?.content
                 )
             }
-            // New message
             else -> {
                 Message(
                     senderId = currentUser.uid,
@@ -209,7 +189,6 @@ fun UserMessagingScreen(
             }
         }
 
-        // Chiama il nuovo metodo sendMessage
         sendMessage(
             db = db,
             currentUser = currentUser,
@@ -219,7 +198,6 @@ fun UserMessagingScreen(
             editedMessage = messageToEdit
         )
 
-        // Aggiorna lo stato locale dei messaggi
         messages = messages + messageToSend
         newMessageText = ""
         messageToReply = null
@@ -263,7 +241,7 @@ fun UserMessagingScreen(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 8.dp),
-                state = listState, // Usa lo stato della lista qui
+                state = listState,
                 reverseLayout = true // Per mostrare i messaggi dal basso verso l'alto
 
             ) {
@@ -342,7 +320,7 @@ fun UserMessagingScreen(
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // TextField per il messaggio
+                // TextField for the message input
                 TextField(
                     value = newMessageText,
                     onValueChange = { newMessageText = it },
@@ -356,6 +334,7 @@ fun UserMessagingScreen(
                         focusedContainerColor = Color.White
                     )
                 )
+
 
                 // Pulsante di invio
                 IconButton(
