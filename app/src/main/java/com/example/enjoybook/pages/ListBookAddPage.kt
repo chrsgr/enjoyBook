@@ -118,7 +118,7 @@ fun ListBookAddPage(navController: NavController) {
 
     floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate("addPage") },
+                onClick = { navController.navigate("add_book_screen") },
                 containerColor = primaryColor,
                 contentColor = Color.White,
                 shape = CircleShape,
@@ -527,7 +527,7 @@ fun BookItem(
                 }
             }
 
-          
+
         }
     }
 }
