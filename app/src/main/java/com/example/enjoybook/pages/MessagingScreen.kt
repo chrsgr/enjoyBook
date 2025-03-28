@@ -247,9 +247,11 @@ fun UserMessagingScreen(
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                windowInsets = WindowInsets(0)
             )
-        }
+        },
+        contentWindowInsets = WindowInsets(0)
     ) { paddingValues ->
         Column(
             modifier = Modifier

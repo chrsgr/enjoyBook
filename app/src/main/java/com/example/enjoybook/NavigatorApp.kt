@@ -382,10 +382,11 @@ fun MainBottomBar(navController: NavHostController, currentRoute: String?) {
                 onClick = {
                     navController.navigate(navItem.route) {
                         popUpTo(navController.graph.findStartDestination().id) {
+                            inclusive = false
                             saveState = true
                         }
                         launchSingleTop = true
-                        restoreState = true
+                        restoreState = false
                     }
                 },
                 icon = {
@@ -511,7 +512,10 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
             if (user?.role == "admin"){
                 Spacer(modifier = Modifier.width(8.dp))
                 IconButton(
-                    onClick = { navController.navigate("admin") },
+                    onClick = {
+                        navController.navigate("admin") {
+                            launchSingleTop = true
+                    }},
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
@@ -529,7 +533,10 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
             Spacer(modifier = Modifier.width(8.dp))
             // Settings icon
             IconButton(
-                onClick = { navController.navigate("profile") },
+                onClick = {
+                    navController.navigate("profile") {
+                        launchSingleTop = true
+                    }},
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
@@ -547,7 +554,10 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
 
             // Profile icon
             IconButton(
-                onClick = { navController.navigate("userDetails/${userId}") },
+                onClick = {
+                    navController.navigate("userDetails/${userId}") {
+                        launchSingleTop = true
+                    }},
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
