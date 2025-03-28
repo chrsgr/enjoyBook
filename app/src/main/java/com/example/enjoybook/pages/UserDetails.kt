@@ -1,10 +1,13 @@
 package com.example.enjoybook.pages
 
+import android.icu.util.Calendar
 import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,8 +33,11 @@ import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -61,10 +67,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,6 +81,8 @@ import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavOptions
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.theme.primaryColor
 import com.example.enjoybook.theme.textColor
@@ -84,6 +94,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.example.enjoybook.data.User
 import com.example.enjoybook.utils.reportHandler
 import com.google.firebase.Firebase
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
 
@@ -123,24 +134,48 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     LaunchedEffect(userId) {
         if (userId.isNotEmpty()) {
             isLoading = true
-            db.collection("users").document(userId)
-                .get()
-                .addOnSuccessListener { document ->
-                    if (document != null && document.exists()) {
-                        user = document.toObject(User::class.java)
-                        isLoading = false
-                    } else {
-                        errorMessage = "User not found"
-                        showErrorDialog = true
-                        isLoading = false
-                    }
-                }
-                .addOnFailureListener { e ->
-                    errorMessage = "Error: ${e.message}"
-                    showErrorDialog = true
-                    isLoading = false
-                }
+            try {
+                // Recupero dei dati utente
+                val userDocument = db.collection("users").document(userId)
+                    .get()
+                    .await()
 
+                if (userDocument != null && userDocument.exists()) {
+                    user = userDocument.toObject(User::class.java)
+
+                    val favoritesSnapshot = db.collection("favorites")
+                        .whereEqualTo("userId", userId)
+                        .get()
+                        .await()
+
+                    val bookIds = favoritesSnapshot.documents.mapNotNull { it.getString("bookId") }
+
+                    favorites = if (bookIds.isNotEmpty()) {
+                        db.collection("books")
+                            .whereIn("id", bookIds)
+                            .get()
+                            .await()
+                            .documents.map { document ->
+                                Book(
+                                    id = document.id,
+                                    title = document.getString("title") ?: "",
+                                    author = document.getString("author") ?: ""
+                                    // Aggiungi altri campi necessari
+                                )
+                            }
+                    } else {
+                        emptyList()
+                    }
+                } else {
+                    errorMessage = "User not found"
+                    showErrorDialog = true
+                }
+            } catch (e: Exception) {
+                errorMessage = "Error: ${e.message}"
+                showErrorDialog = true
+            } finally {
+                isLoading = false
+            }
         } else {
             errorMessage = "No user ID specified"
             showErrorDialog = true
@@ -220,297 +255,487 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
             },
             contentWindowInsets = WindowInsets(0)
         ) { paddingValues ->
-            Column(
+
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Top,
-                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Controlla se l'utente è nullo
                 if (user != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
-                    ) {
-                        user?.profilePictureUrl?.let { url ->
-                            AsyncImage(
-                                model = url,
-                                contentDescription = "Profile Picture",
-                                modifier = Modifier
-                                    .size(120.dp)
-                                    .clip(CircleShape)
-                                    .border(2.dp, primaryColor, CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
+                    // Sezione profilo utente
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
+                        ) {
+                            // Immagine profilo
+                            user?.profilePictureUrl?.let { url ->
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = "Profile Picture",
+                                    modifier = Modifier
+                                        .size(120.dp)
+                                        .clip(CircleShape)
+                                        .border(2.dp, primaryColor, CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
 
-                        // Username
-                        Column(
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        ){
-                            Text(
-                                text = user?.username ?: "",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = textColor,
-                                textAlign = TextAlign.Start
-                            )
+                            Column(
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            ){
+                                // Username
+                                Text(
+                                    text = user?.username ?: "",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textColor,
+                                    textAlign = TextAlign.Start
+                                )
 
-                            Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
 
-                            // Nome e Cognome
-                            Text(
-                                text = "${user?.name ?: ""} ${user?.surname ?: ""}",
-                                fontSize = 18.sp,
-                                color = textColor,
-                                textAlign = TextAlign.Start
-                            )
+                                // Nome e Cognome
+                                Text(
+                                    text = "${user?.name ?: ""} ${user?.surname ?: ""}",
+                                    fontSize = 18.sp,
+                                    color = textColor,
+                                    textAlign = TextAlign.Start
+                                )
 
-                            //show only if is not the current user
-                            if (currentUser != null && currentUser.uid != userId) {
-                                Spacer(modifier = Modifier.height(16.dp))
+                                // Controlli per admin/ban (solo se non è l'utente corrente)
+                                if (currentUser != null && currentUser.uid != userId) {
+                                    Spacer(modifier = Modifier.height(16.dp))
 
-                                if (isAdmin) {
-                                    // Pulsante per bannare/sbannare
-                                    OutlinedButton(
-                                        onClick = {
-                                            val newStatus = !isBanned
-                                            Firebase.firestore.collection("users").document(userId)
-                                                .update("isBanned", newStatus)
-                                                .addOnSuccessListener { isBanned = newStatus }
-                                        },
-                                        modifier = Modifier
-                                            .width(250.dp)
-                                            .height(50.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = if (isBanned) Color.Green else Color.Red
-                                        ),
-                                        border = BorderStroke(1.dp, if (isBanned) Color.Green else Color.Red),
-                                        shape = RoundedCornerShape(25.dp)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
+                                    if (isAdmin) {
+                                        // Pulsante ban/unban
+                                        OutlinedButton(
+                                            onClick = {
+                                                val newStatus = !isBanned
+                                                Firebase.firestore.collection("users").document(userId)
+                                                    .update("isBanned", newStatus)
+                                                    .addOnSuccessListener { isBanned = newStatus }
+                                            },
+                                            modifier = Modifier
+                                                .width(250.dp)
+                                                .height(50.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = if (isBanned) Color.Green else Color.Red
+                                            ),
+                                            border = BorderStroke(1.dp, if (isBanned) Color.Green else Color.Red),
+                                            shape = RoundedCornerShape(25.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = if (isBanned) Icons.Default.LockOpen else Icons.Default.Block,
-                                                contentDescription = "Ban/Unban",
-                                                tint = if (isBanned) Color.Green else Color.Red,
-                                                modifier = Modifier.padding(end = 8.dp)
-                                            )
-                                            Text(
-                                                if (isBanned) "Unban Account" else "Ban Account",
-                                                fontWeight = FontWeight.Medium
-                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isBanned) Icons.Default.LockOpen else Icons.Default.Block,
+                                                    contentDescription = "Ban/Unban",
+                                                    tint = if (isBanned) Color.Green else Color.Red,
+                                                    modifier = Modifier.padding(end = 8.dp)
+                                                )
+                                                Text(
+                                                    if (isBanned) "Unban Account" else "Ban Account",
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
                                         }
-                                    }
-                                } else {
-                                    OutlinedButton(
-                                        onClick = { showReportDialog = true },
-                                        modifier = Modifier
-                                            .width(250.dp)
-                                            .height(50.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = warningColor
-                                        ),
-                                        border = BorderStroke(1.dp, warningColor),
-                                        shape = RoundedCornerShape(25.dp)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
+                                    } else {
+                                        // Pulsante report
+                                        OutlinedButton(
+                                            onClick = { showReportDialog = true },
+                                            modifier = Modifier
+                                                .width(250.dp)
+                                                .height(50.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = warningColor
+                                            ),
+                                            border = BorderStroke(1.dp, warningColor),
+                                            shape = RoundedCornerShape(25.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Report,
-                                                contentDescription = "Report",
-                                                tint = warningColor,
-                                                modifier = Modifier.padding(end = 8.dp)
-                                            )
-                                            Text(
-                                                "Report Account",
-                                                color = warningColor,
-                                                fontWeight = FontWeight.Medium
-                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Report,
+                                                    contentDescription = "Report",
+                                                    tint = warningColor,
+                                                    modifier = Modifier.padding(end = 8.dp)
+                                                )
+                                                Text(
+                                                    "Report Account",
+                                                    color = warningColor,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
                                         }
-                                    }
 
-                                    if (showReportDialog) {
-                                        reportHandler(userId, user?.username, showReportDialog)
+                                        // Dialog report
+                                        if (showReportDialog) {
+                                            reportHandler(userId, user?.username, showReportDialog)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    //Spacer(modifier = Modifier.height(24.dp))
-                    if (currentUser != null && currentUser.uid != userId) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                    // Aggiungi questo come un nuovo item dopo i blocchi precedenti
+                    item {
+                        if (currentUser != null && currentUser.uid != userId) {
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        // Aggiungi questo blocco
-                        OutlinedButton(
-                            onClick = {
-                                navController.navigate("messaging/$userId")
-                            },
-                            modifier = Modifier
-                                .width(250.dp)
-                                .height(50.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = primaryColor
-                            ),
-                            border = BorderStroke(1.dp, primaryColor),
-                            shape = RoundedCornerShape(25.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Message,
-                                    contentDescription = "Send Message",
-                                    tint = primaryColor,
-                                    modifier = Modifier.padding(end = 8.dp)
-                                )
-                                Text(
-                                    "Send Message",
-                                    color = primaryColor,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-
-                    if (currentUser != null && currentUser.uid == userId) {
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        OutlinedButton(
-                            onClick = {
-                                navController.navigate("chatList")
-                            },
-                            modifier = Modifier
-                                .width(250.dp)
-                                .height(50.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = primaryColor
-                            ),
-                            border = BorderStroke(1.dp, primaryColor),
-                            shape = RoundedCornerShape(25.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Message,
-                                    contentDescription = "Messaggi",
-                                    tint = primaryColor,
-                                    modifier = Modifier.padding(end = 8.dp)
-                                )
-                                Text(
-                                    "Messaggi",
-                                    color = primaryColor,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-
-                    // Altre informazioni dell'utente
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = cardBackground
-                        ),
-                        elevation = CardDefaults.cardElevation(4.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-
-                            // Email
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Email,
-                                    contentDescription = "Email",
-                                    tint = primaryColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = user?.email ?: "",
-                                    fontSize = 16.sp,
-                                    color = textColor
-                                )
-                            }
-
-                            // Telefono (se disponibile)
-                            user?.phone?.let { phone ->
-                                if (phone.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        navController.navigate("messaging/$userId")
+                                    },
+                                    modifier = Modifier
+                                        .width(250.dp)
+                                        .height(50.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = primaryColor
+                                    ),
+                                    border = BorderStroke(1.dp, primaryColor),
+                                    shape = RoundedCornerShape(25.dp)
+                                ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(vertical = 4.dp)
+                                        horizontalArrangement = Arrangement.Center
                                     ) {
                                         Icon(
-                                            Icons.Default.Phone,
-                                            contentDescription = "Phone",
+                                            imageVector = Icons.Default.Message,
+                                            contentDescription = "Send Message",
                                             tint = primaryColor,
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.padding(end = 8.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = phone,
-                                            fontSize = 16.sp,
-                                            color = textColor
+                                            "Send Message",
+                                            color = primaryColor,
+                                            fontWeight = FontWeight.Medium
                                         )
                                     }
                                 }
                             }
+                        }
 
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 4.dp)
+                        if (currentUser != null && currentUser.uid == userId) {
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    Icons.Default.Book,
-                                    contentDescription = "Libri",
-                                    tint = primaryColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "${favorites.size}",
-                                    fontSize = 16.sp,
-                                    color = textColor
-                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        navController.navigate("chatList")
+                                    },
+                                    modifier = Modifier
+                                        .width(250.dp)
+                                        .height(50.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = primaryColor
+                                    ),
+                                    border = BorderStroke(1.dp, primaryColor),
+                                    shape = RoundedCornerShape(25.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Message,
+                                            contentDescription = "Messaggi",
+                                            tint = primaryColor,
+                                            modifier = Modifier.padding(end = 8.dp)
+                                        )
+                                        Text(
+                                            "Messages",
+                                            color = primaryColor,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
                             }
-
                         }
                     }
 
-                    Log.d("Libri preferiti:", "${favorites.size}")
+                    // Sezione libri preferiti
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                SectionHeaderUser(
+                                    icon = Icons.Default.Favorite,
+                                    title = "${user?.username} favorites",
+                                    primaryColor = primaryColor,
+                                    textColor = textColor
+                                )
 
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (favorites.isEmpty()) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.BookmarkBorder,
+                                                contentDescription = null,
+                                                tint = Color.LightGray,
+                                                modifier = Modifier.size(48.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                "No favorites books here",
+                                                color = Color.Gray,
+                                                fontSize = 16.sp
+                                            )
+                                        }
+                                    } else {
+                                        Row(
+                                            modifier = Modifier
+                                                .horizontalScroll(rememberScrollState())
+                                                .fillMaxWidth()
+                                        ) {
+                                            favorites.forEach { book ->
+                                                BookCardUser(
+                                                    book = book,
+                                                    primaryColor = primaryColor,
+                                                    textColor = textColor,
+                                                    onClick = {
+                                                        navController.navigate("bookDetails/${book.id}")
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
-                    Text(
-                        text = "No user available",
-                        fontSize = 18.sp,
-                        color = errorColor,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 32.dp)
-                    )
+                    // Messaggio se l'utente è nullo
+                    item {
+                        Text(
+                            text = "No user available",
+                            fontSize = 18.sp,
+                            color = errorColor,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 32.dp)
+                        )
+                    }
                 }
-
             }
         }
     }
 
+}
+
+@Composable
+fun SectionHeaderUser(
+    icon: ImageVector,
+    title: String,
+    primaryColor: Color,
+    textColor: Color
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        androidx.compose.material3.Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = primaryColor
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+            fontSize = 16.sp
+        )
+    }
+}
+
+@Composable
+fun BookCardUser(
+    book: Book,
+    primaryColor: Color,
+    textColor: Color,
+    onClick: () -> Unit
+) {
+
+    val calendar = Calendar.getInstance()
+    calendar.add(Calendar.DAY_OF_YEAR, -7)
+    val sevenDaysAgo = Timestamp(calendar.time)
+
+    val isNew = book.timestamp?.toDate()?.after(sevenDaysAgo.toDate()) == true
+
+    val isFrontCover = remember { mutableStateOf(true) }
+
+    Card(
+        modifier = Modifier
+            .padding(end = 16.dp)
+            .width(140.dp)
+            .height(180.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            if (isFrontCover.value && book?.frontCoverUrl != null)  {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(85.dp)
+                        .background(primaryColor.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val imageUrl = book?.frontCoverUrl
+
+                    val painter = rememberAsyncImagePainter(imageUrl)
+                    val state = painter.state
+
+                    if (state is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Front Cover",
+                        modifier = Modifier.fillMaxSize(),
+                        //contentScale = ContentScale.Crop
+                    )
+
+                    if (isNew) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .background(primaryColor, shape = RoundedCornerShape(bottomEnd = 8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "NEW",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            else {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(85.dp)
+                        .background(primaryColor.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = Icons.Default.MenuBook,
+                        contentDescription = null,
+                        tint = primaryColor,
+                        modifier = Modifier.size(36.dp)
+                    )
+
+                    if (isNew) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .background(primaryColor, shape = RoundedCornerShape(bottomEnd = 8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "NEW",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            ) {
+                Text(
+                    text = book.title,
+                    color = textColor,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 14.sp
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = book.author,
+                    color = textColor.copy(alpha = 0.7f),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+
+                Text(
+                    text = book.type,
+                    color = Color.Black,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+            }
+        }
+    }
 }

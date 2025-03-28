@@ -42,6 +42,8 @@ import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
 import com.google.common.reflect.TypeToken
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 
 
@@ -253,12 +255,33 @@ fun FavouritePage(
                                 onClick = {
                                     navController.navigate("bookDetails/${book.id}")                                },
                                 onRemove = {
-                                    FavoritesManager.removeFavorite(book.id)
-                                    refreshScope.launch {
-                                        delay(100)
-                                        refreshing = true
-                                        delay(300)
-                                        refreshing = false
+                                    val currentUser = FirebaseAuth.getInstance().currentUser
+                                    if (currentUser != null) {
+                                        val db = FirebaseFirestore.getInstance()
+                                        db.collection("favorites")
+                                            .whereEqualTo("bookId", book.id)
+                                            .whereEqualTo("userId", currentUser.uid)
+                                            .get()
+                                            .addOnSuccessListener { documents ->
+                                                for (document in documents) {
+                                                    db.collection("favorites").document(document.id).delete()
+                                                }
+                                                // Rimuovi dai preferiti locali
+                                                FavoritesManager.removeFavorite(book.id)
+
+                                                // Puoi mantenere la logica di refresh che avevi
+                                                refreshScope.launch {
+                                                    delay(100)
+                                                    refreshing = true
+                                                    delay(300)
+                                                    refreshing = false
+                                                }
+                                            }
+                                            .addOnFailureListener { e ->
+                                                Log.e("FavoriteBookItem", "Errore nella rimozione del libro dai preferiti", e)
+                                                // Opzionale: mostra un messaggio all'utente
+                                                // Toast.makeText(context, "Impossibile rimuovere il libro dai preferiti", Toast.LENGTH_SHORT).show()
+                                            }
                                     }
                                 }
                             )
