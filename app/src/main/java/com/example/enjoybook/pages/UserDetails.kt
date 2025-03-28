@@ -95,8 +95,10 @@ import com.example.enjoybook.data.User
 import com.example.enjoybook.utils.reportHandler
 import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
+import okhttp3.internal.platform.Jdk9Platform.Companion.isAvailable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,6 +129,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     var errorMessage by remember { mutableStateOf("") }
 
     var favorites by remember { mutableStateOf<List<Book>>(emptyList()) }
+    var booksAvailable by remember { mutableStateOf<List<Book>>(emptyList()) }
 
     var isAdmin by remember { mutableStateOf(false) }
     var isBanned by remember { mutableStateOf(false) }
@@ -148,6 +151,11 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         .get()
                         .await()
 
+                    val userBooksSnapshot = db.collection("books")
+                        .whereEqualTo("userId", userId)
+                        .get()
+                        .await()
+
                     val bookIds = favoritesSnapshot.documents.mapNotNull { it.getString("bookId") }
 
                     favorites = if (bookIds.isNotEmpty()) {
@@ -159,13 +167,31 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                 Book(
                                     id = document.id,
                                     title = document.getString("title") ?: "",
-                                    author = document.getString("author") ?: ""
-                                    // Aggiungi altri campi necessari
+                                    author = document.getString("author") ?: "",
+                                    type = document.getString("type") ?: "",
+                                    isAvailable = document.getBoolean("isAvailable") ?: true,
+                                    frontCoverUrl = document.getString("frontCoverUrl") ?: null,
                                 )
                             }
-                    } else {
+                    }
+
+                    else {
                         emptyList()
                     }
+
+                    booksAvailable = userBooksSnapshot.documents.map { document ->
+                        Book(
+                            id = document.id,
+                            title = document.getString("title") ?: "",
+                            author = document.getString("author") ?: "",
+                            type = document.getString("type") ?: "",
+                            timestamp = document.getTimestamp("timestamp") ?: Timestamp.now(),
+                            isAvailable = document.getBoolean("isAvailable") ?: true,
+                            frontCoverUrl = document.getString("frontCoverUrl") ?: null,
+                        )
+                    }
+
+
                 } else {
                     errorMessage = "User not found"
                     showErrorDialog = true
@@ -485,6 +511,77 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                     .padding(16.dp)
                             ) {
                                 SectionHeaderUser(
+                                    icon = Icons.Default.Book,
+                                    title = "${user?.username} library",
+                                    primaryColor = primaryColor,
+                                    textColor = textColor
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (booksAvailable.isEmpty()) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.BookmarkBorder,
+                                                contentDescription = null,
+                                                tint = Color.LightGray,
+                                                modifier = Modifier.size(48.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                "No books here",
+                                                color = Color.Gray,
+                                                fontSize = 16.sp
+                                            )
+                                        }
+                                    } else {
+                                        Row(
+                                            modifier = Modifier
+                                                .horizontalScroll(rememberScrollState())
+                                                .fillMaxWidth()
+                                        ) {
+                                            booksAvailable.forEach { book ->
+                                                BookCardUser(
+                                                    book = book,
+                                                    primaryColor = primaryColor,
+                                                    textColor = textColor,
+                                                    onClick = {
+                                                        navController.navigate("bookDetails/${book.id}")
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    // Sezione libri preferiti
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                SectionHeaderUser(
                                     icon = Icons.Default.Favorite,
                                     title = "${user?.username} favorites",
                                     primaryColor = primaryColor,
@@ -592,12 +689,13 @@ fun BookCardUser(
     textColor: Color,
     onClick: () -> Unit
 ) {
-
     val calendar = Calendar.getInstance()
     calendar.add(Calendar.DAY_OF_YEAR, -7)
     val sevenDaysAgo = Timestamp(calendar.time)
 
     val isNew = book.timestamp?.toDate()?.after(sevenDaysAgo.toDate()) == true
+
+    val isAvailable = book?.isAvailable
 
     val isFrontCover = remember { mutableStateOf(true) }
 
@@ -643,7 +741,7 @@ fun BookCardUser(
                         //contentScale = ContentScale.Crop
                     )
 
-                    if (isNew) {
+                    if (isNew && isAvailable != null && isAvailable == true) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
@@ -652,6 +750,22 @@ fun BookCardUser(
                         ) {
                             Text(
                                 text = "NEW",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    else if ((isNew && isAvailable != null && isAvailable == false) || (!isNew && isAvailable != null && isAvailable == false)) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .background(Color.Red)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "NOT AVAILABLE",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
@@ -677,7 +791,7 @@ fun BookCardUser(
                         modifier = Modifier.size(36.dp)
                     )
 
-                    if (isNew) {
+                    if (isNew && isAvailable != null && isAvailable == true) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
@@ -686,6 +800,22 @@ fun BookCardUser(
                         ) {
                             Text(
                                 text = "NEW",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    else if ((isNew && isAvailable != null && isAvailable == false) || (!isNew && isAvailable != null && isAvailable == false)) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .background(primaryColor, shape = RoundedCornerShape(bottomEnd = 8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "NOT AVAILABLE",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
@@ -724,7 +854,6 @@ fun BookCardUser(
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
-
 
                 Text(
                     text = book.type,
