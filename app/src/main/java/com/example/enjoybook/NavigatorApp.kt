@@ -235,6 +235,8 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                 BookPage(navController, authViewModel)
             }
 
+
+
             composable("library"){
                 LibraryPage(navController)
             }
@@ -242,6 +244,23 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             composable("listBookAdd"){
                 ListBookAddPage(navController)
             }
+
+            composable("chatList") {
+                ChatListScreen(navController, authViewModel)
+            }
+
+            composable("messaging/{userId}") { backStackEntry ->
+                val userId = backStackEntry.arguments?.getString("userId")
+                    ?: return@composable
+
+                UserMessagingScreen(
+                    navController = navController,
+                    authViewModel = authViewModel,
+                    targetUserId = userId
+                )
+            }
+
+
 
 
 
@@ -331,6 +350,11 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
         }
     }
 
+}
+
+@Composable
+fun MessagingScreen(navController: NavHostController, partnerId: String) {
+    TODO("Not yet implemented")
 }
 
 @Composable

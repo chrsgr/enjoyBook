@@ -26,11 +26,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Report
@@ -346,6 +348,76 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                     }
 
                     //Spacer(modifier = Modifier.height(24.dp))
+                    if (currentUser != null && currentUser.uid != userId) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Aggiungi questo blocco
+                        OutlinedButton(
+                            onClick = {
+                                navController.navigate("messaging/$userId")
+                            },
+                            modifier = Modifier
+                                .width(250.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = primaryColor
+                            ),
+                            border = BorderStroke(1.dp, primaryColor),
+                            shape = RoundedCornerShape(25.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Message,
+                                    contentDescription = "Send Message",
+                                    tint = primaryColor,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text(
+                                    "Send Message",
+                                    color = primaryColor,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
+                    if (currentUser != null && currentUser.uid == userId) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                navController.navigate("chatList")
+                            },
+                            modifier = Modifier
+                                .width(250.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = primaryColor
+                            ),
+                            border = BorderStroke(1.dp, primaryColor),
+                            shape = RoundedCornerShape(25.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Message,
+                                    contentDescription = "Messaggi",
+                                    tint = primaryColor,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text(
+                                    "Messaggi",
+                                    color = primaryColor,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
 
                     // Altre informazioni dell'utente
                     Card(
