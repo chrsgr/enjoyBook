@@ -1,4 +1,6 @@
 package com.example.enjoybook.pages
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
@@ -71,6 +74,8 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.enjoybook.theme.primaryColor
+import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -226,7 +231,11 @@ fun ProfilePage(
                     isSaving = false
                     errorMessage = "Username is already taken. Please choose a different username."
                     showErrorDialog = true
-                    Toast.makeText(context, "Username is already taken. Please choose a different username.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Username is already taken. Please choose a different username.",
+                        Toast.LENGTH_SHORT
+                    ).show()
 
                 } else {
                     // Username is unique, proceed with saving
@@ -249,13 +258,21 @@ fun ProfilePage(
                             .addOnSuccessListener {
                                 isSaving = false
                                 isEditing = false
-                                Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    context,
+                                    "Profile updated successfully",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                             .addOnFailureListener { e ->
                                 isSaving = false
                                 errorMessage = "Failed to update profile: ${e.message}"
                                 showErrorDialog = true
-                                Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    context,
+                                    "Profile updated successfully",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                     }
 
@@ -270,7 +287,8 @@ fun ProfilePage(
                                 if (isGoogleAuth) {
                                     // Utente Google, non permettere la modifica della password
                                     isSaving = false
-                                    errorMessage = "Google accounts cannot change their password through the app. Please manage your Google account settings instead."
+                                    errorMessage =
+                                        "Google accounts cannot change their password through the app. Please manage your Google account settings instead."
                                     showErrorDialog = true
                                 } else {
                                     // Utente con email/password, procedi con l'aggiornamento
@@ -281,7 +299,8 @@ fun ProfilePage(
                                                 updateFirestore()
                                             } else {
                                                 isSaving = false
-                                                errorMessage = "Failed to update password: ${task.exception?.message}"
+                                                errorMessage =
+                                                    "Failed to update password: ${task.exception?.message}"
                                                 showErrorDialog = true
                                             }
                                         }
@@ -309,7 +328,7 @@ fun ProfilePage(
     var showBottomSheet by remember { mutableStateOf(false) }
 
     val animationSpec: FiniteAnimationSpec<IntSize> = tween(durationMillis = 300)
-
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -564,7 +583,7 @@ fun ProfilePage(
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (isEditing && isCurrentUserProfile ) {
+                                    if (isEditing && isCurrentUserProfile) {
                                         Button(
                                             onClick = { saveUserData() },
                                             modifier = Modifier
@@ -672,7 +691,69 @@ fun ProfilePage(
                     if (isCurrentUserProfile && !isEditing) {
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Card(
+                        // Delete Account button
+                        Button(
+                            onClick = { showDeleteConfirmation = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                            shape = RoundedCornerShape(25.dp),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete Account",
+                                    tint = Color.White,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text(
+                                    "Delete Account",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Delete confirmation dialog
+                        if (showDeleteConfirmation) {
+                            AlertDialog(
+                                onDismissRequest = { showDeleteConfirmation = false },
+                                title = { Text("Confirm Deletion") },
+                                text = { Text("Proceeding will permanently delete your account and all your activity.") },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            // Call a function to delete the account from the database
+                                            deleteUserAccount( navController )
+                                            showDeleteConfirmation = false
+                                        }
+                                    ) {
+                                        Text("Yes", color = Color.Red)
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(
+                                        onClick = { showDeleteConfirmation = false }
+                                    ) {
+                                        Text("No")
+                                    }
+                                }
+                            )
+                        }
+
+
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+
+
+
+Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .animateContentSize(animationSpec),
@@ -1063,3 +1144,49 @@ fun ProfileField(
         }
     }
 }
+
+
+
+fun deleteUserAccount(navController: NavController) {
+    val user = FirebaseAuth.getInstance().currentUser
+    val db = FirebaseFirestore.getInstance()
+
+    user?.let { currentUser ->
+        val userId = currentUser.uid
+        val collectionsToDelete =
+            listOf("books", "reviews", "users", "messages", "favourites", "chats")
+        val tasks = mutableListOf<Task<Void>>()
+
+        for (collection in collectionsToDelete) {
+            val query = db.collection(collection).whereEqualTo("userId", userId)
+            query.get().addOnSuccessListener { querySnapshot ->
+                for (document in querySnapshot.documents) {
+                    tasks.add(document.reference.delete())
+                }
+
+                // Attendi la cancellazione di tutti i dati prima di eliminare l'account
+                Tasks.whenAllComplete(tasks).addOnSuccessListener {
+                    currentUser.delete().addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            println("Account eliminato con successo.")
+
+                            // Dopo la cancellazione dell'account, naviga alla pagina di login
+                            navController.navigate("login") {
+                                // Rimuovi tutte le schermate precedenti dalla pila
+                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                launchSingleTop = true // Per evitare duplicati
+                            }
+                        } else {
+                            println("Errore nella cancellazione dell'account: ${task.exception?.message}")
+                        }
+                    }
+                }.addOnFailureListener { e ->
+                    println("Errore nella cancellazione dei dati: ${e.message}")
+                }
+            }.addOnFailureListener { e ->
+                println("Errore nel recupero dei documenti: ${e.message}")
+            }
+        }
+    }
+}
+
