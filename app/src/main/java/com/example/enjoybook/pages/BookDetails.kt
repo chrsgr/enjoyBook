@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
@@ -47,9 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.times
 import coil.compose.AsyncImage
@@ -63,6 +59,8 @@ import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 
@@ -95,6 +93,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     var errorMessage by remember { mutableStateOf("") }
 
     val firestore = FirebaseFirestore.getInstance()
+
+
 
     LaunchedEffect(Unit) {
         if (currentUser != null) {
@@ -233,7 +233,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     Log.e("FavoriteBook", "Error adding book to favorites", e)
                 }
         } else {
-            // Remove book from favorites
             db.collection("favorites")
                 .whereEqualTo("bookId", book.id)
                 .whereEqualTo("userId", currentUser.uid)
@@ -249,6 +248,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 }
         }
     }
+
 
     fun toggleLoanRequest() {
         when {
@@ -489,8 +489,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     }
 
                     Spacer(modifier = Modifier.width(24.dp))
-
-                    // Replace the existing Column for book details with this:
                     Column(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier
@@ -872,7 +870,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                             }
                                         }
 
-                                        // Space between reviews
                                         if (index < submittedReviews.size - 1) {
                                             Spacer(modifier = Modifier.height(8.dp))
                                         }
@@ -1181,53 +1178,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     }
 }
 
-@Composable
-fun ContactInfoItem(label: String, value: String, textColor: Color) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.Start
-    ) {
-        Text(
-            text = "$label:",
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(60.dp),
-            color = textColor
-        )
-        Text(
-            text = value,
-            color = textColor
-        )
-    }
-}
-
-@Composable
-fun BookInfoItem(label: String, value: String, textColor: Color) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    ) {
-        // Display label on its own line
-        Text(
-            text = "$label:",
-            fontWeight = FontWeight.Bold,
-            color = textColor
-        )
-
-        // Small spacer between label and value
-        Spacer(modifier = Modifier.height(2.dp))
-
-        // Display value on its own line
-        Text(
-            text = value,
-            color = textColor
-        )
-    }
-}
-
-
 private fun saveReviewToDatabase(bookId: String, userEmail: String, review: String, onComplete: () -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
@@ -1309,6 +1259,13 @@ fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
         }
 }
 
+
+
+
+
+
+
+
 @Composable
 fun ScrollableTextWithScrollbar(
     text: String,
@@ -1382,53 +1339,3 @@ fun VerticalScrollbar(
     }
 }
 
-@Composable
-fun ClickableTextWithNavigation(
-    fullText: String,
-    clickableWord: String,
-    navController: NavController,
-    destinationRoute: String,
-    normalColor: Color,
-    clickableColor: Color = MaterialTheme.colorScheme.primary
-) {
-    // Costruisce un testo annotato
-    val annotatedString = buildAnnotatedString {
-        // Divide il testo in parti
-        val parts = fullText.split(clickableWord)
-
-        parts.forEachIndexed { index, part ->
-            // Aggiungi la parte normale del testo
-            append(part)
-
-            // Aggiungi la parola cliccabile solo se non è l'ultima iterazione
-            if (index < parts.size - 1) {
-                // Stile per la parola cliccabile
-                withStyle(
-                    style = SpanStyle(
-                        color = clickableColor,
-                        fontWeight = MaterialTheme.typography.bodyMedium.fontWeight
-                    )
-                ) {
-                    // Aggiungi un tag per l'identificazione del click
-                    pushStringAnnotation(tag = "clickable", annotation = destinationRoute)
-                    append(clickableWord)
-                    pop()
-                }
-            }
-        }
-    }
-
-    // Testo cliccabile
-    ClickableText(
-        text = annotatedString,
-        style = MaterialTheme.typography.bodyMedium.copy(color = normalColor),
-        onClick = { offset ->
-            // Verifica se il click è su un'area annotata
-            annotatedString.getStringAnnotations(tag = "clickable", start = offset, end = offset)
-                .firstOrNull()?.let { annotation ->
-                    // Naviga alla destinazione
-                    navController.navigate(annotation.item)
-                }
-        }
-    )
-}

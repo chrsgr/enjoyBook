@@ -1,8 +1,5 @@
 package com.example.enjoybook.data
 
-import android.R
-
-// Notification data class (add this to your models)
 data class Notification(
     val recipientId: String = "",
     val message: String = "",
@@ -13,4 +10,5 @@ data class Notification(
     val id: String = "",
     val senderId: String = "",
     val title: String = "",
+    val status: String = "PENDING"
 )
