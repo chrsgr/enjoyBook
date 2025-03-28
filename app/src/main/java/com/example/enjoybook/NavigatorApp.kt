@@ -83,6 +83,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.enjoybook.admin.AdminListReports
 import com.example.enjoybook.admin.AdminPanel
+import com.example.enjoybook.admin.AdminUsersBanned
 import com.example.enjoybook.auth.ForgotPasswordPage
 import com.example.enjoybook.data.NavItem
 import com.example.enjoybook.data.Notification
@@ -184,6 +185,10 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                 AdminListReports(navController, authViewModel)
             }
 
+            composable("adminBanned"){
+                AdminUsersBanned(navController, authViewModel)
+            }
+
             composable(
                 route = "addPage?bookId={bookId}&isEditing={isEditing}",
                 arguments = listOf(
@@ -259,8 +264,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                     targetUserId = userId
                 )
             }
-
-
 
 
 

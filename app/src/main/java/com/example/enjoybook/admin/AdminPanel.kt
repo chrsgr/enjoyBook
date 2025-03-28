@@ -132,6 +132,16 @@ fun AdminPanel(navController: NavController, authViewModel: AuthViewModel){
                         fontWeight = FontWeight.Bold
                     )
                 }
+
+                TextButton(
+                    onClick = { navController.navigate("adminBanned") },
+                ) {
+                    Text(
+                        "List of the users banned",
+                        color = Color(0xFF046C70),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
     }
 }
