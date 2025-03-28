@@ -45,7 +45,7 @@ dependencies {
         implementation ("androidx.compose.material3:material3:1.x.x")
         implementation ("androidx.compose.material:material:1.x.x")
         implementation ("androidx.navigation:navigation-compose:2.x.x")
-
+    implementation ("com.google.firebase:firebase-messaging:23.1.2")
 
     // Import the Compose BOM
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))

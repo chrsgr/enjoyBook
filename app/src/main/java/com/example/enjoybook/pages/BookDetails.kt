@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -46,20 +45,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.times
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.Review
+import com.example.enjoybook.data.SnackbarNotificationState
+import com.example.enjoybook.data.SnackbarType
+import com.example.enjoybook.utils.NotificationHost
+import com.example.enjoybook.utils.ScrollableTextWithScrollbar
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -256,6 +262,14 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 deleteRequest = true
                 isLoanRequested = false
                 buttonText = if (isBookAvailable) "available" else "not available"
+
+                // Show on-screen notification
+                NotificationManager.showNotification(
+                    message = "Loan request canceled successfully",
+                    type = SnackbarType.INFO,
+                    duration = 3000
+                )
+
                 coroutineScope.launch {
                     delay(2000)
                     deleteRequest = false
@@ -266,7 +280,16 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 showLoanRequestDialog = true
                 isLoanRequested = true
                 buttonText = "requested"
+
                 sendBookRequestNotification(book?.userId.toString(), book!!.title, book!!.id)
+
+                NotificationManager.showNotification(
+                    message = "Loan request sent successfully",
+                    type = SnackbarType.SUCCESS,
+                    duration = 3000,
+
+                )
+
                 coroutineScope.launch {
                     delay(2000)
                     showLoanRequestDialog = false
@@ -274,10 +297,18 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             }
 
             else -> {
-                //"not available" case
+                // "not available" case
                 showLoanRequestDialog = false
                 isLoanRequested = false
                 buttonText = "not available"
+
+                // Show on-screen notification
+                NotificationManager.showNotification(
+                    message = "Sorry, this book is currently unavailable",
+                    type = SnackbarType.ERROR,
+                    duration = 3000
+                )
+
                 coroutineScope.launch {
                     delay(2000)
                     showLoanRequestDialog = false
@@ -285,6 +316,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             }
         }
     }
+
 
     if (isLoading) {
         Box(
@@ -302,7 +334,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             "BOOK DETAILS",
                             color = textColor,
                             fontWeight = FontWeight.Bold,
-
                         )
                     },
                     navigationIcon = {
@@ -323,36 +354,36 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             },
             contentWindowInsets = WindowInsets(0)
         ) { paddingValues ->
+            NotificationHost {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = book?.title ?: "TITLE",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Top,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = book?.title ?: "TITLE",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                    Spacer(modifier = Modifier.height(2.dp))
 
-                Spacer(modifier = Modifier.height(2.dp))
+                    ClickableTextWithNavigation(
+                        fullText = "pubblicated by ${book?.userUsername}",
+                        clickableWord = "${book?.userUsername}",
+                        navController = navController,
+                        destinationRoute = "userDetails/${book?.userId}",
+                        normalColor = textColor
+                    )
 
-                ClickableTextWithNavigation(
-                    fullText = "pubblicated by ${book?.userUsername}",
-                    clickableWord = "${book?.userUsername}",
-                    navController = navController,
-                    destinationRoute = "userDetails/${book?.userId}",
-                    normalColor = textColor
-                )
 
-                Log.d("Userid", "${book?.userId}")
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -880,6 +911,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     }
                 }
             }
+                }
 
             // Review Dialog
             if (showReviewDialog) {
@@ -1031,150 +1063,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             }
         }
 
-        // Loan Request Confirmation Dialog
-        if (showLoanRequestDialog) {
-            Dialog(onDismissRequest = {  }) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Loan request sent",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            textAlign = TextAlign.Center,
-                            color = textColor
-                        )
-                    }
-                }
-            }
-        }
-
-        // Delete Request
-        if (deleteRequest) {
-            Dialog(onDismissRequest = {  }) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Request Delete",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            textAlign = TextAlign.Center,
-                            color = textColor
-                        )
-                    }
-                }
-            }
-        }
-
-        // Review Dialog
-        if (showReviewDialog) {
-            Dialog(onDismissRequest = { showReviewDialog = false }) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // Close button (X) in top left
-                        IconButton(
-                            onClick = { showReviewDialog = false },
-                            modifier = Modifier.align(Alignment.TopStart)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = primaryColor
-                            )
-                        }
-
-                        // Content
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                                .padding(top = 48.dp, bottom = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(
-                                text = "Write a Review",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp,
-                                color = textColor
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Text field for review input
-                            OutlinedTextField(
-                                value = review,
-                                onValueChange = { review = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(150.dp),
-                                placeholder = { Text("Share your thoughts about this book...", color = textColor.copy(alpha = 0.5f)) },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = primaryColor,
-                                    unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
-                                    focusedTextColor = textColor,
-                                    unfocusedTextColor = textColor
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Button(
-                                onClick = {
-                                    if (review.isNotBlank() && currentUserEmail.isNotEmpty() && book != null) {
-                                        val documentId = bookId
-                                        Log.d("ReviewSubmit", "Submitting review for document ID: $documentId")
-
-                                        // Add immediately to UI for responsiveness
-                                        submittedReviews.add(0, currentUserEmail to review)
-
-                                        saveReviewToDatabase(documentId, currentUserEmail, review) {
-                                            Log.d("ReviewSubmit", "Review saved to database")
-                                        }
-
-                                        review = ""
-                                        showReviewDialog = false
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(primaryColor),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("Submit", color = Color.White)
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -1235,7 +1123,6 @@ private fun fetchReviewsForBook(bookId: String, callback: (List<Review>) -> Unit
 fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
     val currentUser = FirebaseAuth.getInstance().currentUser ?: return
 
-    // Create notification data
     val notification = Notification(
         recipientId = userId,
         senderId = currentUser.uid,
@@ -1247,7 +1134,6 @@ fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
         title = title
     )
 
-    // Add to Firestore
     FirebaseFirestore.getInstance()
         .collection("notifications")
         .add(notification)
@@ -1264,78 +1150,40 @@ fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
 
 
 
+object NotificationManager {
+    private val _notificationState = MutableStateFlow<SnackbarNotificationState?>(null)
+    val notificationState: StateFlow<SnackbarNotificationState?> = _notificationState.asStateFlow()
 
-
-@Composable
-fun ScrollableTextWithScrollbar(
-    text: String,
-    textColor: Color,
-    scrollbarColor: Color,
-    maxHeight: Dp = 120.dp
-) {
-    val scrollState = rememberScrollState()
-
-    // Determina se la scrollbar deve essere mostrata
-    val shouldShowScrollbar = scrollState.maxValue > 0
-
-    Box(
-        modifier = Modifier
-            .heightIn(max = maxHeight)
-            .fillMaxWidth()
+    fun showNotification(
+        message: String,
+        type: SnackbarType = SnackbarType.INFO,
+        duration: Long = 3000,
+        actionLabel: String? = null,
+        onActionClick: () -> Unit = {}
     ) {
-        Column(
-            modifier = Modifier
-                .verticalScroll(scrollState)
-                .padding(end = if (shouldShowScrollbar) 16.dp else 0.dp)
-        ) {
-            Text(
-                text = text,
-                fontWeight = FontWeight.Normal,
-                style = MaterialTheme.typography.bodyMedium,
-                color = textColor,
-            )
-        }
-
-        // Mostra la scrollbar solo se necessario
-        if (shouldShowScrollbar) {
-            VerticalScrollbar(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                scrollState = scrollState,
-                color = scrollbarColor
-            )
-        }
-    }
-}
-
-@Composable
-fun VerticalScrollbar(
-    modifier: Modifier = Modifier,
-    scrollState: ScrollState,
-    color: Color,
-    scrollbarWidth: Dp = 6.dp
-) {
-    // Calcolo dinamico dell'altezza della scrollbar (spero funzioni)
-    val scrollbarHeight = scrollState.maxValue.toFloat().let { maxValue ->
-        if (maxValue > 0) 120.dp else 0.dp
-    }
-
-    // Calcolo dinamico dell'altezza del thumb (spero funzioni pt 2)
-    val thumbHeight = scrollbarHeight * 0.2f
-
-    Box(
-        modifier = modifier
-            .width(scrollbarWidth)
-            .height(scrollbarHeight)
-            .background(Color.LightGray.copy(alpha = 0.3f), shape = RoundedCornerShape(3.dp))
-    ) {
-        // Calcolo della posizione del thumb
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(thumbHeight)
-                .offset(y = (scrollState.value / scrollState.maxValue.toFloat()) * (scrollbarHeight - thumbHeight))
-                .background(color, shape = RoundedCornerShape(3.dp))
+        _notificationState.value = SnackbarNotificationState(
+            message = message,
+            type = type,
+            duration = duration,
+            actionLabel = actionLabel,
+            onActionClick = onActionClick
         )
+
+        CoroutineScope(Dispatchers.Main).launch {
+            delay(duration)
+            dismissNotification()
+        }
+    }
+
+    fun dismissNotification() {
+        _notificationState.value = null
     }
 }
+
+
+
+
+
+
+
 

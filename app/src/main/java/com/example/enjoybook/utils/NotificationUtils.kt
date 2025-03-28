@@ -3,10 +3,12 @@ package com.example.enjoybook.utils
 import android.text.format.DateUtils
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +31,10 @@ import com.example.enjoybook.data.Notification
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.example.enjoybook.pages.CustomSnackbar
+import com.example.enjoybook.pages.NotificationManager
 
 @Composable
 fun NotificationItem(
@@ -242,4 +248,27 @@ fun deleteNotification(notificationId: String) {
         .addOnFailureListener { e ->
             Log.e("Notifications", "Error deleting notification", e)
         }
+}
+
+
+@Composable
+fun NotificationHost(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val notificationState by NotificationManager.notificationState.collectAsState()
+
+    Box(modifier = modifier.fillMaxSize()) {
+        content()
+
+        notificationState?.let { state ->
+            CustomSnackbar(
+                state = state,
+                onDismiss = { NotificationManager.dismissNotification() },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 20.dp)
+            )
+        }
+    }
 }
