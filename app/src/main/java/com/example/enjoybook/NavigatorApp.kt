@@ -1,7 +1,14 @@
 package com.example.enjoybook
 
 
+import android.text.format.DateUtils
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -53,7 +60,11 @@ import androidx.compose.material.icons.filled.Output
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -63,6 +74,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -98,6 +110,7 @@ import com.example.enjoybook.viewModel.AuthState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.delay
 
 
 @Composable
@@ -479,8 +492,8 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                         unreadNotifications = 0
                     }
                 },
-                        modifier = Modifier
-                        .size(40.dp)
+                modifier = Modifier
+                    .size(40.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.2f))
                     .padding(horizontal = 4.dp)
@@ -518,7 +531,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                     onClick = {
                         navController.navigate("admin") {
                             launchSingleTop = true
-                    }},
+                        }},
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)

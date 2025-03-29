@@ -192,9 +192,11 @@ fun ChatListScreen(
                             tint = textColor
                         )
                     }
-                }
+                },
+                windowInsets = WindowInsets(0)
             )
-        }
+        },
+        contentWindowInsets = WindowInsets(0)
     ) { paddingValues ->
         Box(
             modifier = Modifier

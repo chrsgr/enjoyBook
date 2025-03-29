@@ -1,6 +1,7 @@
 package com.example.enjoybook.pages
 
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
@@ -39,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.enjoybook.data.Book
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
@@ -64,8 +67,6 @@ fun ListBookAddPage(navController: NavController) {
     val secondaryBackgroundColor = (primaryColor.copy(alpha = 0.1f))
     val secondaryColor = Color(0xFF1A8A8F)
 
-
-
     var booksList by remember { mutableStateOf<List<BookWithId>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -82,12 +83,17 @@ fun ListBookAddPage(navController: NavController) {
         }
     )
 
-    LaunchedEffect(key1 = true) {
+    // All'inizio della funzione ListBookAddPage, dopo le dichiarazioni degli altri stati
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    // Modifica il LaunchedEffect per reagire ai cambiamenti di refreshTrigger
+    LaunchedEffect(key1 = true, key2 = refreshTrigger) {
         loadUserBooks(db, userId) { books ->
             booksList = books
             isLoading = false
         }
     }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -207,6 +213,9 @@ fun ListBookAddPage(navController: NavController) {
                             },
                             onClick = {
                                 navController.navigate("bookDetails/${bookWithId.id}")
+                            },
+                            onRefresh = {
+                                refreshTrigger++
                             }
                         )
                     }
@@ -239,10 +248,33 @@ private fun loadUserBooks(db: FirebaseFirestore, userId: String?, onComplete: (L
         .get()
         .addOnSuccessListener { documents ->
             val booksList = documents.map { doc ->
+                val isAvailable = doc.getBoolean("isAvailable")
+
+                //Log.d("Availability", "In the loadUser: ${doc.getString("title") ?: ""}, ${doc.getBoolean("isAvailable") ?: null}")
+
+                //val bookObject = doc.toObject(Book::class.java)
+                //Log.d("Availability", "After toObject: title=${bookObject.title}, isAvailable=${bookObject.isAvailable}")
+
                 BookWithId(
                     id = doc.id,
-                    book = doc.toObject(Book::class.java)
+                    book = Book(
+                        id = doc.id,
+                        isAvailable = isAvailable,
+                        title = doc.getString("title") ?: "",
+                        author = doc.getString("author") ?: "",
+                        condition = doc.getString("condition") ?: "",
+                        description = doc.getString("description") ?: "",
+                        type = doc.getString("type") ?: "",
+                        edition = doc.getString("edition") ?: "",
+                        year = doc.getString("year") ?: "",
+                        userUsername = doc.getString("userUsername") ?: "",
+                        userId = doc.getString("userId") ?: "",
+                        frontCoverUrl = doc.getString("frontCoverUrl") ?: null,
+                        backCoverUrl = doc.getString("backCoverUrl") ?: null,
+                        //timestamp = doc.getTimestamp("timestamp") ?: t
+                    )
                 )
+                //Log.d("Availability", "After toObject: title=${book.title}, isAvailable=${book.isAvailable}")
             }
             onComplete(booksList)
         }
@@ -270,15 +302,15 @@ fun BookItem(
     unavailableColor: Color,
     onDeleteClick: () -> Unit,
     onEditClick: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onRefresh: () -> Unit,
 ) {
-    var isAvailable by remember { mutableStateOf(book.isAvailable == true) }
+    var isAvailable by remember { mutableStateOf(book.isAvailable) }
     var showDialog by remember { mutableStateOf(false) }
     var favoritesCount by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     val db = FirebaseFirestore.getInstance()
     val context = LocalContext.current
-
 
     LaunchedEffect(book.id) {
         fetchFavoritesCount(db, book.id) { count ->
@@ -292,21 +324,26 @@ fun BookItem(
             title = { Text("Update Availability") },
             text = {
                 Text(
-                    text =
-
-                        "Mark this book as available again?"
+                    text = if (book.isAvailable == true) "Mark this book as unavailable?" else "Mark this book as available again?"
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         // Update local state
-                        book.isAvailable == true
+                        isAvailable = if(isAvailable == false) true else false
+                        //isAvailable = book.isAvailable
+                        Log.d("Availability", "Name book: ${book.title}, before the scope: ${isAvailable}")
                         showDialog = false
 
                         // Update Firebase
                         scope.launch {
-                            updateBookAvailability(db, book.id, isAvailable, context)
+                            isAvailable?.let {
+                                updateBookAvailability(
+                                    db, book.id, it, context, onUpdateComplete = { onRefresh() }
+                                )
+                            }
+                            Log.d("Availability", "Name book: ${book.title}, In the scope: ${isAvailable}")
                         }
                     }
                 ) {
@@ -468,29 +505,59 @@ fun BookItem(
                         horizontalArrangement = Arrangement.spacedBy(30.dp)
                     ) {
                         // Available
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = availableColor.copy(alpha = 0.2f),
-                            modifier = Modifier
-                                .clickable { showDialog = true }
-                                .padding(end = 4.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                        if(book?.isAvailable == true) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = availableColor.copy(alpha = 0.2f),
+                                modifier = Modifier
+                                    .clickable { showDialog = true }
+                                    .padding(end = 4.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = availableColor
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Available",
-                                    fontSize = 12.sp,
-                                    color = availableColor
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = availableColor
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Available",
+                                        fontSize = 12.sp,
+                                        color = availableColor
+                                    )
+                                }
+                            }
+                        }
+
+                        else{
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = unavailableColor.copy(alpha = 0.2f),
+                                modifier = Modifier
+                                    .clickable { showDialog = true }
+                                    .padding(end = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Cancel,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = unavailableColor
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Unvailable",
+                                        fontSize = 12.sp,
+                                        color = unavailableColor
+                                    )
+                                }
                             }
                         }
 
@@ -532,7 +599,13 @@ fun BookItem(
     }
 }
 
-private suspend fun updateBookAvailability(db: FirebaseFirestore, bookId: String, isAvailable: Boolean, context: Context) {
+private suspend fun updateBookAvailability(
+    db: FirebaseFirestore,
+    bookId: String,
+    isAvailable: Boolean,
+    context: Context,
+    onUpdateComplete: () -> Unit = {})
+{
     try {
         db.collection("books").document(bookId)
             .update("isAvailable", isAvailable)
@@ -541,9 +614,12 @@ private suspend fun updateBookAvailability(db: FirebaseFirestore, bookId: String
         withContext(Dispatchers.Main) {
             Toast.makeText(
                 context,
-              "Book is now available" ,
+                "Book is now ${if (isAvailable) "available" else "unavailable"}",
                 Toast.LENGTH_SHORT
             ).show()
+
+            // Chiamare il callback dopo l'aggiornamento
+            onUpdateComplete()
         }
     } catch (e: Exception) {
         withContext(Dispatchers.Main) {

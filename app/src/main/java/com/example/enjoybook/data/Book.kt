@@ -22,9 +22,6 @@ data class Book(
     val timestamp: Timestamp = Timestamp.now(),
     val lastUpdated: Timestamp? = null,
     val favoritesCount: Int = 0
-
-
-
 )
 
 

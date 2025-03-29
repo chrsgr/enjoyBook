@@ -11,6 +11,7 @@ data class User(
     val phone: String? = "",
     val role: String = "",
     val isBanned: Boolean? = false,
+    val isPrivate: Boolean? = false,
     val emailVerified: Boolean = false,
     val isGoogleAuth: Boolean = false,
     val profilePictureUrl: String? = "",

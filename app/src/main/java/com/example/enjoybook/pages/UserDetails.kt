@@ -33,9 +33,11 @@ import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Message
@@ -130,9 +132,12 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
 
     var favorites by remember { mutableStateOf<List<Book>>(emptyList()) }
     var booksAvailable by remember { mutableStateOf<List<Book>>(emptyList()) }
+    var reads by remember { mutableStateOf<List<Book>>(emptyList()) }
 
     var isAdmin by remember { mutableStateOf(false) }
     var isBanned by remember { mutableStateOf(false) }
+    var isPrivate by remember { mutableStateOf(false) }
+
 
     LaunchedEffect(userId) {
         if (userId.isNotEmpty()) {
@@ -144,7 +149,20 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                     .await()
 
                 if (userDocument != null && userDocument.exists()) {
-                    user = userDocument.toObject(User::class.java)
+                    user = User(
+                        userId = userDocument.id,
+                        name = userDocument.getString("name") ?: "",
+                        surname = userDocument.getString("surname") ?: "",
+                        username = userDocument.getString("username") ?: "",
+                        email = userDocument.getString("email") ?: "",
+                        phone = userDocument.getString("phone") ?: "",
+                        role = userDocument.getString("role") ?: "",
+                        isBanned = userDocument.getBoolean("isBanned") ?: null,
+                        isPrivate = userDocument.getBoolean("isPrivate") ?: null,
+                        profilePictureUrl = userDocument.getString("profilePictureUrl") ?: ""
+                        )
+
+                    Log.d("Private", "${user?.username}, ${user?.isPrivate}")
 
                     val favoritesSnapshot = db.collection("favorites")
                         .whereEqualTo("userId", userId)
@@ -156,11 +174,39 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         .get()
                         .await()
 
+                    val userBorrowsSnapshot = db.collection("borrows")
+                        .whereEqualTo("borrowerId", userId)
+                        .whereEqualTo("status", "concluded")
+                        .get()
+                        .await()
+
                     val bookIds = favoritesSnapshot.documents.mapNotNull { it.getString("bookId") }
+                    val bookBorrowIds = userBorrowsSnapshot.documents.mapNotNull { it.getString("bookId") }.toSet()
 
                     favorites = if (bookIds.isNotEmpty()) {
                         db.collection("books")
                             .whereIn("id", bookIds)
+                            .get()
+                            .await()
+                            .documents.map { document ->
+                                Book(
+                                    id = document.id,
+                                    title = document.getString("title") ?: "",
+                                    author = document.getString("author") ?: "",
+                                    type = document.getString("type") ?: "",
+                                    isAvailable = document.getBoolean("isAvailable") ?: true,
+                                    frontCoverUrl = document.getString("frontCoverUrl") ?: null,
+                                )
+                            }
+                    }
+
+                    else {
+                        emptyList()
+                    }
+
+                    reads = if (bookBorrowIds.isNotEmpty()) {
+                        db.collection("books")
+                            .whereIn("id", bookBorrowIds.toList())
                             .get()
                             .await()
                             .documents.map { document ->
@@ -495,7 +541,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         }
                     }
 
-                    // Sezione libri preferiti
+                    // Sezione libri caricati
                     item {
                         Card(
                             modifier = Modifier
@@ -566,6 +612,104 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
+
+                    // Sezione libri letti
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                SectionHeaderUser(
+                                    icon = Icons.Default.BookmarkAdded,
+                                    title = "${user?.username} reads",
+                                    primaryColor = primaryColor,
+                                    textColor = textColor
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (currentUser != null) {
+                                        Log.d("Private", "${user?.username}, ${user?.isPrivate}")
+                                        Log.d("Private", "${user?.userId}, ${currentUser.uid}")
+                                        if(user?.isPrivate == true && currentUser.uid != userId) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Lock,
+                                                    contentDescription = null,
+                                                    tint = Color.LightGray,
+                                                    modifier = Modifier.size(48.dp)
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    "The list is private",
+                                                    color = Color.Gray,
+                                                    fontSize = 16.sp
+                                                )
+                                            }
+                                        }
+                                        else{
+                                            if (reads.isEmpty()) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.BookmarkBorder,
+                                                        contentDescription = null,
+                                                        tint = Color.LightGray,
+                                                        modifier = Modifier.size(48.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        "No books here",
+                                                        color = Color.Gray,
+                                                        fontSize = 16.sp
+                                                    )
+                                                }
+                                            }
+                                            else {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .horizontalScroll(rememberScrollState())
+                                                        .fillMaxWidth()
+                                                ) {
+                                                    reads.forEach { book ->
+                                                        BookCardUser(
+                                                            book = book,
+                                                            primaryColor = primaryColor,
+                                                            textColor = textColor,
+                                                            onClick = {
+                                                                navController.navigate("bookDetails/${book.id}")
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+
                     // Sezione libri preferiti
                     item {
                         Card(
@@ -596,38 +740,59 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                         .height(180.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (favorites.isEmpty()) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.BookmarkBorder,
-                                                contentDescription = null,
-                                                tint = Color.LightGray,
-                                                modifier = Modifier.size(48.dp)
-                                            )
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(
-                                                "No favorites books here",
-                                                color = Color.Gray,
-                                                fontSize = 16.sp
-                                            )
-                                        }
-                                    } else {
-                                        Row(
-                                            modifier = Modifier
-                                                .horizontalScroll(rememberScrollState())
-                                                .fillMaxWidth()
-                                        ) {
-                                            favorites.forEach { book ->
-                                                BookCardUser(
-                                                    book = book,
-                                                    primaryColor = primaryColor,
-                                                    textColor = textColor,
-                                                    onClick = {
-                                                        navController.navigate("bookDetails/${book.id}")
-                                                    }
+                                    if (currentUser != null) {
+                                        if(user?.isPrivate == true && currentUser.uid != userId) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Lock,
+                                                    contentDescription = null,
+                                                    tint = Color.LightGray,
+                                                    modifier = Modifier.size(48.dp)
                                                 )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    "The list is private",
+                                                    color = Color.Gray,
+                                                    fontSize = 16.sp
+                                                )
+                                            }
+                                        } else{
+                                            if (favorites.isEmpty()) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.BookmarkBorder,
+                                                        contentDescription = null,
+                                                        tint = Color.LightGray,
+                                                        modifier = Modifier.size(48.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        "No favorites books here",
+                                                        color = Color.Gray,
+                                                        fontSize = 16.sp
+                                                    )
+                                                }
+                                            } else {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .horizontalScroll(rememberScrollState())
+                                                        .fillMaxWidth()
+                                                ) {
+                                                    favorites.forEach { book ->
+                                                        BookCardUser(
+                                                            book = book,
+                                                            primaryColor = primaryColor,
+                                                            textColor = textColor,
+                                                            onClick = {
+                                                                navController.navigate("bookDetails/${book.id}")
+                                                            }
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }

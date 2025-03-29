@@ -1212,7 +1212,8 @@ fun updateBookWithImages(
                 "description" to description,
                 "edition" to edition,
                 "year" to year,
-                "lastUpdated" to FieldValue.serverTimestamp()
+                "lastUpdated" to FieldValue.serverTimestamp(),
+                "isAvailable" to true
             )
 
             val uploadTasks = mutableListOf<Task<Uri>>()
@@ -1325,6 +1326,7 @@ fun addDataToFirebaseWithImages(
         put("condition", condition)
         put("description", description)
         put("edition", edition)
+        put("isAvailable", true)
         put("title", title)
         put("titleLower", titleLower)
         put("type", type)

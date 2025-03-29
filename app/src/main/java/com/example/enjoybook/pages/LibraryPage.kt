@@ -1,5 +1,8 @@
 package com.example.enjoybook.pages
 
+import android.content.Context
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,7 +55,12 @@ import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -61,9 +70,13 @@ import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.LentBook
+import com.example.enjoybook.theme.primaryColor
+import com.example.enjoybook.theme.textColor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import okhttp3.internal.platform.Jdk9Platform.Companion.isAvailable
 
 @Composable
 fun LibraryPage(navController: NavController) {
@@ -72,6 +85,7 @@ fun LibraryPage(navController: NavController) {
     var borrowedBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableStateOf(0) }
+    var idBorrow by remember {mutableStateOf("")}
 
 
     val primaryColor = Color(0xFFB4E4E8)
@@ -127,6 +141,7 @@ fun LibraryPage(navController: NavController) {
 
                     // Inside withContext(Dispatchers.IO) block
                     val lentBookDetails = borrowQuery.documents.mapNotNull { borrowDoc ->
+                        val borrowId = borrowDoc.id
                         val bookId = borrowDoc.getString("bookId")
                         val borrowerId = borrowDoc.getString("borrowerId")
 
@@ -152,6 +167,8 @@ fun LibraryPage(navController: NavController) {
 
                                 LentBook(
                                     book = book,
+                                    borrowId = borrowId,
+                                    borrowerId = borrowerId,
                                     borrowerName = borrowerDoc.getString("name") ?: "Unknown",
                                     borrowerEmail = borrowerDoc.getString("email") ?: ""
                                 )
@@ -446,6 +463,12 @@ fun BookCard(book: Book, navController: NavController) {
 
 @Composable
 fun LentBookCard(lentBook: LentBook, navController: NavController) {
+
+    var showDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val db = FirebaseFirestore.getInstance()
+    val context = LocalContext.current
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -512,7 +535,7 @@ fun LentBookCard(lentBook: LentBook, navController: NavController) {
 
             Column(
                 modifier = Modifier
-                    .weight(1f)
+                    //.weight(1f)
                     .padding(horizontal = 8.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -532,12 +555,71 @@ fun LentBookCard(lentBook: LentBook, navController: NavController) {
                     fullText = "Borrowed by: ${lentBook.borrowerName}",
                     clickableWord = lentBook.borrowerName,
                     navController = navController,
-                    destinationRoute = "userDetails/${lentBook.book.userId}",
+                    destinationRoute = "userDetails/${lentBook.borrowerId}",
                     normalColor = Color.White.copy(alpha = 0.8f)
                 )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    //color = availableColor.copy(alpha = 0.2f),
+                    color = primaryColor.copy(alpha = 0.2f),
+                    modifier = Modifier
+                        .clickable { showDialog = true }
+                        .padding(end = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = primaryColor
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Returned?",
+                            fontSize = 12.sp,
+                            color = Color.White
+                        )
+                    }
+                }
             }
         }
     }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { androidx.compose.material3.Text("Update Borrow") },
+            text = { "Do you want sign the borrow as concluded?" },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDialog = false
+
+                        scope.launch {
+                            updateBorrow(db, lentBook.borrowId, lentBook.book.id, context)
+                        }
+                    }
+                ) {
+                    androidx.compose.material3.Text("Confirm", color = primaryColor)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    androidx.compose.material3.Text("Cancel", color = Color.Gray)
+                }
+            },
+            containerColor = Color.White,
+            titleContentColor = textColor,
+            textContentColor = textColor.copy(alpha = 0.7f)
+        )
+    }
+
 }
 
 @Composable
@@ -584,5 +666,38 @@ fun ClickableTextWithNavigation(
                 }
         }
     )
+}
+
+private suspend fun updateBorrow(
+    db: FirebaseFirestore,
+    borrowId: String,
+    bookId: String,
+    context: Context)
+{
+    try {
+        db.collection("borrows").document(borrowId)
+            .update("status", "concluded")
+            .await()
+
+        db.collection("books").document(bookId)
+            .update("isAvailable", true)
+            .await()
+
+        withContext(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                "Book is now updated and available again",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    } catch (e: Exception) {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                "Failed to update book availability: ${e.message}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
 }
 

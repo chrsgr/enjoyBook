@@ -137,6 +137,10 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material:1.5.4")
 
+    // Per le notifiche Android
+    implementation("com.google.firebase:firebase-messaging:23.4.0")
+    implementation("androidx.core:core-ktx:1.12.0")
+
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:32.6.0"))
     implementation("com.google.firebase:firebase-auth")

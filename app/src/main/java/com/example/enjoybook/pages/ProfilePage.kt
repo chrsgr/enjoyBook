@@ -90,6 +90,7 @@ import kotlinx.coroutines.withContext
 fun ProfilePage(
     navController: NavController
 ) {
+    var checked by remember { mutableStateOf(true) }
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -97,6 +98,7 @@ fun ProfilePage(
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isEditing by remember { mutableStateOf(false) }
+    var isPrivate by remember {mutableStateOf(false)}
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var apiImages by remember { mutableStateOf<List<String>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -140,6 +142,8 @@ fun ProfilePage(
                         email = document.getString("email") ?: ""
                         phone = document.getString("phone") ?: ""
                         password = document.getString("password") ?: ""
+
+                        isPrivate = document.getBoolean("isPrivate") ?: false
 
                         document.getString("profilePictureUrl")?.let {
                             imageUri = Uri.parse(it)
@@ -245,7 +249,8 @@ fun ProfilePage(
                         "username" to username,
                         "email" to email,
                         "phone" to phone,
-                        "lastUpdated" to FieldValue.serverTimestamp()
+                        "lastUpdated" to FieldValue.serverTimestamp(),
+                        "isPrivate" to isPrivate
                     )
 
                     imageUri?.let {
@@ -472,6 +477,18 @@ fun ProfilePage(
                         ) {
                             if (isEditing) {
                                 // Edit mode
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ){
+                                    Checkbox(
+                                        checked = isPrivate,
+                                        onCheckedChange = { isPrivate = it }
+                                    )
+                                    Text("Private profile"
+                                    )
+                                }
+
                                 ProfileField(
                                     label = "Name",
                                     value = name,
@@ -569,6 +586,16 @@ fun ProfilePage(
                                     onValueChange = { password = it },
                                     isEditing = false,
                                     leadingIcon = Icons.Default.Password
+                                )
+
+                                var stringPrivate = if(isPrivate) "Private" else "Public"
+
+                                ProfileField(
+                                    label = "Status profile",
+                                    value = stringPrivate,
+                                    onValueChange = { stringPrivate = it },
+                                    isEditing = false,
+                                    leadingIcon = Icons.Default.Lock
                                 )
                             }
 
@@ -748,12 +775,12 @@ fun ProfilePage(
 
 
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
 
 
 
-Card(
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .animateContentSize(animationSpec),
