@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Comment
@@ -609,7 +610,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 ) {
                     // Contact button
                     Button(
-                        onClick = { showContactDialog = true },
+                        onClick = { navController.navigate("messaging/${book?.userId}")},
                         colors = ButtonDefaults.buttonColors(containerColor = secondaryColor),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -620,14 +621,14 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             modifier = Modifier.padding(vertical = 4.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Person,
+                                imageVector = Icons.Default.Chat,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Contact",
+                                text = "Chat with owner",
                                 color = Color.White,
                                 fontWeight = FontWeight.Medium
                             )
