@@ -641,7 +641,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
 
             Spacer(modifier = Modifier.width(8.dp))
             // Settings icon
-            IconButton(
+            /*IconButton(
                 onClick = {
                     navController.navigate("profile") {
                         launchSingleTop = true
@@ -657,7 +657,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                     contentDescription = "Settings",
                     tint = Color.Black
                 )
-            }
+            }*/
 
             Spacer(modifier = Modifier.width(8.dp))
 

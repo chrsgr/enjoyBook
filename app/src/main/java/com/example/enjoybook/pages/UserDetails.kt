@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -322,6 +323,32 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                     colors = TopAppBarDefaults.topAppBarColors(
                         titleContentColor = textColor
                     ),
+                    // Settings icon
+                    actions = {
+                        // Settings icon
+                        if(currentUser != null){
+                            if(user?.userId == currentUser.uid){
+                                IconButton(
+                                    onClick = {
+                                        navController.navigate("profile") {
+                                            launchSingleTop = true
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.2f))
+                                        .padding(horizontal = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = "Settings",
+                                        tint = Color.Black
+                                    )
+                                }
+                            }
+                        }
+                    },
                     windowInsets = WindowInsets(0)
                 )
             },
@@ -644,8 +671,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (currentUser != null) {
-                                        Log.d("Private", "${user?.username}, ${user?.isPrivate}")
-                                        Log.d("Private", "${user?.userId}, ${currentUser.uid}")
                                         if(user?.isPrivate == true && currentUser.uid != userId) {
                                             Column(
                                                 horizontalAlignment = Alignment.CenterHorizontally
