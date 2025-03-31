@@ -608,6 +608,8 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+
+                    if (currentUserEmail != book?.userEmail) {
                     // Contact button
                     Button(
                         onClick = { navController.navigate("messaging/${book?.userId}")},
@@ -615,23 +617,26 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Chat,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Chat with owner",
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium
-                            )
+
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Chat,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Chat with owner",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
 

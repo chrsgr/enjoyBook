@@ -32,6 +32,7 @@ import com.example.enjoybook.auth.SignupPage
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -97,6 +99,7 @@ import com.example.enjoybook.admin.AdminListReports
 import com.example.enjoybook.admin.AdminPanel
 import com.example.enjoybook.admin.AdminUsersBanned
 import com.example.enjoybook.auth.ForgotPasswordPage
+import com.example.enjoybook.data.Message
 import com.example.enjoybook.data.NavItem
 import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.User
@@ -368,10 +371,7 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
 
 }
 
-@Composable
-fun MessagingScreen(navController: NavHostController, partnerId: String) {
-    TODO("Not yet implemented")
-}
+
 
 @Composable
 fun MainBottomBar(navController: NavHostController, currentRoute: String?) {
@@ -421,6 +421,8 @@ fun MainBottomBar(navController: NavHostController, currentRoute: String?) {
 fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     var notifications by remember { mutableStateOf<List<Notification>>(emptyList()) }
+    var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
+
     var unreadNotifications by remember { mutableIntStateOf(0) }
     var showNotificationPopup by remember { mutableStateOf(false) }
     val primaryColor = Color(0xFFB4E4E8)
@@ -431,16 +433,62 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
+    var unreadMessages by remember { mutableIntStateOf(0) }
+
+
     fun removeNotificationLocally(notificationId: String) {
         notifications = notifications.filter { it.id != notificationId }
         unreadNotifications = notifications.count { !it.isRead }
     }
+
+
+    fun markMessagesAsRead() {
+        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+        val db = FirebaseFirestore.getInstance()
+
+        // Update messages
+        db.collection("messages")
+            .whereEqualTo("receiverId", currentUser.uid)
+            .whereEqualTo("isRead", false)
+            .get()
+            .addOnSuccessListener { documents ->
+                val batch = db.batch()
+                for (document in documents) {
+                    batch.update(document.reference, "isRead", true)
+                }
+                batch.commit()
+            }
+    }
+
 
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             userId = currentUser.uid
             val db = FirebaseFirestore.getInstance()
 
+            //notifications message
+            db.collection("messages")
+                .whereEqualTo("receiverId", currentUser.uid)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        Log.e("Messages", "Error fetching messages", e)
+                        return@addSnapshotListener
+                    }
+
+                    if (snapshot != null) {
+                        val messagesList = snapshot.documents.mapNotNull { doc ->
+                            val message = doc.toObject(Message::class.java)
+                            message?.copy(id = doc.id)
+                        }
+
+                        messages = messagesList
+                        unreadMessages = messagesList.count { !it.isRead }
+                    }
+                }
+
+
+            //notifications request book
             db.collection("notifications")
                 .whereEqualTo("recipientId", currentUser.uid)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -471,6 +519,9 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                     errorMessage = "Error: ${e.message}"
                     showErrorDialog = true
                 }
+
+
+
         }
     }
 
@@ -484,12 +535,11 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
         },
         actions = {
             IconButton(
-
                 onClick = {
-                    showNotificationPopup = true
-                    if (unreadNotifications > 0) {
-                        markNotificationsAsRead()
-                        unreadNotifications = 0
+                    navController.navigate("chatList")
+                    if (unreadMessages > 0) {
+                        markMessagesAsRead()
+                        unreadMessages = 0
                     }
                 },
                 modifier = Modifier
@@ -498,6 +548,49 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                     .background(Color.White.copy(alpha = 0.2f))
                     .padding(horizontal = 4.dp)
             ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.ChatBubble,
+                        contentDescription = "Chat list",
+                        tint = Color.Black
+                    )
+                    if (unreadMessages > 0) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .offset(x =5.dp, y = (-5).dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                        ) {
+                            Text(
+                                text = unreadMessages.toString(),
+                                color = Color.Black,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+// NOTIFICATIONS BUTTON
+            IconButton(
+                onClick = {
+                    showNotificationPopup = true
+                    if (unreadNotifications > 0) {
+                        markMessagesAsRead()
+                        unreadNotifications = 0
+                    }
+                },
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.2f))
+                    .padding(horizontal = 4.dp)
+            ){
                 Box(contentAlignment = Alignment.TopEnd) {
                     Icon(
                         imageVector = Icons.Default.Notifications,
@@ -603,6 +696,9 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
 
         }
     )
+
+
+
 
     // Dialog per le notifiche
     if (showNotificationPopup) {
