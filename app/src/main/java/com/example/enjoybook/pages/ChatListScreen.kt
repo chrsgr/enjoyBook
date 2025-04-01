@@ -75,6 +75,15 @@ fun ChatListScreen(
                 val chats = chatsSnapshot.documents.mapNotNull { chatDoc ->
                     val participants = chatDoc.get("participants") as? List<String> ?: return@mapNotNull null
 
+                    //codice chat eliminate
+                    val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
+
+                    Log.d("ChatListScreen", "Chat ID: ${chatDoc.id}, deletedFor: $deletedFor, currentUser: ${currentUser.uid}")
+
+                    if (deletedFor.contains(currentUser.uid)) {
+                        return@mapNotNull null // Skip this chat if deleted for current user
+                    }
+
                     // Find the partner (the other user in the chat)
                     val partnerId = participants.first { it != currentUser.uid }
 
@@ -109,7 +118,7 @@ fun ChatListScreen(
     }
 
 
-    fun deleteChat(chatItem: ChatItem) {
+    /*fun deleteChat(chatItem: ChatItem) {
         coroutineScope.launch {
             val db = FirebaseFirestore.getInstance()
             val currentUserId = currentUser?.uid ?: return@launch
@@ -166,6 +175,56 @@ fun ChatListScreen(
 
             } catch (e: Exception) {
                 Log.e("ChatListScreen", "Error deleting chat", e)
+                errorMessage = "Error deleting chat: ${e.message}"
+            }
+        }
+    }*/
+
+    fun deleteChat(chatItem: ChatItem) {
+        coroutineScope.launch {
+            val db = FirebaseFirestore.getInstance()
+            val currentUserId = currentUser?.uid ?: return@launch
+
+            try {
+                // Utilizziamo l'ID del partner per costruire entrambe le possibili combinazioni di ID di chat
+                val possibleChatId1 = "${currentUserId}_${chatItem.partnerId}"
+                val possibleChatId2 = "${chatItem.partnerId}_${currentUserId}"
+
+                // Prova entrambi i possibili ID
+                val chatDoc1 = db.collection("chats").document(possibleChatId1).get().await()
+                val chatDoc2 = db.collection("chats").document(possibleChatId2).get().await()
+
+                // Usa il documento che esiste
+                val chatDoc = if (chatDoc1.exists()) chatDoc1 else if (chatDoc2.exists()) chatDoc2 else null
+
+                if (chatDoc != null) {
+                    Log.d("ChatListScreen", "Found chat document: ${chatDoc.id}")
+
+                    // Aggiorna deletedFor
+                    val deletedFor = (chatDoc.get("deletedFor") as? List<String> ?: emptyList()).toMutableList()
+
+                    if (!deletedFor.contains(currentUserId)) {
+                        deletedFor.add(currentUserId)
+
+                        // Aggiorna il documento
+                        db.collection("chats").document(chatDoc.id)
+                            .update("deletedFor", deletedFor)
+                            .addOnSuccessListener {
+                                Log.d("ChatListScreen", "Successfully updated deletedFor: $deletedFor")
+                                // Aggiorna la UI
+                                chatList = chatList.filter { it.partnerId != chatItem.partnerId }
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("ChatListScreen", "Error updating deletedFor", e)
+                                errorMessage = "Error deleting chat: ${e.message}"
+                            }
+                    }
+                } else {
+                    Log.e("ChatListScreen", "Could not find chat document")
+                    errorMessage = "Error: Chat document not found"
+                }
+            } catch (e: Exception) {
+                Log.e("ChatListScreen", "Error in deleteChat", e)
                 errorMessage = "Error deleting chat: ${e.message}"
             }
         }

@@ -26,14 +26,14 @@ import com.example.enjoybook.data.Message
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import kotlinx.serialization.json.JsonNull.content
 import java.util.UUID
-
-
-
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,6 +59,8 @@ fun UserMessagingScreen(
     LaunchedEffect(targetUserId) {
         val currentUserId = currentUser?.uid ?: return@LaunchedEffect
 
+        Log.d("ChatMessage", "Recupera i messaggi")
+
         fetchMessages(db, currentUserId, targetUserId) { fetchedMessages ->
             messages = fetchedMessages.toList()
             markMessagesAsRead(db, currentUserId, targetUserId)
@@ -68,9 +70,11 @@ fun UserMessagingScreen(
 
     LaunchedEffect(messages) {
         listState.animateScrollToItem(0)
+        Log.d("ChatMessage", "ListState")
     }
 
     LaunchedEffect(targetUserId) {
+        Log.d("ChatMessage", "TargetUserId")
         db.collection("users").document(targetUserId)
             .get()
             .addOnSuccessListener { document ->
@@ -78,7 +82,7 @@ fun UserMessagingScreen(
             }
     }
 
-    fun sendMessage(
+    /*fun sendMessage(
         db: FirebaseFirestore,
         currentUser: FirebaseUser,
         targetUserId: String,
@@ -202,6 +206,95 @@ fun UserMessagingScreen(
         newMessageText = ""
         messageToReply = null
         messageToEdit = null
+    }*/
+
+
+    fun sendMessage(
+        db: FirebaseFirestore,
+        currentUser: FirebaseUser,
+        targetUserId: String,
+        messageContent: String,
+        replyToMessage: Message? = null,
+        editedMessage: Message? = null
+    ) {
+        if (currentUser.uid.isBlank() || targetUserId.isBlank()) {
+            return
+        }
+
+        if (messageContent.isBlank()) {
+            return
+        }
+
+        // Create a unique chat document ID that is always the same regardless of sender/receiver order
+        val chatDocumentId = listOf(currentUser.uid, targetUserId).sorted().joinToString("_")
+
+        val messageRef = when {
+            editedMessage != null -> {
+                editedMessage.copy(
+                    content = messageContent,
+                    isEdited = true,
+                    timestamp = System.currentTimeMillis()
+                )
+            }
+            replyToMessage != null -> {
+                Message(
+                    id = UUID.randomUUID().toString(),
+                    senderId = currentUser.uid,
+                    senderName = currentUser.displayName ?: "Anonymous",
+                    receiverId = targetUserId,
+                    content = messageContent,
+                    timestamp = System.currentTimeMillis(),
+                    replyToMessageId = replyToMessage.id,
+                    replyToMessageContent = replyToMessage.content,
+                    isRead = false
+                )
+            }
+            else -> {
+                Message(
+                    id = UUID.randomUUID().toString(),
+                    senderId = currentUser.uid,
+                    senderName = currentUser.displayName ?: "Anonymous",
+                    receiverId = targetUserId,
+                    content = messageContent,
+                    timestamp = System.currentTimeMillis(),
+                    isRead = false
+                )
+            }
+        }
+
+        // Prima verifica se la chat era stata eliminata e riattivala
+        db.collection("chats")
+            .document(chatDocumentId)
+            .get()
+            .addOnSuccessListener { chatDoc ->
+                // Se esiste il documento della chat, verifica se c'è l'array deletedFor
+                if (chatDoc.exists()) {
+                    val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
+
+                    // Se la chat era stata eliminata dal destinatario, riattivala
+                    if (deletedFor.contains(targetUserId)) {
+
+                        // Aggiorna il documento della chat per riattivarlo
+                        db.collection("chats")
+                            .document(chatDocumentId)
+                            .update("deletedFor", emptyList<String>())
+                            .addOnSuccessListener {
+                                Log.d("MessagingSystem", "Chat reactivated for recipient")
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("MessagingSystem", "Error reactivating chat", e)
+                            }
+                    }
+                }
+
+                // Procedi con il salvataggio del messaggio
+                saveMessageAndUpdateChat(db, messageRef, chatDocumentId, currentUser, targetUserId, messageContent)
+            }
+        .addOnFailureListener { e ->
+            // In caso di errore nel recupero della chat, procedi comunque con il messaggio
+            Log.e("MessagingSystem", "Error checking chat status", e)
+            saveMessageAndUpdateChat(db, messageRef, chatDocumentId, currentUser, targetUserId, messageContent)
+        }
     }
 
     Scaffold(
@@ -338,7 +431,11 @@ fun UserMessagingScreen(
 
                 // Pulsante di invio
                 IconButton(
-                    onClick = { sendMessage() },
+                    onClick = {
+                        if (currentUser != null) {
+                            sendMessage(db, currentUser, targetUserId, newMessageText)
+                        }
+                    },
                     modifier = Modifier
                         .background(Color(0xFF2CBABE), shape = CircleShape)
                         .padding(4.dp)
@@ -588,7 +685,7 @@ fun fetchMessages(
 ) {
     // Create a chat document ID that is consistent for both users
     val chatDocumentId = listOf(currentUserId, targetUserId).sorted().joinToString("_")
-
+    Log.d("ChatMessage", "Crea la chat")
     db.collection("messages")
         .whereIn("senderId", listOf(currentUserId, targetUserId))
         .whereIn("receiverId", listOf(currentUserId, targetUserId))
@@ -612,6 +709,47 @@ fun fetchMessages(
             }
 
             onMessagesReceived(filteredMessages)
+        }
+}
+// Funzione helper per salvare il messaggio e aggiornare la chat
+
+private fun saveMessageAndUpdateChat(
+    db: FirebaseFirestore,
+    messageRef: Message,
+    chatDocumentId: String,
+    currentUser: FirebaseUser,
+    targetUserId: String,
+    messageContent: String
+) {
+    // Save message to Firestore
+    db.collection("messages")
+        .document(messageRef.id)
+        .set(messageRef)
+        .addOnSuccessListener {
+            // Update chat document with merged fields
+            val chatUpdates = hashMapOf<String, Any>(
+                "participants" to listOf(currentUser.uid, targetUserId),
+                "lastMessageTimestamp" to System.currentTimeMillis(),
+                "lastMessage" to messageContent,
+                "lastMessageSenderId" to currentUser.uid
+            )
+
+            // Assicurati che deletedFor non contenga il destinatario
+            // (questo è necessario per le nuove chat o quelle senza deletedFor)
+            chatUpdates["deletedFor"] = FieldValue.arrayRemove(targetUserId)
+
+            db.collection("chats")
+                .document(chatDocumentId)
+                .set(chatUpdates, SetOptions.merge())
+                .addOnSuccessListener {
+                    Log.d("MessagingSystem", "Chat document updated")
+                }
+                .addOnFailureListener { e ->
+                    Log.e("MessagingSystem", "Error updating chat document", e)
+                }
+        }
+        .addOnFailureListener { e ->
+            Log.e("MessagingSystem", "Error sending message", e)
         }
 }
 
