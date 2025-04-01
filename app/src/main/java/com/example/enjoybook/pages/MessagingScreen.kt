@@ -59,13 +59,21 @@ fun UserMessagingScreen(
     LaunchedEffect(targetUserId) {
         val currentUserId = currentUser?.uid ?: return@LaunchedEffect
 
-        Log.d("ChatMessage", "Recupera i messaggi")
+        Log.d("ChatMessage", "Recupera i messaggi e marca come letti")
 
+        // Prima di tutto, marca come letti i messaggi esistenti
+        markMessagesAsRead(
+            db,
+            currentUserId,
+            targetUserId,
+            onSuccess = { Log.d("Chat", "Messaggio marcato come letto all'apertura della chat") },
+            onError = { e -> Log.e("Chat", "Errore nel marcare i messaggi: ${e.message}") }
+        )
+
+        // Poi configura il listener che marcherà automaticamente i nuovi messaggi
         fetchMessages(db, currentUserId, targetUserId) { fetchedMessages ->
             messages = fetchedMessages.toList()
-            markMessagesAsRead(db, currentUserId, targetUserId)
         }
-
     }
 
     LaunchedEffect(messages) {
@@ -81,132 +89,6 @@ fun UserMessagingScreen(
                 targetUserName = document.getString("username") ?: "Unknown User"
             }
     }
-
-    /*fun sendMessage(
-        db: FirebaseFirestore,
-        currentUser: FirebaseUser,
-        targetUserId: String,
-        messageContent: String,
-        replyToMessage: Message? = null,
-        editedMessage: Message? = null
-    ) {
-        if (currentUser.uid.isBlank() || targetUserId.isBlank()) {
-            return
-        }
-
-        if (messageContent.isBlank()) {
-            return
-        }
-
-        // Create a unique chat document ID that is always the same regardless of sender/receiver order
-        val chatDocumentId = listOf(currentUser.uid, targetUserId).sorted().joinToString("_")
-
-        val messageRef = when {
-            editedMessage != null -> {
-                editedMessage.copy(
-                    content = messageContent,
-                    isEdited = true,
-                    timestamp = System.currentTimeMillis()
-                )
-            }
-            replyToMessage != null -> {
-                Message(
-                    id = UUID.randomUUID().toString(),
-                    senderId = currentUser.uid,
-                    senderName = currentUser.displayName ?: "Anonymous",
-                    receiverId = targetUserId,
-                    content = messageContent,
-                    timestamp = System.currentTimeMillis(),
-                    replyToMessageId = replyToMessage.id,
-                    replyToMessageContent = replyToMessage.content,
-                    isRead = false
-                )
-            }
-            else -> {
-                Message(
-                    id = UUID.randomUUID().toString(),
-                    senderId = currentUser.uid,
-                    senderName = currentUser.displayName ?: "Anonymous",
-                    receiverId = targetUserId,
-                    content = messageContent,
-                    timestamp = System.currentTimeMillis(),
-                    isRead = false
-                )
-            }
-        }
-
-        // Save message to Firestore
-        db.collection("messages")
-            .document(messageRef.id)
-            .set(messageRef)
-            .addOnSuccessListener {
-
-                // Update chat document
-                db.collection("chats")
-                    .document(chatDocumentId)
-                    .set(mapOf(
-                        "participants" to listOf(currentUser.uid, targetUserId),
-                        "lastMessageTimestamp" to System.currentTimeMillis(),
-                        "lastMessage" to messageContent,
-                        "lastMessageSenderId" to currentUser.uid
-                    ), SetOptions.merge())
-                    .addOnSuccessListener {
-                        Log.d("MessagingSystem", "Chat document updated")
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("MessagingSystem", "Error updating chat document", e)
-                    }
-            }
-            .addOnFailureListener { e ->
-                Log.e("MessagingSystem", "Error sending message", e)
-            }
-    }
-    val sendMessage = sendMessage@{
-        if (auth.currentUser == null || newMessageText.isBlank()) return@sendMessage
-
-        val currentUser = auth.currentUser!!
-
-        val messageToSend = when {
-            messageToEdit != null -> {
-                messageToEdit!!.copy(
-                    content = newMessageText,
-                    isEdited = true
-                )
-            }
-            messageToReply != null -> {
-                Message(
-                    senderId = currentUser.uid,
-                    senderName = currentUser.displayName ?: "Anonymous",
-                    receiverId = targetUserId,
-                    content = newMessageText,
-                    replyToMessageId = messageToReply?.id,
-                    replyToMessageContent = messageToReply?.content
-                )
-            }
-            else -> {
-                Message(
-                    senderId = currentUser.uid,
-                    senderName = currentUser.displayName ?: "Anonymous",
-                    receiverId = targetUserId,
-                    content = newMessageText
-                )
-            }
-        }
-
-        sendMessage(
-            db = db,
-            currentUser = currentUser,
-            targetUserId = targetUserId,
-            messageContent = newMessageText,
-            replyToMessage = messageToReply,
-            editedMessage = messageToEdit
-        )
-
-        messages = messages + messageToSend
-        newMessageText = ""
-        messageToReply = null
-        messageToEdit = null
-    }*/
 
 
     fun sendMessage(
@@ -232,7 +114,7 @@ fun UserMessagingScreen(
             editedMessage != null -> {
                 editedMessage.copy(
                     content = messageContent,
-                    isEdited = true,
+                    edited = true,
                     timestamp = System.currentTimeMillis()
                 )
             }
@@ -246,7 +128,7 @@ fun UserMessagingScreen(
                     timestamp = System.currentTimeMillis(),
                     replyToMessageId = replyToMessage.id,
                     replyToMessageContent = replyToMessage.content,
-                    isRead = false
+                    read = false
                 )
             }
             else -> {
@@ -257,12 +139,12 @@ fun UserMessagingScreen(
                     receiverId = targetUserId,
                     content = messageContent,
                     timestamp = System.currentTimeMillis(),
-                    isRead = false
+                    read = false
                 )
             }
         }
 
-        // Prima verifica se la chat era stata eliminata e riattivala
+
         db.collection("chats")
             .document(chatDocumentId)
             .get()
@@ -597,7 +479,7 @@ fun MessageItem(
                     )
 
                     // Mostra l'indicatore di modificato
-                    if (message.isEdited) {
+                    if (message.edited) {
                         Text(
                             text = "Edit",
                             style = MaterialTheme.typography.bodySmall,
@@ -650,31 +532,51 @@ fun MessageItem(
 }
 
 
-
-
-    // Funzione per marcare i messaggi come letti
+// Funzione per marcare i messaggi come letti
 fun markMessagesAsRead(
     db: FirebaseFirestore,
     currentUserId: String,
-    targetUserId: String
+    targetUserId: String,
+    onSuccess: () -> Unit = {},
+    onError: (Exception) -> Unit = {}
 ) {
-        db.collection("messages")
-            .where(
-                Filter.and(
-                    Filter.equalTo("receiverId", currentUserId),
-                    Filter.equalTo("senderId", targetUserId),
-                    Filter.equalTo("isRead", false)
-                )
-            )
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val batch = db.batch()
-                snapshot.documents.forEach { doc ->
-                    batch.update(doc.reference, "isRead", true)
-                }
-                batch.commit()
+    Log.d("Chat", "Cercando messaggi non letti da $targetUserId a $currentUserId")
+
+    db.collection("messages")
+        .whereEqualTo("receiverId", currentUserId)
+        .whereEqualTo("senderId", targetUserId)
+        .whereEqualTo("read", false)
+        .get()
+        .addOnSuccessListener { snapshot ->
+            val count = snapshot.documents.size
+            Log.d("Chat", "Trovati $count messaggi da marcare come letti")
+
+            if (count == 0) {
+                onSuccess()
+                return@addOnSuccessListener
             }
-    }
+
+            val batch = db.batch()
+            snapshot.documents.forEach { doc ->
+                Log.d("Chat", "Marcando messaggio ID: ${doc.id} come letto")
+                batch.update(doc.reference, "read", true)
+            }
+
+            batch.commit()
+                .addOnSuccessListener {
+                    Log.d("Chat", "Aggiornati con successo $count messaggi a read=true")
+                    onSuccess()
+                }
+                .addOnFailureListener { e ->
+                    Log.e("Chat", "Errore nel batch update: ${e.message}")
+                    onError(e)
+                }
+        }
+        .addOnFailureListener { e ->
+            Log.e("Chat", "Errore nella query per messaggi non letti: ${e.message}")
+            onError(e)
+        }
+}
 
 
 fun fetchMessages(
@@ -683,12 +585,21 @@ fun fetchMessages(
     targetUserId: String,
     onMessagesReceived: (List<Message>) -> Unit
 ) {
-    // Create a chat document ID that is consistent for both users
-    val chatDocumentId = listOf(currentUserId, targetUserId).sorted().joinToString("_")
-    Log.d("ChatMessage", "Crea la chat")
+    Log.d("ChatMessage", "Configurando listener per messaggi tra $currentUserId e $targetUserId")
+
     db.collection("messages")
-        .whereIn("senderId", listOf(currentUserId, targetUserId))
-        .whereIn("receiverId", listOf(currentUserId, targetUserId))
+        .where(
+            Filter.or(
+                Filter.and(
+                    Filter.equalTo("senderId", currentUserId),
+                    Filter.equalTo("receiverId", targetUserId)
+                ),
+                Filter.and(
+                    Filter.equalTo("senderId", targetUserId),
+                    Filter.equalTo("receiverId", currentUserId)
+                )
+            )
+        )
         .orderBy("timestamp", Query.Direction.ASCENDING)
         .addSnapshotListener { snapshot, e ->
             if (e != null) {
@@ -697,18 +608,13 @@ fun fetchMessages(
             }
 
             val fetchedMessages = snapshot?.toObjects(Message::class.java) ?: emptyList()
+            Log.d("MessagingSystem", "Ricevuti ${fetchedMessages.size} messaggi dal listener")
 
-            val filteredMessages = fetchedMessages.filter { message ->
-                (message.senderId == currentUserId && message.receiverId == targetUserId) ||
-                        (message.senderId == targetUserId && message.receiverId == currentUserId)
-            }
+            // Rimuovi la parte che marca automaticamente i messaggi come letti
+            // NON marcare qui i messaggi come letti
 
-            Log.d("MessagingSystem", "Fetched messages for chat $chatDocumentId:")
-            filteredMessages.forEach { message ->
-                Log.d("MessagingSystem", "Message: ${message.id}, Sender: ${message.senderId}, Receiver: ${message.receiverId}, Content: ${message.content}")
-            }
-
-            onMessagesReceived(filteredMessages)
+            // Passa semplicemente i messaggi all'UI
+            onMessagesReceived(fetchedMessages)
         }
 }
 // Funzione helper per salvare il messaggio e aggiornare la chat

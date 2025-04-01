@@ -483,7 +483,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                         }
 
                         messages = messagesList
-                        unreadMessages = messagesList.count { !it.isRead }
+                        unreadMessages = messagesList.count { !it.read }
                     }
                 }
 

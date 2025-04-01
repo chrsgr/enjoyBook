@@ -74,11 +74,8 @@ fun ChatListScreen(
                 // Process chat documents
                 val chats = chatsSnapshot.documents.mapNotNull { chatDoc ->
                     val participants = chatDoc.get("participants") as? List<String> ?: return@mapNotNull null
-
                     //codice chat eliminate
                     val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
-
-                    Log.d("ChatListScreen", "Chat ID: ${chatDoc.id}, deletedFor: $deletedFor, currentUser: ${currentUser.uid}")
 
                     if (deletedFor.contains(currentUser.uid)) {
                         return@mapNotNull null // Skip this chat if deleted for current user
@@ -96,12 +93,21 @@ fun ChatListScreen(
                     // If partner details don't exist, skip this chat
                     if (!partnerSnapshot.exists()) return@mapNotNull null
 
+                    val unreadMessagesCount = db.collection("messages")
+                        .whereEqualTo("receiverId", currentUser.uid)
+                        .whereEqualTo("read", false)
+                        .get()
+                        .await()
+                        .size()
+
+
                     ChatItem(
                         partnerId = partnerId,
                         partnerName = partnerSnapshot.getString("username") ?: "Unknown User",
                         lastMessage = chatDoc.getString("lastMessage") ?: "",
                         lastMessageTimestamp = chatDoc.getLong("lastMessageTimestamp") ?: 0L,
-                        profilePicUrl = partnerSnapshot.getString("profilePicUrl") ?: ""
+                        profilePictureUrl = partnerSnapshot.getString("profilePictureUrl") ?: "",
+                        unreadMessages = unreadMessagesCount
                     )
                 }
 
@@ -116,69 +122,6 @@ fun ChatListScreen(
             }
         }
     }
-
-
-    /*fun deleteChat(chatItem: ChatItem) {
-        coroutineScope.launch {
-            val db = FirebaseFirestore.getInstance()
-            val currentUserId = currentUser?.uid ?: return@launch
-
-            try {
-                // Find the chat document
-                val chatQuery = db.collection("chats")
-                    .whereArrayContains("participants", currentUserId)
-                    .whereEqualTo("participants", listOf(currentUserId, chatItem.partnerId))
-                    .get()
-                    .await()
-
-                chatQuery.documents.forEach { chatDoc ->
-                    // Mark messages as deleted for the current user
-                    val messagesQuery = db.collection("chats")
-                        .document(chatDoc.id)
-                        .collection("messages")
-                        .get()
-                        .await()
-
-                    // Batch write to update messages and chat
-                    val batch = db.batch()
-
-                    // Update each message to mark as deleted for the current user
-                    messagesQuery.documents.forEach { messageDoc ->
-                        val deletedForUsers = (messageDoc.get("deletedFor") as? List<String> ?: emptyList()).toMutableList()
-                        if (!deletedForUsers.contains(currentUserId)) {
-                            deletedForUsers.add(currentUserId)
-                            batch.update(
-                                messageDoc.reference,
-                                "deletedFor",
-                                deletedForUsers
-                            )
-                        }
-                    }
-
-                    // Update the chat document to mark as deleted for the current user
-                    val deletedChatForUsers = (chatDoc.get("deletedFor") as? List<String> ?: emptyList()).toMutableList()
-                    if (!deletedChatForUsers.contains(currentUserId)) {
-                        deletedChatForUsers.add(currentUserId)
-                        batch.update(
-                            chatDoc.reference,
-                            "deletedFor",
-                            deletedChatForUsers
-                        )
-                    }
-
-                    // Commit the batch
-                    batch.commit().await()
-
-                    // Update local chat list
-                    chatList = chatList.filter { it.partnerId != chatItem.partnerId }
-                }
-
-            } catch (e: Exception) {
-                Log.e("ChatListScreen", "Error deleting chat", e)
-                errorMessage = "Error deleting chat: ${e.message}"
-            }
-        }
-    }*/
 
     fun deleteChat(chatItem: ChatItem) {
         coroutineScope.launch {
@@ -377,7 +320,8 @@ data class ChatItem(
     val partnerName: String,
     val lastMessage: String,
     val lastMessageTimestamp: Long,
-    val profilePicUrl: String = ""
+    val profilePictureUrl: String = "",
+    val unreadMessages: Int
 )
 
 @Composable
@@ -387,6 +331,7 @@ fun ChatListItem(
 ) {
     val primaryColor = Color(0xFFB4E4E8)
     val textColor = Color(0xFF333333)
+    val colorBadge = Color(0xFF2CBABE)
 
     Row(
         modifier = Modifier
@@ -395,9 +340,9 @@ fun ChatListItem(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (chatItem.profilePicUrl.isNotEmpty()) {
+        if (chatItem.profilePictureUrl.isNotEmpty()) {
             AsyncImage(
-                model = chatItem.profilePicUrl,
+                model = chatItem.profilePictureUrl,
                 contentDescription = "Profile Picture",
                 modifier = Modifier
                     .size(50.dp)
@@ -442,12 +387,27 @@ fun ChatListItem(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Timestamp
-        Text(
-            text = formatTimestamp(chatItem.lastMessageTimestamp),
-            color = Color.Gray,
-            fontSize = 12.sp
-        )
+        Column{// Timestamp
+            Text(
+                text = formatTimestamp(chatItem.lastMessageTimestamp),
+                color = Color.Gray,
+                fontSize = 12.sp
+            )
+            // Mostra il Badge se ci sono messaggi non letti
+            if (chatItem.unreadMessages > 0) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Badge(
+                    containerColor = colorBadge
+                ) {
+                    Text(
+                        text = chatItem.unreadMessages.toString(),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     }
 }
 
