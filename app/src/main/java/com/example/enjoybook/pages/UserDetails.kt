@@ -139,6 +139,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     var isBanned by remember { mutableStateOf(false) }
     var isPrivate by remember { mutableStateOf(false) }
 
+    Log.d("UserDetails", "Function called with userId: $userId")
 
     LaunchedEffect(userId) {
         if (userId.isNotEmpty()) {
@@ -263,14 +264,22 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
         }
     }
 
+    Log.d("UserDetails", "Before LaunchedEffect, userId: $userId")
+
     LaunchedEffect(currentUser?.uid) {
         currentUser?.uid?.let { uid ->
             val userDoc = Firebase.firestore.collection("users").document(uid).get().await()
             isAdmin = userDoc.getString("role") == "admin"
         }
 
-        val targetUserDoc = Firebase.firestore.collection("users").document(userId).get().await()
-        isBanned = targetUserDoc.getBoolean("isBanned") ?: false
+        Log.d("Firestore", "userId value: $userId") // Aggiunto per debug
+
+        if (userId.isNotEmpty() && userId != "users") {
+            val targetUserDoc = Firebase.firestore.collection("users").document(userId).get().await()
+            isBanned = targetUserDoc.getBoolean("isBanned") ?: false
+        } else {
+            Log.e("Firestore", "Invalid userId: $userId") // Aggiunto per debug
+        }
     }
 
 

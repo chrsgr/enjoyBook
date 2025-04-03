@@ -55,6 +55,8 @@ fun UserMessagingScreen(
     var messageToReply by remember { mutableStateOf<Message?>(null) }
     val listState = rememberLazyListState()
 
+    Log.d("Navigation", "message: ${targetUserId}")
+
     // Recupera i messaggi
     LaunchedEffect(targetUserId) {
         val currentUserId = currentUser?.uid ?: return@LaunchedEffect
@@ -316,6 +318,7 @@ fun UserMessagingScreen(
                     onClick = {
                         if (currentUser != null) {
                             sendMessage(db, currentUser, targetUserId, newMessageText)
+                            newMessageText = ""
                         }
                     },
                     modifier = Modifier

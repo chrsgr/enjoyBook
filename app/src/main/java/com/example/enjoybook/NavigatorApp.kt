@@ -243,19 +243,32 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                 BookDetails(navController, authViewModel, bookId)
             }
 
-            composable(
+            /*composable(
                 route = "userDetails/{userId}",
                 arguments = listOf(navArgument("userId") { type = NavType.StringType })
             ) {
                 val userId = it.arguments?.getString("userId") ?: ""
+                Log.d("Navigation", "Navigated to UserDetails with userId: $userId")
                 UserDetails(navController, authViewModel, userId)
+            }*/
+
+            composable("userDetails/{userId}") { backStackEntry ->
+                val userId = backStackEntry.arguments?.getString("userId")
+                    ?: return@composable
+
+                Log.d("Navigation", "UserId: ${userId}")
+
+                UserDetails(
+                    navController = navController,
+                    authViewModel = authViewModel,
+                    userId = userId
+                )
             }
 
 
             composable("bookUser") {
                 BookPage(navController, authViewModel)
             }
-
 
 
             composable("library"){
@@ -428,7 +441,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
     val primaryColor = Color(0xFFB4E4E8)
     val textColor = Color(0xFF333333)
     val notificationcolor = Color(0xFFF5F5F5)
-    var userId = "";
+    var userId by remember { mutableStateOf("") }
     var user by remember { mutableStateOf<User?>(null) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
@@ -489,6 +502,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
 
 
             //notifications request book
+            Log.d("Navigation", "Current user: ${currentUser.uid}, ${userId}")
             db.collection("notifications")
                 .whereEqualTo("recipientId", currentUser.uid)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -499,6 +513,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                     }
 
                     if (snapshot != null) {
+                        Log.d("Navigation", "Current user in the if: ${currentUser.uid}, ${userId}")
                         val notificationsList = snapshot.documents.mapNotNull { doc ->
                             val notification = doc.toObject(Notification::class.java)
                             notification?.copy(id = doc.id)
@@ -513,6 +528,20 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
                         user = document.toObject(User::class.java)
+                        /*user = User(
+                            userId = document.id,
+                            name = document.getString("name") ?: "",
+                            surname = document.getString("surname") ?: "",
+                            username = document.getString("username") ?: "",
+                            email = document.getString("email") ?: "",
+                            phone = document.getString("phone") ?: "",
+                            role = document.getString("role") ?: "",
+                            isBanned = document.getBoolean("isBanned") ?: null,
+                            isPrivate = document.getBoolean("isPrivate") ?: null,
+                            profilePictureUrl = document.getString("profilePictureUrl") ?: ""
+                        )*/
+                        Log.d("Navigation", "User id: ${user?.userId}")
+                        Log.d("Navigation", "Current user in the user listener: ${currentUser.uid}, ${userId}")
                     }
                 }
                 .addOnFailureListener { e ->
@@ -576,7 +605,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
 
             Spacer(modifier = Modifier.width(8.dp))
 
-// NOTIFICATIONS BUTTON
+            // NOTIFICATIONS BUTTON
             IconButton(
                 onClick = {
                     showNotificationPopup = true
@@ -640,26 +669,6 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
             }
 
             Spacer(modifier = Modifier.width(8.dp))
-            // Settings icon
-            /*IconButton(
-                onClick = {
-                    navController.navigate("profile") {
-                        launchSingleTop = true
-                    }},
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.2f))
-                    .padding(horizontal = 4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = Color.Black
-                )
-            }*/
-
-            Spacer(modifier = Modifier.width(8.dp))
 
             // Profile icon
             IconButton(
@@ -696,8 +705,6 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
 
         }
     )
-
-
 
 
     // Dialog per le notifiche
@@ -748,6 +755,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     if (notifications.isEmpty()) {
+                        Log.d("Navigation", "User id if no notification: ${userId}")
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -761,7 +769,9 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                             )
                         }
                     } else {
+                        Log.d("Navigation", "User id before lazycolumn: ${userId}")
                         LazyColumn {
+                            Log.d("Navigation", "User id in the lazycolumn: ${userId}")
                             items(notifications.size) { index ->
                                 val notification = notifications[index]
                                 com.example.enjoybook.utils.NotificationItem(
