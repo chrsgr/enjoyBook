@@ -332,8 +332,6 @@ fun BookItem(
                     onClick = {
                         // Update local state
                         isAvailable = if(isAvailable == false) true else false
-                        //isAvailable = book.isAvailable
-                        Log.d("Availability", "Name book: ${book.title}, before the scope: ${isAvailable}")
                         showDialog = false
 
                         // Update Firebase
@@ -343,7 +341,6 @@ fun BookItem(
                                     db, book.id, it, context, onUpdateComplete = { onRefresh() }
                                 )
                             }
-                            Log.d("Availability", "Name book: ${book.title}, In the scope: ${isAvailable}")
                         }
                     }
                 ) {
@@ -600,6 +597,52 @@ fun BookItem(
 }
 
 private suspend fun updateBookAvailability(
+    db: FirebaseFirestore,
+    bookId: String,
+    isAvailable: Boolean,
+    context: Context,
+    onUpdateComplete: () -> Unit = {})
+{
+    try {
+
+        val borrowSnapshot = db.collection("borrows")
+            .whereEqualTo("bookId", bookId)
+            .whereEqualTo("status", "accepted")
+            .get()
+            .await()
+
+        val bookBorrowIds = borrowSnapshot.documents.mapNotNull { it.getString("borrowId") }
+
+        if(bookBorrowIds.isNotEmpty()){
+
+        }
+
+        db.collection("books").document(bookId)
+            .update("isAvailable", isAvailable)
+            .await()
+
+        withContext(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                "Book is now ${if (isAvailable) "available" else "unavailable"}",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            // Chiamare il callback dopo l'aggiornamento
+            onUpdateComplete()
+        }
+    } catch (e: Exception) {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                "Failed to update book availability: ${e.message}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+}
+
+private suspend fun searchForBorrow(
     db: FirebaseFirestore,
     bookId: String,
     isAvailable: Boolean,

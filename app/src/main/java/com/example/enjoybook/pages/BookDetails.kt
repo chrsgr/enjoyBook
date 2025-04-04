@@ -225,6 +225,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 "bookId" to book.id,
                 "userId" to currentUser.uid,
                 "title" to book.title,
+                "type" to book.type,
                 "author" to book.author,
                 "frontCoverUrl" to book.frontCoverUrl,
                 "addedAt" to FieldValue.serverTimestamp()

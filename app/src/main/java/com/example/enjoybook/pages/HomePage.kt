@@ -60,6 +60,7 @@ import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
+import com.example.enjoybook.data.FavoriteBook
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.Timestamp
@@ -85,11 +86,16 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
     )
 
     val featuredBooks = remember { mutableStateOf<List<Book>>(emptyList()) }
+    val favoritesBooks = remember { mutableStateOf<List<FavoriteBook>>(emptyList()) }
     val isLoading = remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         fetchFeaturedBooks { books ->
             featuredBooks.value = books
+            isLoading.value = false
+        }
+        fetchFavoriteBooks { books ->
+            favoritesBooks.value = books
             isLoading.value = false
         }
     }
@@ -278,7 +284,9 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                                 .height(180.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (favorites.isEmpty()) {
+                            if (isLoading.value) {
+                                CircularProgressIndicator(color = primaryColor)
+                            } else if (favoritesBooks.value.isEmpty()) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
@@ -308,8 +316,50 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                                         .horizontalScroll(rememberScrollState())
                                         .fillMaxWidth()
                                 ) {
-                                    favorites.forEach { book ->
-                                        FeatureBookCard(
+                                    favoritesBooks.value.forEach { book ->
+                                        FavoriteBookCard(
+                                            book = book,
+                                            primaryColor = primaryColor,
+                                            textColor = textColor,
+                                            onClick = {
+                                                navController.navigate("bookDetails/${book.bookId}")
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            /*if (favoritesBooks.isEmpty()) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.BookmarkBorder,
+                                        contentDescription = null,
+                                        tint = Color.LightGray,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "No favorites books yet",
+                                        color = Color.Gray,
+                                        fontSize = 16.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        "Add books to your favorites to see them here",
+                                        color = Color.Gray,
+                                        fontSize = 14.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier
+                                        .horizontalScroll(rememberScrollState())
+                                        .fillMaxWidth()
+                                ) {
+                                    favoritesBooks.forEach { book ->
+                                        FavoriteBookCard(
                                             book = book,
                                             primaryColor = primaryColor,
                                             textColor = textColor,
@@ -319,7 +369,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                                         )
                                     }
                                 }
-                            }
+                            }*/
                         }
                     }
                 }
@@ -515,6 +565,123 @@ fun FeatureBookCard(
     }
 }
 
+@Composable
+fun FavoriteBookCard(
+    book: FavoriteBook,
+    primaryColor: Color,
+    textColor: Color,
+    onClick: () -> Unit
+) {
+
+    val isFrontCover = remember { mutableStateOf(true) }
+
+    Card(
+        modifier = Modifier
+            .padding(end = 16.dp)
+            .width(140.dp)
+            .height(180.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            if (isFrontCover.value && book?.frontCoverUrl != null)  {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(85.dp)
+                        .background(primaryColor.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val imageUrl = book?.frontCoverUrl
+
+                    val painter = rememberAsyncImagePainter(imageUrl)
+                    val state = painter.state
+
+                    if (state is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Front Cover",
+                        modifier = Modifier.fillMaxSize(),
+                        //contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            else {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(85.dp)
+                        .background(primaryColor.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MenuBook,
+                        contentDescription = null,
+                        tint = primaryColor,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+
+
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            ) {
+                Text(
+                    text = book.title,
+                    color = textColor,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 14.sp
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = book.author,
+                    color = textColor.copy(alpha = 0.7f),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+
+                Text(
+                    text = book.type,
+                    color = Color.Black,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+            }
+        }
+    }
+}
+
 
 
 private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
@@ -529,6 +696,28 @@ private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
             for (document in documents) {
                 val book = document.toObject(Book::class.java).copy(
                     id = document.id
+                )
+                booksList.add(book)
+            }
+            onComplete(booksList)
+        }
+        .addOnFailureListener { exception ->
+            Log.e("Firestore", "Error getting featured books: ", exception)
+            onComplete(emptyList())
+        }
+}
+
+private fun fetchFavoriteBooks(onComplete: (List<FavoriteBook>) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("favorites")
+        .orderBy("addedAt", Query.Direction.DESCENDING)
+        .get()
+        .addOnSuccessListener { documents ->
+            val booksList = mutableListOf<FavoriteBook>()
+            for (document in documents) {
+                val book = document.toObject(FavoriteBook::class.java).copy(
+                    bookId = document.id
                 )
                 booksList.add(book)
             }

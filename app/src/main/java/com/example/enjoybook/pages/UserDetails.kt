@@ -87,6 +87,7 @@ import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
+import com.example.enjoybook.data.FavoriteBook
 import com.example.enjoybook.theme.primaryColor
 import com.example.enjoybook.theme.textColor
 import com.example.enjoybook.viewModel.AuthState
@@ -131,9 +132,9 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    var favorites by remember { mutableStateOf<List<Book>>(emptyList()) }
-    var booksAvailable by remember { mutableStateOf<List<Book>>(emptyList()) }
-    var reads by remember { mutableStateOf<List<Book>>(emptyList()) }
+    val libraryBooks = remember { mutableStateOf<List<Book>>(emptyList()) }
+    val favoritesBooks = remember { mutableStateOf<List<FavoriteBook>>(emptyList()) }
+    val readsBooks = remember { mutableStateOf<List<Book>>(emptyList()) }
 
     var isAdmin by remember { mutableStateOf(false) }
     var isBanned by remember { mutableStateOf(false) }
@@ -162,84 +163,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         isBanned = userDocument.getBoolean("isBanned") ?: null,
                         isPrivate = userDocument.getBoolean("isPrivate") ?: null,
                         profilePictureUrl = userDocument.getString("profilePictureUrl") ?: ""
-                        )
-
-                    Log.d("Private", "${user?.username}, ${user?.isPrivate}")
-
-                    val favoritesSnapshot = db.collection("favorites")
-                        .whereEqualTo("userId", userId)
-                        .get()
-                        .await()
-
-                    val userBooksSnapshot = db.collection("books")
-                        .whereEqualTo("userId", userId)
-                        .get()
-                        .await()
-
-                    val userBorrowsSnapshot = db.collection("borrows")
-                        .whereEqualTo("borrowerId", userId)
-                        .whereEqualTo("status", "concluded")
-                        .get()
-                        .await()
-
-                    val bookIds = favoritesSnapshot.documents.mapNotNull { it.getString("bookId") }
-                    val bookBorrowIds = userBorrowsSnapshot.documents.mapNotNull { it.getString("bookId") }.toSet()
-
-                    favorites = if (bookIds.isNotEmpty()) {
-                        db.collection("books")
-                            .whereIn("id", bookIds)
-                            .get()
-                            .await()
-                            .documents.map { document ->
-                                Book(
-                                    id = document.id,
-                                    title = document.getString("title") ?: "",
-                                    author = document.getString("author") ?: "",
-                                    type = document.getString("type") ?: "",
-                                    isAvailable = document.getBoolean("isAvailable") ?: true,
-                                    frontCoverUrl = document.getString("frontCoverUrl") ?: null,
-                                )
-                            }
-                    }
-
-                    else {
-                        emptyList()
-                    }
-
-                    reads = if (bookBorrowIds.isNotEmpty()) {
-                        db.collection("books")
-                            .whereIn("id", bookBorrowIds.toList())
-                            .get()
-                            .await()
-                            .documents.map { document ->
-                                Book(
-                                    id = document.id,
-                                    title = document.getString("title") ?: "",
-                                    author = document.getString("author") ?: "",
-                                    type = document.getString("type") ?: "",
-                                    isAvailable = document.getBoolean("isAvailable") ?: true,
-                                    frontCoverUrl = document.getString("frontCoverUrl") ?: null,
-                                )
-                            }
-                    }
-
-                    else {
-                        emptyList()
-                    }
-
-                    booksAvailable = userBooksSnapshot.documents.map { document ->
-                        Book(
-                            id = document.id,
-                            title = document.getString("title") ?: "",
-                            author = document.getString("author") ?: "",
-                            type = document.getString("type") ?: "",
-                            timestamp = document.getTimestamp("timestamp") ?: Timestamp.now(),
-                            isAvailable = document.getBoolean("isAvailable") ?: true,
-                            frontCoverUrl = document.getString("frontCoverUrl") ?: null,
-                        )
-                    }
-
-
+                    )
                 } else {
                     errorMessage = "User not found"
                     showErrorDialog = true
@@ -257,6 +181,20 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
         }
     }
 
+    LaunchedEffect(Unit) {
+        fetchLibraryBooks(userId) { books ->
+            libraryBooks.value = books
+            //isLoading.value = false
+        }
+        fetchFavoriteBooksUser { books ->
+            favoritesBooks.value = books
+            //isLoading.value = false
+        }
+        fetchReadsUser(userId) { books ->
+            readsBooks.value = books
+            //isLoading.value = false
+        }
+    }
 
     LaunchedEffect(authState) {
         if (authState !is AuthState.Authenticated) {
@@ -264,15 +202,11 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
         }
     }
 
-    Log.d("UserDetails", "Before LaunchedEffect, userId: $userId")
-
     LaunchedEffect(currentUser?.uid) {
         currentUser?.uid?.let { uid ->
             val userDoc = Firebase.firestore.collection("users").document(uid).get().await()
             isAdmin = userDoc.getString("role") == "admin"
         }
-
-        Log.d("Firestore", "userId value: $userId") // Aggiunto per debug
 
         if (userId.isNotEmpty() && userId != "users") {
             val targetUserDoc = Firebase.firestore.collection("users").document(userId).get().await()
@@ -607,11 +541,12 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                         .height(180.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (booksAvailable.isEmpty()) {
+
+                                    if (libraryBooks.value.isEmpty()) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
-                                            Icon(
+                                            androidx.compose.material3.Icon(
                                                 imageVector = Icons.Default.BookmarkBorder,
                                                 contentDescription = null,
                                                 tint = Color.LightGray,
@@ -619,7 +554,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                             )
                                             Spacer(modifier = Modifier.height(8.dp))
                                             Text(
-                                                "No books here",
+                                                "No favorites books yet",
                                                 color = Color.Gray,
                                                 fontSize = 16.sp
                                             )
@@ -630,15 +565,17 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                                 .horizontalScroll(rememberScrollState())
                                                 .fillMaxWidth()
                                         ) {
-                                            booksAvailable.forEach { book ->
-                                                BookCardUser(
-                                                    book = book,
-                                                    primaryColor = primaryColor,
-                                                    textColor = textColor,
-                                                    onClick = {
-                                                        navController.navigate("bookDetails/${book.id}")
-                                                    }
-                                                )
+                                            libraryBooks.value.forEach { book ->
+                                                if(book?.isAvailable == true) {
+                                                    BookCardUser(
+                                                        book = book,
+                                                        primaryColor = primaryColor,
+                                                        textColor = textColor,
+                                                        onClick = {
+                                                            navController.navigate("bookDetails/${book.id}")
+                                                        }
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -699,7 +636,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                             }
                                         }
                                         else{
-                                            if (reads.isEmpty()) {
+                                            if (readsBooks.value.isEmpty()) {
                                                 Column(
                                                     horizontalAlignment = Alignment.CenterHorizontally
                                                 ) {
@@ -716,14 +653,13 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                                         fontSize = 16.sp
                                                     )
                                                 }
-                                            }
-                                            else {
+                                            } else {
                                                 Row(
                                                     modifier = Modifier
                                                         .horizontalScroll(rememberScrollState())
                                                         .fillMaxWidth()
                                                 ) {
-                                                    reads.forEach { book ->
+                                                    readsBooks.value.forEach { book ->
                                                         BookCardUser(
                                                             book = book,
                                                             primaryColor = primaryColor,
@@ -793,11 +729,11 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                                 )
                                             }
                                         } else{
-                                            if (favorites.isEmpty()) {
+                                            if (favoritesBooks.value.isEmpty()) {
                                                 Column(
                                                     horizontalAlignment = Alignment.CenterHorizontally
                                                 ) {
-                                                    Icon(
+                                                    androidx.compose.material3.Icon(
                                                         imageVector = Icons.Default.BookmarkBorder,
                                                         contentDescription = null,
                                                         tint = Color.LightGray,
@@ -805,7 +741,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                                     )
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                     Text(
-                                                        "No favorites books here",
+                                                        "No favorites books yet",
                                                         color = Color.Gray,
                                                         fontSize = 16.sp
                                                     )
@@ -816,13 +752,13 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                                         .horizontalScroll(rememberScrollState())
                                                         .fillMaxWidth()
                                                 ) {
-                                                    favorites.forEach { book ->
-                                                        BookCardUser(
+                                                    favoritesBooks.value.forEach { book ->
+                                                        FavoriteBookCardUser(
                                                             book = book,
                                                             primaryColor = primaryColor,
                                                             textColor = textColor,
                                                             onClick = {
-                                                                navController.navigate("bookDetails/${book.id}")
+                                                                navController.navigate("bookDetails/${book.bookId}")
                                                             }
                                                         )
                                                     }
@@ -1024,7 +960,119 @@ fun BookCardUser(
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
 
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            ) {
+                Text(
+                    text = book.title,
+                    color = textColor,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 14.sp
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = book.author,
+                    color = textColor.copy(alpha = 0.7f),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = book.type,
+                    color = Color.Black,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+            }
+        }
+    }
+}
+
+@Composable
+fun FavoriteBookCardUser(
+    book: FavoriteBook,
+    primaryColor: Color,
+    textColor: Color,
+    onClick: () -> Unit
+) {
+
+    val isFrontCover = remember { mutableStateOf(true) }
+
+    Card(
+        modifier = Modifier
+            .padding(end = 16.dp)
+            .width(140.dp)
+            .height(180.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            if (isFrontCover.value && book?.frontCoverUrl != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(85.dp)
+                        .background(primaryColor.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val imageUrl = book?.frontCoverUrl
+
+                    val painter = rememberAsyncImagePainter(imageUrl)
+                    val state = painter.state
+
+                    if (state is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Front Cover",
+                        modifier = Modifier.fillMaxSize(),
+                        //contentScale = ContentScale.Crop
+                    )
+
+                }
+            } else {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(85.dp)
+                        .background(primaryColor.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = Icons.Default.MenuBook,
+                        contentDescription = null,
+                        tint = primaryColor,
+                        modifier = Modifier.size(36.dp)
+                    )
+
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -1066,4 +1114,90 @@ fun BookCardUser(
             }
         }
     }
+}
+
+private fun fetchLibraryBooks(userId: String, onComplete: (List<Book>) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("books")
+        .whereEqualTo("userId", userId)
+        .orderBy("timestamp", Query.Direction.DESCENDING)
+        .get()
+        .addOnSuccessListener { documents ->
+            val booksList = mutableListOf<Book>()
+            for (document in documents) {
+                val book = document.toObject(Book::class.java).copy(
+                    id = document.id
+                )
+                booksList.add(book)
+            }
+            onComplete(booksList)
+        }
+        .addOnFailureListener { exception ->
+            Log.e("Firestore", "Error getting featured books: ", exception)
+            onComplete(emptyList())
+        }
+}
+
+private fun fetchFavoriteBooksUser(onComplete: (List<FavoriteBook>) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("favorites")
+        .orderBy("addedAt", Query.Direction.DESCENDING)
+        .get()
+        .addOnSuccessListener { documents ->
+            val booksList = mutableListOf<FavoriteBook>()
+            for (document in documents) {
+                val book = document.toObject(FavoriteBook::class.java).copy(
+                    bookId = document.id
+                )
+                booksList.add(book)
+            }
+            onComplete(booksList)
+        }
+        .addOnFailureListener { exception ->
+            Log.e("Firestore", "Error getting featured books: ", exception)
+            onComplete(emptyList())
+        }
+}
+
+private fun fetchReadsUser(userId: String, onComplete: (List<Book>) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("borrows")
+        .whereEqualTo("borrowerId", userId)
+        .whereEqualTo("status", "concluded")
+        .get()
+        .addOnSuccessListener { userBorrowsSnapshot ->
+            // Ora abbiamo lo snapshot dei prestiti
+            val bookBorrowIds = userBorrowsSnapshot.documents.mapNotNull { it.getString("bookId") }.toSet()
+
+            // Verifica che ci siano ID di libri da cercare
+            if (bookBorrowIds.isEmpty()) {
+                onComplete(emptyList())
+                return@addOnSuccessListener
+            }
+
+            db.collection("books")
+                .whereIn("id", bookBorrowIds.toList())
+                .get()
+                .addOnSuccessListener { documents ->
+                    val booksList = mutableListOf<Book>()
+                    for (document in documents) {
+                        val book = document.toObject(Book::class.java).copy(
+                            id = document.id
+                        )
+                        booksList.add(book)
+                    }
+                    onComplete(booksList)
+                }
+                .addOnFailureListener { exception ->
+                    Log.e("Firestore", "Error getting featured books: ", exception)
+                    onComplete(emptyList())
+                }
+        }
+        .addOnFailureListener { exception ->
+            Log.e("Firestore", "Error getting user borrows: ", exception)
+            onComplete(emptyList())
+        }
 }

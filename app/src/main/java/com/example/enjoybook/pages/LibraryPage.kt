@@ -595,7 +595,11 @@ fun LentBookCard(lentBook: LentBook, navController: NavController) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
             title = { androidx.compose.material3.Text("Update Borrow") },
-            text = { "Do you want sign the borrow as concluded?" },
+            text = {
+                androidx.compose.material3.Text(
+                    text = "Do you want sign the borrow as concluded?"
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
