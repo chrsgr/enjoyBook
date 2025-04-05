@@ -23,5 +23,7 @@ val errorColor = Color(0xFFD32F2F)
 val successColor = Color(0xFF4CAF50)
 val warningColor = Color(0xFFFF9800)
 val cardBackground = Color.White
+val backgroundColorNew = (primaryColor.copy(alpha = 0.1f))
+
 
 

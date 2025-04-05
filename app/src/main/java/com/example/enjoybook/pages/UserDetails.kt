@@ -1,8 +1,9 @@
 package com.example.enjoybook.pages
 
 import android.icu.util.Calendar
-import android.net.Uri
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,28 +22,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Icon
+import androidx.compose.material.TabRowDefaults.Divider
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Message
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
@@ -58,9 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
@@ -72,29 +66,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
-import androidx.navigation.NavOptions
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.FavoriteBook
-import com.example.enjoybook.theme.primaryColor
-import com.example.enjoybook.theme.textColor
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-//import com.google.firebase.firestore.auth.User
 import com.example.enjoybook.data.User
 import com.example.enjoybook.utils.reportHandler
 import com.google.firebase.Firebase
@@ -102,8 +88,8 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
-import okhttp3.internal.platform.Jdk9Platform.Companion.isAvailable
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserDetails(navController: NavController, authViewModel: AuthViewModel, userId: String){
@@ -112,13 +98,10 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
 
     val primaryColor = Color(0xFF2CBABE)
     val secondaryColor = Color(0xFF1A8A8F)
-    val backgroundColor = (primaryColor.copy(alpha = 0.1f))
 
     val textColor = Color(0xFF333333)
     val errorColor = Color(0xFFD32F2F)
-    val successColor = Color(0xFF4CAF50)
     val warningColor = Color(0xFFFF9800)
-    val cardBackground = Color.White
 
     var user by remember { mutableStateOf<User?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -138,7 +121,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
 
     var isAdmin by remember { mutableStateOf(false) }
     var isBanned by remember { mutableStateOf(false) }
-    var isPrivate by remember { mutableStateOf(false) }
 
     Log.d("UserDetails", "Function called with userId: $userId")
 
@@ -146,7 +128,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
         if (userId.isNotEmpty()) {
             isLoading = true
             try {
-                // Recupero dei dati utente
                 val userDocument = db.collection("users").document(userId)
                     .get()
                     .await()
@@ -162,7 +143,8 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         role = userDocument.getString("role") ?: "",
                         isBanned = userDocument.getBoolean("isBanned") ?: null,
                         isPrivate = userDocument.getBoolean("isPrivate") ?: null,
-                        profilePictureUrl = userDocument.getString("profilePictureUrl") ?: ""
+                        profilePictureUrl = userDocument.getString("profilePictureUrl") ?: "",
+                        bio = userDocument.getString("bio") ?: ""
                     )
                 } else {
                     errorMessage = "User not found"
@@ -266,7 +248,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                     colors = TopAppBarDefaults.topAppBarColors(
                         titleContentColor = textColor
                     ),
-                    // Settings icon
                     actions = {
                         // Settings icon
                         if(currentUser != null){
@@ -303,9 +284,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // Controlla se l'utente è nullo
                 if (user != null) {
-                    // Sezione profilo utente
                     item {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -317,7 +296,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                     model = url,
                                     contentDescription = "Profile Picture",
                                     modifier = Modifier
-                                        .size(120.dp)
+                                        .size(80.dp)
                                         .clip(CircleShape)
                                         .border(2.dp, primaryColor, CircleShape),
                                     contentScale = ContentScale.Crop
@@ -329,7 +308,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                             Column(
                                 verticalArrangement = Arrangement.Center,
                                 modifier = Modifier.fillMaxWidth()
-                            ){
+                            ) {
                                 // Username
                                 Text(
                                     text = user?.username ?: "",
@@ -348,6 +327,28 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                     color = textColor,
                                     textAlign = TextAlign.Start
                                 )
+
+                                // Bio section
+                                if (user?.bio?.isNotEmpty() == true) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = user?.bio ?: "",
+                                        fontSize = 16.sp,
+                                        color = textColor.copy(alpha = 0.8f),
+
+                                        textAlign = TextAlign.Start,
+                                        maxLines = 4,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 2.dp, end = 4.dp)
+                                    )
+                                }
+
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
 
                                 // Controlli per admin/ban (solo se non è l'utente corrente)
                                 if (currentUser != null && currentUser.uid != userId) {
@@ -428,7 +429,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         }
                     }
 
-                    // Aggiungi questo come un nuovo item dopo i blocchi precedenti
                     item {
                         if (currentUser != null && currentUser.uid != userId) {
                             Spacer(modifier = Modifier.height(16.dp))
@@ -1169,10 +1169,8 @@ private fun fetchReadsUser(userId: String, onComplete: (List<Book>) -> Unit) {
         .whereEqualTo("status", "concluded")
         .get()
         .addOnSuccessListener { userBorrowsSnapshot ->
-            // Ora abbiamo lo snapshot dei prestiti
             val bookBorrowIds = userBorrowsSnapshot.documents.mapNotNull { it.getString("bookId") }.toSet()
 
-            // Verifica che ci siano ID di libri da cercare
             if (bookBorrowIds.isEmpty()) {
                 onComplete(emptyList())
                 return@addOnSuccessListener

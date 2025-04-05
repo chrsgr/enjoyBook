@@ -15,4 +15,5 @@ data class User(
     val emailVerified: Boolean = false,
     val isGoogleAuth: Boolean = false,
     val profilePictureUrl: String? = "",
-    )
+    val bio: String = ""
+)

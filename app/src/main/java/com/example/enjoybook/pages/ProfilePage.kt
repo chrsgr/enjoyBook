@@ -1,6 +1,4 @@
 package com.example.enjoybook.pages
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -35,18 +33,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -67,6 +63,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,7 +87,6 @@ import kotlinx.coroutines.withContext
 fun ProfilePage(
     navController: NavController
 ) {
-    var checked by remember { mutableStateOf(true) }
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -105,8 +101,8 @@ fun ProfilePage(
     var isSaving by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var bio by remember { mutableStateOf("") }
 
-    // Stato per tenere traccia del tipo di autenticazione
     val isGoogleAccount = remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -126,7 +122,6 @@ fun ProfilePage(
     val secondaryTextColor = Color(0xFF757575)
     val cardBackgroundColor = Color.White
     val buttonTextColor = Color(0xFF212121)
-    val errorColor = Color(0xFFB00020)
     val warningColor = Color(0xFFFF6D00)
 
 
@@ -142,7 +137,7 @@ fun ProfilePage(
                         email = document.getString("email") ?: ""
                         phone = document.getString("phone") ?: ""
                         password = document.getString("password") ?: ""
-
+                        bio = document.getString("bio") ?: ""
                         isPrivate = document.getBoolean("isPrivate") ?: false
 
                         document.getString("profilePictureUrl")?.let {
@@ -163,7 +158,6 @@ fun ProfilePage(
         }
     }
 
-    // Carica l'informazione all'avvio della schermata
     LaunchedEffect(currentUser?.uid) {
         currentUser?.uid?.let { uid ->
             firestore.collection("users").document(uid)
@@ -221,17 +215,14 @@ fun ProfilePage(
 
         isSaving = true
 
-        // Check username uniqueness before saving
         firestore.collection("users")
             .whereEqualTo("username", username)
             .get()
             .addOnSuccessListener { querySnapshot ->
-                // Filter out the current user's document
                 val otherUsersWithUsername = querySnapshot.documents
                     .filter { it.id != currentUser.uid }
 
                 if (otherUsersWithUsername.isNotEmpty()) {
-                    // Username already exists for another user
                     isSaving = false
                     errorMessage = "Username is already taken. Please choose a different username."
                     showErrorDialog = true
@@ -242,13 +233,13 @@ fun ProfilePage(
                     ).show()
 
                 } else {
-                    // Username is unique, proceed with saving
                     val userData = hashMapOf(
                         "name" to name,
                         "surname" to surname,
                         "username" to username,
                         "email" to email,
                         "phone" to phone,
+                        "bio" to bio,
                         "lastUpdated" to FieldValue.serverTimestamp(),
                         "isPrivate" to isPrivate
                     )
@@ -281,26 +272,21 @@ fun ProfilePage(
                             }
                     }
 
-                    // Verifica se l'utente è autenticato tramite Google
                     firestore.collection("users").document(currentUser.uid)
                         .get()
                         .addOnSuccessListener { document ->
                             val isGoogleAuth = document.getBoolean("isGoogleAuth") ?: false
 
-                            // Gestione aggiornamento password (se necessario e non è un account Google)
                             if (password.isNotBlank() && password != originalPassword) {
                                 if (isGoogleAuth) {
-                                    // Utente Google, non permettere la modifica della password
                                     isSaving = false
                                     errorMessage =
                                         "Google accounts cannot change their password through the app. Please manage your Google account settings instead."
                                     showErrorDialog = true
                                 } else {
-                                    // Utente con email/password, procedi con l'aggiornamento
                                     currentUser.updatePassword(password)
                                         .addOnCompleteListener { task ->
                                             if (task.isSuccessful) {
-                                                // Password aggiornata, ora aggiorna Firestore
                                                 updateFirestore()
                                             } else {
                                                 isSaving = false
@@ -311,7 +297,6 @@ fun ProfilePage(
                                         }
                                 }
                             } else {
-                                // Nessun aggiornamento password necessario, aggiorna solo Firestore
                                 updateFirestore()
                             }
                         }
@@ -490,6 +475,15 @@ fun ProfilePage(
                                 }
 
                                 ProfileField(
+                                    label = "Bio",
+                                    value = bio,
+                                    onValueChange = { bio = it },
+                                    isEditing = true,
+                                    leadingIcon = Icons.Default.Info,
+                                    isBio = true
+                                )
+
+                                ProfileField(
                                     label = "Name",
                                     value = name,
                                     onValueChange = { name = it },
@@ -545,6 +539,16 @@ fun ProfilePage(
 
                             } else {
                                 // View mode
+
+                                ProfileField(
+                                    label = "Bio",
+                                    value = bio,
+                                    onValueChange = { bio = it },
+                                    isEditing = false,
+                                    leadingIcon = Icons.Default.Info,
+                                    isBio = true
+                                )
+
                                 ProfileField(
                                     label = "Name",
                                     value = name,
@@ -819,36 +823,7 @@ fun ProfilePage(
                                     modifier = Modifier.padding(bottom = 16.dp)
                                 )
 
-                                OutlinedButton(
-                                    onClick = {
-                                        //fare in seguito pagina dove ci sono le linee guida
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(50.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = accentColor
-                                    ),
-                                    border = BorderStroke(1.dp, accentColor),
-                                    shape = RoundedCornerShape(25.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Help,
-                                            contentDescription = "Help",
-                                            tint = accentColor,
-                                            modifier = Modifier.padding(end = 8.dp)
-                                        )
-                                        Text(
-                                            "Community Guidelines",
-                                            color = accentColor,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
+
                             }
                         }
                     }
@@ -1045,7 +1020,8 @@ fun ProfileField(
     passwordVisible: Boolean = false,
     onTogglePasswordVisibility: () -> Unit = {},
     isEnabled: Boolean = true,
-    disabledMessage: String? = null
+    disabledMessage: String? = null,
+    isBio: Boolean = false
 ) {
     val accentColor = Color(0xFF4DB6AC)
     var isPasswordVisible by remember { mutableStateOf(passwordVisible) }
@@ -1056,56 +1032,93 @@ fun ProfileField(
             .padding(vertical = 8.dp)
     ) {
         if (isEditing) {
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                label = { Text(label) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize(),
-                singleLine = true,
-                enabled = isEditing && isEnabled,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = if (isPassword) KeyboardType.Password else keyboardType
-                ),
-                visualTransformation = if (isPassword && !isPasswordVisible)
-                    PasswordVisualTransformation() else VisualTransformation.None,
-                leadingIcon = if (leadingIcon != null) {
-                    {
-                        Icon(
-                            imageVector = leadingIcon,
-                            contentDescription = null,
-                            tint = if (isEnabled) accentColor else accentColor.copy(alpha = 0.5f)
-                        )
-                    }
-                } else null,
-                trailingIcon = if (isPassword && isEnabled) {
-                    {
-                        IconButton(onClick = {
-                            isPasswordVisible = !isPasswordVisible
-                            onTogglePasswordVisibility()
-                        }) {
+
+            if (isBio) {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    label = { Text(label) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .animateContentSize(),
+                    singleLine = false,
+                    maxLines = 4,
+                    enabled = isEditing && isEnabled,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text
+                    ),
+                    leadingIcon = if (leadingIcon != null) {
+                        {
                             Icon(
-                                imageVector = if (isPasswordVisible)
-                                    Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                contentDescription = if (isPasswordVisible)
-                                    "Hide password" else "Show password",
-                                tint = accentColor
+                                imageVector = leadingIcon,
+                                contentDescription = null,
+                                tint = if (isEnabled) accentColor else accentColor.copy(alpha = 0.5f)
                             )
                         }
-                    }
-                } else null,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = accentColor,
-                    focusedLabelColor = accentColor,
-                    cursorColor = accentColor,
-                    disabledBorderColor = Color.Gray.copy(alpha = 0.3f),
-                    disabledLabelColor = Color.Gray.copy(alpha = 0.5f),
-                    disabledTextColor = Color.Gray.copy(alpha = 0.5f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            )
-
+                    } else null,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = accentColor,
+                        focusedLabelColor = accentColor,
+                        cursorColor = accentColor,
+                        disabledBorderColor = Color.Gray.copy(alpha = 0.3f),
+                        disabledLabelColor = Color.Gray.copy(alpha = 0.5f),
+                        disabledTextColor = Color.Gray.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    placeholder = { Text("Write something about yourself...") }
+                )
+            } else {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    label = { Text(label) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(),
+                    singleLine = true,
+                    enabled = isEditing && isEnabled,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (isPassword) KeyboardType.Password else keyboardType
+                    ),
+                    visualTransformation = if (isPassword && !isPasswordVisible)
+                        PasswordVisualTransformation() else VisualTransformation.None,
+                    leadingIcon = if (leadingIcon != null) {
+                        {
+                            Icon(
+                                imageVector = leadingIcon,
+                                contentDescription = null,
+                                tint = if (isEnabled) accentColor else accentColor.copy(alpha = 0.5f)
+                            )
+                        }
+                    } else null,
+                    trailingIcon = if (isPassword && isEnabled) {
+                        {
+                            IconButton(onClick = {
+                                isPasswordVisible = !isPasswordVisible
+                                onTogglePasswordVisibility()
+                            }) {
+                                Icon(
+                                    imageVector = if (isPasswordVisible)
+                                        Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = if (isPasswordVisible)
+                                        "Hide password" else "Show password",
+                                    tint = accentColor
+                                )
+                            }
+                        }
+                    } else null,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = accentColor,
+                        focusedLabelColor = accentColor,
+                        cursorColor = accentColor,
+                        disabledBorderColor = Color.Gray.copy(alpha = 0.3f),
+                        disabledLabelColor = Color.Gray.copy(alpha = 0.5f),
+                        disabledTextColor = Color.Gray.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
             if (!isEnabled && disabledMessage != null) {
                 Text(
                     text = disabledMessage,
@@ -1141,37 +1154,50 @@ fun ProfileField(
                     )
                 }
 
-                Text(
-                    text = if (isPassword) {
-                        if (value.isEmpty()) "Not set" else "••••••••"
-                    } else {
-                        if (value.isEmpty()) "Not set" else value
-                    },
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = if (value.isEmpty()) Color.Gray else Color.Black,
-                    modifier = Modifier.padding(start = 22.dp, bottom = 12.dp)
-                )
-
-                if (isPassword && !isEnabled && disabledMessage != null) {
+                if (isBio) {
                     Text(
-                        text = disabledMessage,
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(start = 22.dp, bottom = 8.dp)
+                        text = if (value.isEmpty()) "No bio added yet" else value,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = if (value.isEmpty()) Color.Gray else Color.Black,
+                        modifier = Modifier
+                            .padding(start = 22.dp, bottom = 12.dp)
+                            .fillMaxWidth(),
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    Text(
+                        text = if (isPassword) {
+                            if (value.isEmpty()) "Not set" else "••••••••"
+                        } else {
+                            if (value.isEmpty()) "Not set" else value
+                        },
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = if (value.isEmpty()) Color.Gray else Color.Black,
+                        modifier = Modifier.padding(start = 22.dp, bottom = 12.dp)
+                    )
+
+                    if (isPassword && !isEnabled && disabledMessage != null) {
+                        Text(
+                            text = disabledMessage,
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(start = 22.dp, bottom = 8.dp)
+                        )
+                    }
+
+                    Divider(
+                        color = Color.LightGray.copy(alpha = 0.5f),
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
-
-                Divider(
-                    color = Color.LightGray.copy(alpha = 0.5f),
-                    thickness = 1.dp,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
             }
         }
     }
 }
-
 
 
 fun deleteUserAccount(navController: NavController) {
@@ -1191,15 +1217,12 @@ fun deleteUserAccount(navController: NavController) {
                     tasks.add(document.reference.delete())
                 }
 
-                // Attendi la cancellazione di tutti i dati prima di eliminare l'account
                 Tasks.whenAllComplete(tasks).addOnSuccessListener {
                     currentUser.delete().addOnCompleteListener { task ->
                         if (task.isSuccessful) {
                             println("Account eliminato con successo.")
 
-                            // Dopo la cancellazione dell'account, naviga alla pagina di login
                             navController.navigate("login") {
-                                // Rimuovi tutte le schermate precedenti dalla pila
                                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
                                 launchSingleTop = true // Per evitare duplicati
                             }
