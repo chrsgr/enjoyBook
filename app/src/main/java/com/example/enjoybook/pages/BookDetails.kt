@@ -532,10 +532,11 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             value = book?.author ?: "",
                             textColor = textColor,
                         )
+
                         BookInfoItem(
                             label = "EDITION",
-                            value = book?.edition ?: "",
-                            textColor = textColor,
+                        value = if (book?.edition.isNullOrEmpty()) "no edition available" else book!!.edition,
+                        textColor = textColor,
                         )
                         BookInfoItem(
                             label = "YEAR",

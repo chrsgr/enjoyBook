@@ -222,7 +222,6 @@ fun AddPage(
                             if (bookConditions.contains(it.condition)) {
                                 selectedCondition = it.condition
                             }
-                            //condition.value = it.condition
                             description.value = it.description
                             edition.value = it.edition
                             year.value = it.year
@@ -739,7 +738,7 @@ fun AddPage(
                     OutlinedTextField(
                         value = description.value,
                         onValueChange = { description.value = it },
-                        label = { Text("Description") },
+                        label = { Text("Description (optional)") },
                         placeholder = { Text("Enter a description") },
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = TextStyle(color = textColor, fontSize = 16.sp),
@@ -778,7 +777,7 @@ fun AddPage(
                     OutlinedTextField(
                         value = edition.value,
                         onValueChange = { edition.value = it },
-                        label = { Text("Edition") },
+                        label = { Text("Edition (optional)") },
                         placeholder = { Text("Enter the edition") },
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = TextStyle(color = textColor, fontSize = 16.sp),
@@ -953,10 +952,6 @@ fun AddPage(
                                 Toast.makeText(localContext, "Please enter type", Toast.LENGTH_SHORT).show()
                             } else if (selectedCondition.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter condition", Toast.LENGTH_SHORT).show()
-                            } else if (description.value.isEmpty()) {
-                                Toast.makeText(localContext, "Please enter description", Toast.LENGTH_SHORT).show()
-                            } else if (edition.value.isEmpty()) {
-                                Toast.makeText(localContext, "Please enter edition", Toast.LENGTH_SHORT).show()
                             } else if (year.value.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter year", Toast.LENGTH_SHORT).show()
                             } else {
@@ -1151,7 +1146,6 @@ private fun takePhoto(
     )
 }
 
-// The existing update and add functions remain unchanged
 fun updateBookWithImages(
     bookId: String,
     title: String,
@@ -1165,9 +1159,8 @@ fun updateBookWithImages(
     backCoverUri: Uri?,
     context: Context,
     navController: NavController,
-    onLoadingChanged: (Boolean) -> Unit // Add this parameter
+    onLoadingChanged: (Boolean) -> Unit
 ) {
-    // Set loading state to true at the beginning
     onLoadingChanged(true)
 
     val db: FirebaseFirestore = FirebaseFirestore.getInstance()
