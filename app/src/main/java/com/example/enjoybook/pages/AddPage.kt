@@ -355,7 +355,7 @@ fun AddPage(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "SCAN BOOK COVER",
+                                text = "SCAN IBSN CODE",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
