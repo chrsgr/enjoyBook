@@ -571,7 +571,7 @@ private suspend fun searchBookInfoByISBN(isbn: String): BookInfo? = withContext(
             val categories = if (volumeInfo.has("categories") && volumeInfo.getJSONArray("categories").length() > 0) {
                 volumeInfo.getJSONArray("categories").getString(0)
             } else {
-                "Fiction"
+                "No Selection"
             }
 
             val bookType = mapBookCategory(categories)
@@ -597,7 +597,7 @@ private suspend fun searchBookInfoByISBN(isbn: String): BookInfo? = withContext(
 
 private fun mapBookCategory(googleCategory: String): String {
     val bookTypes = listOf(
-        "Adventure", "Classics", "Crime", "Folk", "Fantasy", "Historical", "Horror",
+        "No Selection", "Adventure", "Classics", "Crime", "Folk", "Fantasy", "Historical", "Horror",
         "Literary fiction", "Mystery", "Poetry", "Plays", "Romance", "Science fiction",
         "Short stories", "Thrillers", "War", "Women's fiction", "Young adult"
     )
@@ -624,7 +624,7 @@ private fun mapBookCategory(googleCategory: String): String {
         googleCategory.contains("women", ignoreCase = true) -> "Women's fiction"
         googleCategory.contains("young adult", ignoreCase = true) -> "Young adult"
         googleCategory.contains("ya", ignoreCase = true) -> "Young adult"
-        else -> bookTypes.firstOrNull { it.equals(googleCategory, ignoreCase = true) } ?: "Literary fiction"
+        else -> bookTypes.firstOrNull { it.equals(googleCategory, ignoreCase = true) } ?: "No Selection"
     }
 }
 

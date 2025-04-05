@@ -171,7 +171,7 @@ fun AddPage(
     }
 
     val bookTypes = listOf(
-        "Adventure", "Classics", "Crime", "Folk", "Fantasy", "Historical",
+        "No Selection","Adventure", "Classics", "Crime", "Folk", "Fantasy", "Historical",
         "Horror", "Literary fiction", "Mystery", "Poetry", "Plays",
         "Romance", "Science fiction", "Short stories", "Thrillers",
         "War", "Women's fiction", "Young adult"
@@ -869,7 +869,7 @@ fun AddPage(
                             value = selectedType,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Book Type") },
+                            label = { Text("Book Genre") },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Category,
@@ -946,13 +946,21 @@ fun AddPage(
                         onClick = {
                             if (title.value.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter title", Toast.LENGTH_SHORT).show()
-                            } else if (author.value.isEmpty()) {
+                            }
+
+                         else if (selectedType === "No Selection") {
+                    Toast.makeText(localContext, "Please enter Book Genre ", Toast.LENGTH_SHORT).show()
+                }
+
+
+                            else if (author.value.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter author", Toast.LENGTH_SHORT).show()
                             } else if (selectedType.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter type", Toast.LENGTH_SHORT).show()
                             } else if (selectedCondition.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter condition", Toast.LENGTH_SHORT).show()
-                            } else if (year.value.isEmpty()) {
+                            }
+                            else if (year.value.isEmpty()) {
                                 Toast.makeText(localContext, "Please enter year", Toast.LENGTH_SHORT).show()
                             } else {
                                 if (isEditing && bookId != null) {
