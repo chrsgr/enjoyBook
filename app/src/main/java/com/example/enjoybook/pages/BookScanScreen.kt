@@ -17,6 +17,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.IconButton
 import androidx.compose.material.icons.Icons
@@ -32,7 +33,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
@@ -48,23 +51,22 @@ import java.util.*
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookScanScreen(
     navController: NavController,
-    onBookInfoRetrieved: (String, String, String, String, String) -> Unit // (title, author, year, description, type)
+    onBookInfoRetrieved: (String, String, String, String, String) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val primaryColor = Color(0xFF2CBABE)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
-
-    // Create a coroutine scope that is tied to this composable's lifecycle
     val coroutineScope = rememberCoroutineScope()
 
-    // Camera permission state
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -74,40 +76,33 @@ fun BookScanScreen(
         )
     }
 
-    // Camera permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         hasCameraPermission = isGranted
     }
 
-    // Request camera permission
     LaunchedEffect(key1 = true) {
         if (!hasCameraPermission) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
-    // Camera state
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val imageCapture = remember { ImageCapture.Builder().build() }
     val executor = remember { Executors.newSingleThreadExecutor() }
 
     var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
-
-    // Used to handle processing errors
     var processingError by remember { mutableStateOf<String?>(null) }
-
-    // Create a key for the coroutine scope that won't change during composition
-    val coroutineScopeKey = remember { Object() }
+    var scanInstructions by remember { mutableStateOf(true) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "SCAN BOOK",
+                        text = "SCAN ISBN",
                         color = textColor,
                         fontWeight = FontWeight.Bold
                     )
@@ -139,7 +134,6 @@ fun BookScanScreen(
         ) {
             if (hasCameraPermission) {
                 if (capturedImageUri == null) {
-                    // Camera preview
                     CameraPreview(
                         modifier = Modifier.fillMaxSize(),
                         cameraProviderFuture = cameraProviderFuture,
@@ -147,7 +141,45 @@ fun BookScanScreen(
                         lifecycleOwner = lifecycleOwner
                     )
 
-                    // Camera controls
+                    if (scanInstructions) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                                    .padding(16.dp)
+                            ) {
+                                Text(
+                                    "Position the ISBN barcode within the frame",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "The ISBN is typically located on the back cover near the barcode",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { scanInstructions = false },
+                                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                                ) {
+                                    Text("Got it")
+                                }
+                            }
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -164,33 +196,33 @@ fun BookScanScreen(
                                         capturedImageUri = uri
                                         isProcessing = true
                                         processingError = null
-
                                         coroutineScope.launch {
                                             try {
-                                                val result =
-                                                    processImageAndGetBookInfo(context, uri)
+                                                val result = processImageAndGetISBN(context, uri)
                                                 if (result != null) {
-                                                    // Use type instead of category to match Book data class
-                                                    onBookInfoRetrieved(
-                                                        result.title,
-                                                        result.author,
-                                                        result.year,
-                                                        result.description,
-                                                        result.type // Changed from category to type
-                                                    )
-                                                    // Call popBackStack on the main thread
-                                                    withContext(Dispatchers.Main) {
-                                                        navController.popBackStack()
+                                                    val bookInfo = searchBookInfoByISBN(result)
+                                                    if (bookInfo != null) {
+                                                        onBookInfoRetrieved(
+                                                            bookInfo.title,
+                                                            bookInfo.author,
+                                                            bookInfo.year,
+                                                            bookInfo.description,
+                                                            bookInfo.type
+                                                        )
+                                                        withContext(Dispatchers.Main) {
+                                                            navController.popBackStack()
+                                                        }
+                                                    } else {
+                                                        processingError = "Couldn't find information for ISBN: $result. Please try entering details manually."
+                                                        isProcessing = false
                                                     }
                                                 } else {
-                                                    processingError =
-                                                        "Couldn't find book information. Please try entering details manually."
+                                                    processingError = "Couldn't detect an ISBN. Please try again or enter details manually."
                                                     isProcessing = false
                                                 }
                                             } catch (e: Exception) {
                                                 Log.e("BookScan", "Error processing image", e)
-                                                processingError =
-                                                    "Error processing image: ${e.message}"
+                                                processingError = "Error: ${e.message}"
                                                 isProcessing = false
                                             }
                                         }
@@ -212,7 +244,6 @@ fun BookScanScreen(
                         }
                     }
                 } else {
-                    // Image captured, show processing UI
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -225,7 +256,7 @@ fun BookScanScreen(
                                 CircularProgressIndicator(color = primaryColor)
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    "Analyzing book...",
+                                    "Scanning ISBN...",
                                     color = textColor,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -240,11 +271,16 @@ fun BookScanScreen(
                                     Text(
                                         it,
                                         color = Color.Red,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.Medium,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 16.dp)
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Button(
-                                        onClick = { capturedImageUri = null },
+                                        onClick = {
+                                            capturedImageUri = null
+                                            scanInstructions = false
+                                        },
                                         colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                                     ) {
                                         Text("Try Again")
@@ -253,7 +289,6 @@ fun BookScanScreen(
                             }
                         }
 
-                        // Cancel button (only show when not processing)
                         if (!isProcessing) {
                             Box(
                                 modifier = Modifier
@@ -261,7 +296,10 @@ fun BookScanScreen(
                                     .padding(16.dp)
                             ) {
                                 IconButton(
-                                    onClick = { capturedImageUri = null },
+                                    onClick = {
+                                        capturedImageUri = null
+                                        scanInstructions = false
+                                    },
                                     modifier = Modifier
                                         .size(48.dp)
                                         .clip(CircleShape)
@@ -278,7 +316,6 @@ fun BookScanScreen(
                     }
                 }
             } else {
-                // No camera permission
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -292,7 +329,9 @@ fun BookScanScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                            onClick = {
+                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                         ) {
                             Text("Request Permission")
@@ -303,6 +342,7 @@ fun BookScanScreen(
         }
     }
 }
+
 @Composable
 private fun CameraPreview(
     modifier: Modifier = Modifier,
@@ -310,8 +350,6 @@ private fun CameraPreview(
     imageCapture: ImageCapture,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner
 ) {
-    val context = LocalContext.current
-
     AndroidView(
         factory = { ctx ->
             val previewView = PreviewView(ctx).apply {
@@ -322,7 +360,6 @@ private fun CameraPreview(
                 cameraProviderFuture.addListener({
                     try {
                         val cameraProvider = cameraProviderFuture.get()
-
                         val preview = Preview.Builder().build().also {
                             it.setSurfaceProvider(previewView.surfaceProvider)
                         }
@@ -389,18 +426,51 @@ private fun takePhoto(
     )
 }
 
-// Combined function that processes the image and returns book info in one step
-// This prevents coroutine cancellation issues
-private suspend fun processImageAndGetBookInfo(
+private suspend fun processImageAndGetISBN(
     context: Context,
     imageUri: Uri
-): BookInfo? = withContext(Dispatchers.IO) {
+): String? = withContext(Dispatchers.IO) {
     try {
-        // Step 1: Extract text from image using ML Kit
         val image = InputImage.fromFilePath(context, imageUri)
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-        val result = suspendCancellableCoroutine<String> { continuation ->
+        val barcodeResult = suspendCancellableCoroutine<String?> { continuation ->
+            val scanner = BarcodeScanning.getClient()
+            scanner.process(image)
+                .addOnSuccessListener { barcodes ->
+                    var isbn: String? = null
+                    for (barcode in barcodes) {
+                        if (barcode.valueType == Barcode.TYPE_ISBN ||
+                            barcode.valueType == Barcode.TYPE_PRODUCT) {
+                            val rawValue = barcode.rawValue
+                            if (rawValue != null &&
+                                (rawValue.length == 10 || rawValue.length == 13) &&
+                                rawValue.all { it.isDigit() }) {
+                                isbn = rawValue
+                                break
+                            }
+                        }
+                    }
+
+                    if (isbn != null) {
+                        Log.d("ISBN", "Found ISBN via barcode: $isbn")
+                        continuation.resume(isbn) {}
+                    } else {
+                        Log.d("ISBN", "No ISBN barcode found, falling back to text recognition")
+                        continuation.resume(null) {}
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("ISBN", "Barcode scanning failed", e)
+                    continuation.resume(null) {}
+                }
+        }
+
+        if (barcodeResult != null) {
+            return@withContext barcodeResult
+        }
+
+        val textResult = suspendCancellableCoroutine<String> { continuation ->
+            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
             recognizer.process(image)
                 .addOnSuccessListener { visionText ->
                     continuation.resume(visionText.text) {}
@@ -411,40 +481,46 @@ private suspend fun processImageAndGetBookInfo(
                 }
         }
 
-        if (result.isBlank()) {
-            Log.d("BookScan", "Couldn't extract text from image")
+        if (textResult.isBlank()) {
+            Log.d("ISBN", "Couldn't extract text from image")
             return@withContext null
         }
 
-        Log.d("OCR", "Extracted text: $result")
+        val isbnRegex = """ISBN(?:-1[03])?:?\s*((?:97[89][-\s]?)?(?:\d[-\s]?){9}[\dXx])""".toRegex()
+        val isbnNoLabelRegex = """(?:97[89][-\s]?)?(?:\d[-\s]?){9}[\dXx]""".toRegex()
 
-        // Step 2: Search for book info using extracted text
-        return@withContext searchBookInfo(result)
+        val match = isbnRegex.find(textResult) ?: isbnNoLabelRegex.find(textResult)
+        val isbn = match?.groupValues?.get(1)?.replace(Regex("[-\\s]"), "") ?:
+        match?.value?.replace(Regex("[-\\s]"), "")
+
+        if (isbn != null) {
+            Log.d("ISBN", "Found ISBN via text recognition: $isbn")
+            return@withContext isbn
+        }
+
+        Log.d("ISBN", "No ISBN found in text: ${textResult.take(100)}...")
+        return@withContext null
     } catch (e: Exception) {
-        Log.e("BookScan", "Error in processImageAndGetBookInfo", e)
+        Log.e("ISBN", "Error in processImageAndGetISBN", e)
         throw e
     }
 }
 
-private suspend fun searchBookInfo(query: String): BookInfo? = withContext(Dispatchers.IO) {
-    if (query.isBlank() || query.length < 3) {
-        Log.d("GoogleBooksAPI", "Query too short or blank, skipping API call")
+private suspend fun searchBookInfoByISBN(isbn: String): BookInfo? = withContext(Dispatchers.IO) {
+    if (isbn.isBlank()) {
+        Log.d("GoogleBooksAPI", "ISBN is blank, skipping API call")
         return@withContext null
     }
 
     try {
-        Log.d("GoogleBooksAPI", "Searching for book with query: $query")
-        val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+        Log.d("GoogleBooksAPI", "Searching for book with ISBN: $isbn")
         val apiKey = "AIzaSyDA9btjrzoV5g-YqjcmzgLhrqzaWfXjjPw"
-        val url = URL("https://www.googleapis.com/books/v1/volumes?q=$encodedQuery&key=$apiKey&maxResults=1")
-
-        Log.d("GoogleBooksAPI", "API URL: https://www.googleapis.com/books/v1/volumes?q=$encodedQuery&key=<API_KEY>&maxResults=1")
+        val url = URL("https://www.googleapis.com/books/v1/volumes?q=isbn:$isbn&key=$apiKey")
+        Log.d("GoogleBooksAPI", "API URL: https://www.googleapis.com/books/v1/volumes?q=isbn:$isbn&key=<API_KEY>")
 
         val connection = url.openConnection()
-        connection.connectTimeout = 10000 // 10 seconds timeout
-        connection.readTimeout = 10000 // 10 seconds timeout
-
-        // Set request properties to ensure proper response
+        connection.connectTimeout = 10000
+        connection.readTimeout = 10000
         connection.setRequestProperty("Accept", "application/json")
         connection.setRequestProperty("User-Agent", "Android Book Scanner App")
 
@@ -452,77 +528,55 @@ private suspend fun searchBookInfo(query: String): BookInfo? = withContext(Dispa
         val response = connection.getInputStream().bufferedReader().use { it.readText() }
         Log.d("GoogleBooksAPI", "Received API response, length: ${response.length}")
 
-        // Log first part of response to see what's being returned
-        Log.d("GoogleBooksAPI", "Response first 200 chars: ${response.take(200)}")
-
         val jsonObject = JSONObject(response)
-
         if (jsonObject.has("totalItems") && jsonObject.getInt("totalItems") == 0) {
-            Log.d("GoogleBooksAPI", "No books found for query")
+            Log.d("GoogleBooksAPI", "No books found for ISBN: $isbn")
             return@withContext null
         }
 
         if (jsonObject.has("items") && jsonObject.getJSONArray("items").length() > 0) {
             val bookJson = jsonObject.getJSONArray("items").getJSONObject(0)
-            Log.d("GoogleBooksAPI", "Found book with ID: ${bookJson.optString("id", "unknown")}")
-
             val volumeInfo = bookJson.getJSONObject("volumeInfo")
 
             val title = if (volumeInfo.has("title")) {
-                val bookTitle = volumeInfo.getString("title")
-                Log.d("GoogleBooksAPI", "Book title: $bookTitle")
-                bookTitle
+                volumeInfo.getString("title")
             } else {
-                Log.d("GoogleBooksAPI", "No title found in book data")
                 ""
             }
 
             val authors = if (volumeInfo.has("authors")) {
                 val authorsArray = volumeInfo.getJSONArray("authors")
                 if (authorsArray.length() > 0) {
-                    val firstAuthor = authorsArray.getString(0)
-                    Log.d("GoogleBooksAPI", "Book author: $firstAuthor")
-                    firstAuthor
+                    authorsArray.getString(0)
                 } else {
-                    Log.d("GoogleBooksAPI", "Authors array is empty")
                     ""
                 }
             } else {
-                Log.d("GoogleBooksAPI", "No authors found in book data")
                 ""
             }
 
             val publishedDate = if (volumeInfo.has("publishedDate")) {
                 val date = volumeInfo.getString("publishedDate")
-                val year = if (date.length >= 4) date.substring(0, 4) else ""
-                Log.d("GoogleBooksAPI", "Book year: $year")
-                year
+                if (date.length >= 4) date.substring(0, 4) else ""
             } else {
-                Log.d("GoogleBooksAPI", "No published date found in book data")
                 ""
             }
 
             val description = if (volumeInfo.has("description")) {
-                val desc = volumeInfo.getString("description")
-                Log.d("GoogleBooksAPI", "Book description: ${desc.take(50)}...")
-                desc
+                volumeInfo.getString("description")
             } else {
-                Log.d("GoogleBooksAPI", "No description found in book data")
                 ""
             }
 
             val categories = if (volumeInfo.has("categories") && volumeInfo.getJSONArray("categories").length() > 0) {
-                val category = volumeInfo.getJSONArray("categories").getString(0)
-                Log.d("GoogleBooksAPI", "Book category: $category")
-                category
+                volumeInfo.getJSONArray("categories").getString(0)
             } else {
-                Log.d("GoogleBooksAPI", "No categories found, using default 'Fiction'")
                 "Fiction"
             }
 
             val bookType = mapBookCategory(categories)
-            Log.d("GoogleBooksAPI", "Mapped book type: $bookType")
 
+            Log.d("GoogleBooksAPI", "Found book: $title by $authors")
             return@withContext BookInfo(
                 title = title,
                 author = authors,
@@ -535,10 +589,7 @@ private suspend fun searchBookInfo(query: String): BookInfo? = withContext(Dispa
             return@withContext null
         }
     } catch (e: Exception) {
-        Log.e("GoogleBooksAPI", "Error fetching book info", e)
-        // Print more detailed error information
-        Log.e("GoogleBooksAPI", "Error message: ${e.message}")
-        Log.e("GoogleBooksAPI", "Error cause: ${e.cause}")
+        Log.e("GoogleBooksAPI", "Error fetching book info by ISBN", e)
         e.printStackTrace()
         return@withContext null
     }
@@ -546,13 +597,11 @@ private suspend fun searchBookInfo(query: String): BookInfo? = withContext(Dispa
 
 private fun mapBookCategory(googleCategory: String): String {
     val bookTypes = listOf(
-        "Adventure", "Classics", "Crime", "Folk", "Fantasy", "Historical",
-        "Horror", "Literary fiction", "Mystery", "Poetry", "Plays",
-        "Romance", "Science fiction", "Short stories", "Thrillers",
-        "War", "Women's fiction", "Young adult"
+        "Adventure", "Classics", "Crime", "Folk", "Fantasy", "Historical", "Horror",
+        "Literary fiction", "Mystery", "Poetry", "Plays", "Romance", "Science fiction",
+        "Short stories", "Thrillers", "War", "Women's fiction", "Young adult"
     )
 
-    // Map Google Books categories to app categories
     return when {
         googleCategory.contains("adventure", ignoreCase = true) -> "Adventure"
         googleCategory.contains("classic", ignoreCase = true) -> "Classics"
@@ -584,5 +633,5 @@ data class BookInfo(
     val author: String,
     val year: String,
     val description: String,
-    val type: String // Changed from category to type to match Book data class
+    val type: String
 )

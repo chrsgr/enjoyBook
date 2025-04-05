@@ -59,6 +59,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation ("androidx.compose.material:material-icons-extended:1.3.0")
 
+    implementation ("com.google.mlkit:barcode-scanning:17.2.0")
+
     implementation ("com.squareup.retrofit2:retrofit:2.9.0")
     implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
 
