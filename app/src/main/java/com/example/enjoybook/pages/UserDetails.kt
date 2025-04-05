@@ -526,7 +526,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                             .height(44.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
                                             contentColor = if (isFollowing) Color.Gray else primaryColor,
-                                            containerColor = if (isFollowing) Color.LightGray.copy(alpha = 0.2f) else Color.White
+                                            containerColor = if (isFollowing) Color.LightGray.copy(alpha = 0.2f) else Color.Transparent
                                         ),
                                         border = BorderStroke(1.dp, if (isFollowing) Color.Gray else primaryColor),
                                         shape = RoundedCornerShape(25.dp)
