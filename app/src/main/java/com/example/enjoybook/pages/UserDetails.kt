@@ -1424,7 +1424,7 @@ fun FollowersScreen(navController: NavController, userId: String) {
         navController = navController,
         users = followers,
         isLoading = isLoading,
-        title = "Followers"
+        title = "FOLLOWERS"
     )
 }
 
@@ -1458,7 +1458,7 @@ fun FollowingScreen(navController: NavController, userId: String) {
         navController = navController,
         users = following,
         isLoading = isLoading,
-        title = "Following"
+        title = "FOLLOWING"
 
     )
 }
@@ -1549,7 +1549,7 @@ fun UserFollowList(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No $title found")
+                Text("N0 $title")
             }
         } else {
             LazyColumn(
