@@ -186,12 +186,12 @@ fun FavouritePage(
                         CircularProgressIndicator(
                             modifier = Modifier.size(32.dp),
                             progress = if (refreshing) 1f else (refreshOffset / maxRefreshOffsetPx).coerceIn(0f, 1f),
-                            color = Color(0xFF2CBABE) // Updated to use the primary color
+                            color = Color(0xFF2CBABE)
                         )
 
                         if (refreshOffset > maxRefreshOffsetPx * 0.7f || refreshing) {
                             Text(
-                                text = if (refreshing) "Aggiornamento..." else "Rilascia per aggiornare",
+                                text = if (refreshing) "Update..." else "Release to update",
                                 fontSize = 12.sp,
                                 color = Color.Gray,
                                 modifier = Modifier.padding(top = 4.dp)
@@ -210,13 +210,7 @@ fun FavouritePage(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Titolo
-                Text(
-                    text = "FAVORITE BOOKS",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF333333),
-                    modifier = Modifier.padding(bottom = 20.dp)
-                )
+
 
                 if (favorites.isEmpty()) {
                     Box(
@@ -304,7 +298,9 @@ fun FavoriteBookItem(
             .padding(vertical = 8.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+
     ) {
         Row(
             modifier = Modifier
