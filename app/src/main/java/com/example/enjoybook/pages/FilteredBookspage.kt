@@ -194,8 +194,7 @@ fun BookListItem(book: Book, navController: NavController) {
         ) {
             // Book cover placeholder
 
-            if (isFrontCover.value && book?.frontCoverUrl != null)
-            {
+            if (isFrontCover.value && book?.frontCoverUrl != null) {
                 Box(
                     modifier = Modifier
                         .size(80.dp)
@@ -223,9 +222,7 @@ fun BookListItem(book: Book, navController: NavController) {
                         contentScale = ContentScale.Crop
                     )
                 }
-            }
-
-            else {
+            } else {
                 Box(
                     modifier = Modifier
                         .size(80.dp)
