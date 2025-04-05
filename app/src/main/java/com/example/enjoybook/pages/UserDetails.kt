@@ -1549,7 +1549,7 @@ fun UserFollowList(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text("N0 $title")
+                Text("NO $title")
             }
         } else {
             LazyColumn(
