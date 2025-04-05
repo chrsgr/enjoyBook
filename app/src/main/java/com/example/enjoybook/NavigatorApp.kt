@@ -265,6 +265,14 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                 )
             }
 
+            composable("followers/{userId}") { backStackEntry ->
+                val userId = backStackEntry.arguments?.getString("userId") ?: ""
+                FollowersScreen(navController, userId)
+            }
+            composable("following/{userId}") { backStackEntry ->
+                val userId = backStackEntry.arguments?.getString("userId") ?: ""
+                FollowingScreen(navController, userId)
+            }
 
             composable("bookUser") {
                 BookPage(navController, authViewModel)

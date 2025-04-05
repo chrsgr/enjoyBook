@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,8 +40,11 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -48,6 +52,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.R
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -85,9 +90,11 @@ import com.example.enjoybook.data.User
 import com.example.enjoybook.utils.reportHandler
 import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
+import androidx.compose.material.ripple.rememberRipple
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,6 +128,10 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
 
     var isAdmin by remember { mutableStateOf(false) }
     var isBanned by remember { mutableStateOf(false) }
+
+    var isFollowing by remember { mutableStateOf(false) }
+    var followerCount by remember { mutableStateOf(0) }
+    var followingCount by remember { mutableStateOf(0) }
 
     Log.d("UserDetails", "Function called with userId: $userId")
 
@@ -166,15 +177,25 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     LaunchedEffect(Unit) {
         fetchLibraryBooks(userId) { books ->
             libraryBooks.value = books
-            //isLoading.value = false
         }
         fetchFavoriteBooksUser { books ->
             favoritesBooks.value = books
-            //isLoading.value = false
         }
         fetchReadsUser(userId) { books ->
             readsBooks.value = books
-            //isLoading.value = false
+        }
+        fetchFollowerCount(userId) { count ->
+            followerCount = count
+        }
+
+        fetchFollowingCount(userId) { count ->
+            followingCount = count
+        }
+
+        if (currentUser != null && userId != currentUser.uid) {
+            checkFollowStatus(currentUser.uid, userId) { status ->
+                isFollowing = status
+            }
         }
     }
 
@@ -194,10 +215,9 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
             val targetUserDoc = Firebase.firestore.collection("users").document(userId).get().await()
             isBanned = targetUserDoc.getBoolean("isBanned") ?: false
         } else {
-            Log.e("Firestore", "Invalid userId: $userId") // Aggiunto per debug
+            Log.e("Firestore", "Invalid userId: $userId")
         }
     }
-
 
     if (showErrorDialog) {
         AlertDialog(
@@ -216,7 +236,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
             }
         )
     }
-
 
     if (isLoading) {
         Box(
@@ -290,7 +309,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
                         ) {
-                            // Immagine profilo
+                            // Profile picture
                             user?.profilePictureUrl?.let { url ->
                                 AsyncImage(
                                     model = url,
@@ -320,7 +339,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
 
                                 Spacer(modifier = Modifier.height(4.dp))
 
-                                // Nome e Cognome
+                                // Name and Surname
                                 Text(
                                     text = "${user?.name ?: ""} ${user?.surname ?: ""}",
                                     fontSize = 18.sp,
@@ -336,7 +355,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                         text = user?.bio ?: "",
                                         fontSize = 16.sp,
                                         color = textColor.copy(alpha = 0.8f),
-
                                         textAlign = TextAlign.Start,
                                         maxLines = 4,
                                         overflow = TextOverflow.Ellipsis,
@@ -346,8 +364,60 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                     )
                                 }
 
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                                        Spacer(modifier = Modifier.height(8.dp))
+                                // Followers stats row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Start,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Followers count - clickable
+                                    Column(
+                                        horizontalAlignment = Alignment.Start,
+                                        modifier = Modifier
+                                            .clickable {
+                                                navController.navigate("followers/$userId")
+                                            }
+                                            .padding(vertical = 8.dp, horizontal = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = followerCount.toString(),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = textColor
+                                        )
+                                        Text(
+                                            text = "Followers",
+                                            fontSize = 14.sp,
+                                            color = textColor.copy(alpha = 0.7f)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(24.dp))
+
+                                    // Following count - clickable
+                                    Column(
+                                        horizontalAlignment = Alignment.Start,
+                                        modifier = Modifier
+                                            .clickable {
+                                                navController.navigate("following/$userId")
+                                            }
+                                            .padding(vertical = 8.dp, horizontal = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = followingCount.toString(),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = textColor
+                                        )
+                                        Text(
+                                            text = "Following",
+                                            fontSize = 14.sp,
+                                            color = textColor.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                }
 
 
                                 // Controlli per admin/ban (solo se non è l'utente corrente)
@@ -433,38 +503,87 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         if (currentUser != null && currentUser.uid != userId) {
                             Spacer(modifier = Modifier.height(16.dp))
 
+                            // Follow/Unfollow button
                             Box(
                                 modifier = Modifier.fillMaxWidth(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        navController.navigate("messaging/$userId")
-                                    },
-                                    modifier = Modifier
-                                        .width(250.dp)
-                                        .height(50.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = primaryColor
-                                    ),
-                                    border = BorderStroke(1.dp, primaryColor),
-                                    shape = RoundedCornerShape(25.dp)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    modifier = Modifier.fillMaxWidth(0.9f),
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
+                                    // Follow/Unfollow button
+                                    OutlinedButton(
+                                        onClick = {
+                                            if (isFollowing) {
+                                                unfollowUser(currentUser.uid, userId) {
+                                                    isFollowing = false
+                                                    followerCount--
+                                                }
+                                            } else {
+                                                followUser(currentUser.uid, userId) {
+                                                    isFollowing = true
+                                                    followerCount++
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(44.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = if (isFollowing) Color.Gray else primaryColor,
+                                            containerColor = if (isFollowing) Color.LightGray.copy(alpha = 0.2f) else Color.White
+                                        ),
+                                        border = BorderStroke(1.dp, if (isFollowing) Color.Gray else primaryColor),
+                                        shape = RoundedCornerShape(25.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Message,
-                                            contentDescription = "Send Message",
-                                            tint = primaryColor,
-                                            modifier = Modifier.padding(end = 8.dp)
-                                        )
-                                        Text(
-                                            "Send Message",
-                                            color = primaryColor,
-                                            fontWeight = FontWeight.Medium
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isFollowing) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
+                                                contentDescription = if (isFollowing) "Unfollow" else "Follow",
+                                                tint = if (isFollowing) Color.Gray else primaryColor,
+                                                modifier = Modifier.padding(end = 8.dp)
+                                            )
+                                            Text(
+                                                if (isFollowing) "Following" else "Follow",
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+
+                                    // Message button
+                                    OutlinedButton(
+                                        onClick = {
+                                            navController.navigate("messaging/$userId")
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(44.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = primaryColor
+                                        ),
+                                        border = BorderStroke(1.dp, primaryColor),
+                                        shape = RoundedCornerShape(25.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Message,
+                                                contentDescription = "Send Message",
+                                                tint = primaryColor,
+                                                modifier = Modifier.padding(end = 8.dp)
+                                            )
+                                            Text(
+                                                "Message",
+                                                color = primaryColor,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -787,7 +906,41 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
             }
         }
     }
+}
+private fun followUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+    val followData = hashMapOf(
+        "followerId" to currentUserId,
+        "followingId" to targetUserId,
+        "timestamp" to FieldValue.serverTimestamp()
+    )
 
+    db.collection("follows")
+        .add(followData)
+        .addOnSuccessListener {
+            onComplete()
+        }
+        .addOnFailureListener { e ->
+            Log.e("UserDetails", "Error following user: ", e)
+        }
+}
+
+private fun unfollowUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("follows")
+        .whereEqualTo("followerId", currentUserId)
+        .whereEqualTo("followingId", targetUserId)
+        .get()
+        .addOnSuccessListener { documents ->
+            for (document in documents) {
+                document.reference.delete()
+            }
+            onComplete()
+        }
+        .addOnFailureListener { e ->
+            Log.e("UserDetails", "Error unfollowing user: ", e)
+        }
 }
 
 @Composable
@@ -1198,4 +1351,258 @@ private fun fetchReadsUser(userId: String, onComplete: (List<Book>) -> Unit) {
             Log.e("Firestore", "Error getting user borrows: ", exception)
             onComplete(emptyList())
         }
+}
+
+private fun fetchFollowerCount(userId: String, onComplete: (Int) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+    db.collection("follows")
+        .whereEqualTo("followingId", userId)
+        .get()
+        .addOnSuccessListener { documents ->
+            onComplete(documents.size())
+        }
+        .addOnFailureListener { e ->
+            Log.e("UserDetails", "Error fetching follower count: ", e)
+            onComplete(0)
+        }
+}
+
+private fun fetchFollowingCount(userId: String, onResult: (Int) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("follows")
+        .whereEqualTo("followerId", userId)
+        .get()
+        .addOnSuccessListener { documents ->
+            onResult(documents.size())
+        }
+        .addOnFailureListener { e ->
+            Log.e("UserDetails", "Error getting following count: ", e)
+            onResult(0)
+        }
+}
+
+private fun checkFollowStatus(currentUserId: String, targetUserId: String, onResult: (Boolean) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("follows")
+        .whereEqualTo("followerId", currentUserId)
+        .whereEqualTo("followingId", targetUserId)
+        .get()
+        .addOnSuccessListener { documents ->
+            onResult(!documents.isEmpty)
+        }
+        .addOnFailureListener { e ->
+            Log.e("UserDetails", "Error checking follow status: ", e)
+            onResult(false)
+        }
+}
+
+
+
+
+@Composable
+fun FollowersScreen(navController: NavController, userId: String) {
+    val db = FirebaseFirestore.getInstance()
+    var followers by remember { mutableStateOf<List<User>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(userId) {
+        db.collection("follows")
+            .whereEqualTo("followingId", userId)
+            .get()
+            .addOnSuccessListener { documents ->
+                val followerIds = documents.map { it.getString("followerId") ?: "" }
+                if (followerIds.isNotEmpty()) {
+                    fetchUsersFromIds(followerIds) { usersList ->
+                        followers = usersList
+                        isLoading = false
+                    }
+                } else {
+                    isLoading = false
+                }
+            }
+            .addOnFailureListener {
+                isLoading = false
+            }
+    }
+
+    UserFollowList(
+        navController = navController,
+        users = followers,
+        isLoading = isLoading,
+        title = "Followers"
+    )
+}
+
+@Composable
+fun FollowingScreen(navController: NavController, userId: String) {
+    val db = FirebaseFirestore.getInstance()
+    var following by remember { mutableStateOf<List<User>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(userId) {
+        db.collection("follows")
+            .whereEqualTo("followerId", userId)
+            .get()
+            .addOnSuccessListener { documents ->
+                val followingIds = documents.map { it.getString("followingId") ?: "" }
+                if (followingIds.isNotEmpty()) {
+                    fetchUsersFromIds(followingIds) { usersList ->
+                        following = usersList
+                        isLoading = false
+                    }
+                } else {
+                    isLoading = false
+                }
+            }
+            .addOnFailureListener {
+                isLoading = false
+            }
+    }
+
+    UserFollowList(
+        navController = navController,
+        users = following,
+        isLoading = isLoading,
+        title = "Following"
+
+    )
+}
+
+private fun fetchUsersFromIds(userIds: List<String>, onComplete: (List<User>) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+    val users = mutableListOf<User>()
+    var completedQueries = 0
+
+    if (userIds.isEmpty()) {
+        onComplete(emptyList())
+        return
+    }
+
+    for (userId in userIds) {
+        db.collection("users").document(userId)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    val user = User(
+                        userId = document.id,
+                        name = document.getString("name") ?: "",
+                        surname = document.getString("surname") ?: "",
+                        username = document.getString("username") ?: "",
+                        email = document.getString("email") ?: "",
+                        phone = document.getString("phone") ?: "",
+                        role = document.getString("role") ?: "",
+                        isBanned = document.getBoolean("isBanned"),
+                        isPrivate = document.getBoolean("isPrivate"),
+                        profilePictureUrl = document.getString("profilePictureUrl") ?: "",
+                        bio = document.getString("bio") ?: ""
+                    )
+                    users.add(user)
+                }
+
+                completedQueries++
+                if (completedQueries == userIds.size) {
+                    onComplete(users)
+                }
+            }
+            .addOnFailureListener {
+                completedQueries++
+                if (completedQueries == userIds.size) {
+                    onComplete(users)
+                }
+            }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UserFollowList(
+    navController: NavController,
+    users: List<User>,
+    isLoading: Boolean,
+    title: String
+) {
+    val primaryColor = Color(0xFF2CBABE)
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(text = title, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = primaryColor)
+            }
+        } else if (users.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No $title found")
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                items(users.size) { index ->
+                    val user = users[index]
+                    UserListItem(user, navController)
+                    Divider()
+                }
+            }
+        }
+    }
+}
+@Composable
+fun UserListItem(user: User, navController: NavController) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                navController.navigate("userDetails/${user.userId}")
+            }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Profile picture
+        AsyncImage(
+            model = user.profilePictureUrl,
+            contentDescription = "Profile Picture",
+            modifier = Modifier
+                .size(50.dp)
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column {
+            Text(
+                text = user.username,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            Text(
+                text = "${user.name} ${user.surname}",
+                fontSize = 14.sp,
+                color = Color.Gray
+            )
+        }
+    }
 }
