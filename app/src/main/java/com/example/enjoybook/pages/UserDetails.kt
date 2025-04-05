@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,7 +43,6 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,7 +50,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.R
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,7 +91,6 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
-import androidx.compose.material.ripple.rememberRipple
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -366,13 +362,13 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // Followers stats row
+
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.Start,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Followers count - clickable
+
                                     Column(
                                         horizontalAlignment = Alignment.Start,
                                         modifier = Modifier
@@ -396,7 +392,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
 
                                     Spacer(modifier = Modifier.width(24.dp))
 
-                                    // Following count - clickable
                                     Column(
                                         horizontalAlignment = Alignment.Start,
                                         modifier = Modifier
@@ -512,7 +507,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                                     modifier = Modifier.fillMaxWidth(0.9f),
                                 ) {
-                                    // Follow/Unfollow button
                                     OutlinedButton(
                                         onClick = {
                                             if (isFollowing) {
@@ -554,7 +548,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                         }
                                     }
 
-                                    // Message button
                                     OutlinedButton(
                                         onClick = {
                                             navController.navigate("messaging/$userId")
@@ -1584,7 +1577,6 @@ fun UserListItem(user: User, navController: NavController) {
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Profile picture
         AsyncImage(
             model = user.profilePictureUrl,
             contentDescription = "Profile Picture",

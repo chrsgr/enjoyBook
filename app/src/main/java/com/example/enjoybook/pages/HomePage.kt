@@ -119,7 +119,6 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
         ){
             // Genre
             item {
-                //Spacer(modifier = Modifier.height(60.dp))
                 Box(
                     modifier = Modifier.padding(start = 16.dp)
                 ) {
@@ -328,48 +327,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                                     }
                                 }
                             }
-                            /*if (favoritesBooks.isEmpty()) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.BookmarkBorder,
-                                        contentDescription = null,
-                                        tint = Color.LightGray,
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        "No favorites books yet",
-                                        color = Color.Gray,
-                                        fontSize = 16.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        "Add books to your favorites to see them here",
-                                        color = Color.Gray,
-                                        fontSize = 14.sp,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            } else {
-                                Row(
-                                    modifier = Modifier
-                                        .horizontalScroll(rememberScrollState())
-                                        .fillMaxWidth()
-                                ) {
-                                    favoritesBooks.forEach { book ->
-                                        FavoriteBookCard(
-                                            book = book,
-                                            primaryColor = primaryColor,
-                                            textColor = textColor,
-                                            onClick = {
-                                                navController.navigate("bookDetails/${book.id}")
-                                            }
-                                        )
-                                    }
-                                }
-                            }*/
+
                         }
                     }
                 }
@@ -465,7 +423,6 @@ fun FeatureBookCard(
                         model = imageUrl,
                         contentDescription = "Front Cover",
                         modifier = Modifier.fillMaxSize(),
-                        //contentScale = ContentScale.Crop
                     )
 
                     if (isNew) {

@@ -1,7 +1,6 @@
 package com.example.enjoybook.pages
 
 import android.content.Context
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,7 +40,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.enjoybook.data.Book
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
@@ -64,7 +62,6 @@ fun ListBookAddPage(navController: NavController) {
     val deleteColor = Color(0xFFE57373)
     val availableColor = Color(0xFF81C784)
     val unavailableColor = Color(0xFFFFB74D)
-    val secondaryBackgroundColor = (primaryColor.copy(alpha = 0.1f))
     val secondaryColor = Color(0xFF1A8A8F)
 
     var booksList by remember { mutableStateOf<List<BookWithId>>(emptyList()) }
@@ -83,10 +80,8 @@ fun ListBookAddPage(navController: NavController) {
         }
     )
 
-    // All'inizio della funzione ListBookAddPage, dopo le dichiarazioni degli altri stati
     var refreshTrigger by remember { mutableStateOf(0) }
 
-    // Modifica il LaunchedEffect per reagire ai cambiamenti di refreshTrigger
     LaunchedEffect(key1 = true, key2 = refreshTrigger) {
         loadUserBooks(db, userId) { books ->
             booksList = books
@@ -250,10 +245,6 @@ private fun loadUserBooks(db: FirebaseFirestore, userId: String?, onComplete: (L
             val booksList = documents.map { doc ->
                 val isAvailable = doc.getBoolean("isAvailable")
 
-                //Log.d("Availability", "In the loadUser: ${doc.getString("title") ?: ""}, ${doc.getBoolean("isAvailable") ?: null}")
-
-                //val bookObject = doc.toObject(Book::class.java)
-                //Log.d("Availability", "After toObject: title=${bookObject.title}, isAvailable=${bookObject.isAvailable}")
 
                 BookWithId(
                     id = doc.id,
@@ -271,10 +262,8 @@ private fun loadUserBooks(db: FirebaseFirestore, userId: String?, onComplete: (L
                         userId = doc.getString("userId") ?: "",
                         frontCoverUrl = doc.getString("frontCoverUrl") ?: null,
                         backCoverUrl = doc.getString("backCoverUrl") ?: null,
-                        //timestamp = doc.getTimestamp("timestamp") ?: t
                     )
                 )
-                //Log.d("Availability", "After toObject: title=${book.title}, isAvailable=${book.isAvailable}")
             }
             onComplete(booksList)
         }
@@ -628,7 +617,6 @@ private suspend fun updateBookAvailability(
                 Toast.LENGTH_SHORT
             ).show()
 
-            // Chiamare il callback dopo l'aggiornamento
             onUpdateComplete()
         }
     } catch (e: Exception) {
@@ -661,7 +649,6 @@ private suspend fun searchForBorrow(
                 Toast.LENGTH_SHORT
             ).show()
 
-            // Chiamare il callback dopo l'aggiornamento
             onUpdateComplete()
         }
     } catch (e: Exception) {

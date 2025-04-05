@@ -19,17 +19,14 @@ fun BookInfoItem(label: String, value: String, textColor: Color) {
             .fillMaxWidth()
             .padding(vertical = 4.dp)
     ) {
-        // Display label on its own line
         Text(
             text = "$label:",
             fontWeight = FontWeight.Bold,
             color = textColor
         )
 
-        // Small spacer between label and value
         Spacer(modifier = Modifier.height(2.dp))
 
-        // Display value on its own line
         Text(
             text = value,
             color = textColor

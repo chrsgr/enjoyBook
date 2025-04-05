@@ -1,14 +1,7 @@
 package com.example.enjoybook
 
 
-import android.text.format.DateUtils
 import android.util.Log
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,7 +25,6 @@ import com.example.enjoybook.auth.SignupPage
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,12 +53,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Output
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -76,7 +63,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -87,7 +73,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,7 +98,6 @@ import com.example.enjoybook.viewModel.AuthState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
-import kotlinx.coroutines.delay
 
 
 @Composable
@@ -172,7 +156,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             startDestination = "main",
             modifier = Modifier.padding(innerPadding)
         ) {
-            // Le tue destinazioni di navigazione esistenti
             composable("login") {
                 LoginPage(modifier, navController, authViewModel)
             }
@@ -467,7 +450,6 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
         val currentUser = FirebaseAuth.getInstance().currentUser ?: return
         val db = FirebaseFirestore.getInstance()
 
-        // Update messages
         db.collection("messages")
             .whereEqualTo("receiverId", currentUser.uid)
             .whereEqualTo("isRead", false)
@@ -487,7 +469,6 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
             userId = currentUser.uid
             val db = FirebaseFirestore.getInstance()
 
-            //notifications message
             db.collection("messages")
                 .whereEqualTo("receiverId", currentUser.uid)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -509,7 +490,6 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                 }
 
 
-            //notifications request book
             Log.d("Navigation", "Current user: ${currentUser.uid}, ${userId}")
             db.collection("notifications")
                 .whereEqualTo("recipientId", currentUser.uid)
@@ -618,7 +598,7 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                 onClick = {
                     showNotificationPopup = true
                     if (unreadNotifications > 0) {
-                        markMessagesAsRead()
+                        markNotificationsAsRead()
                         unreadNotifications = 0
                     }
                 },

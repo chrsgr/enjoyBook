@@ -48,13 +48,11 @@ import com.google.firebase.firestore.FirebaseFirestore
 fun reportHandler(userId: String, username: String?, showReportDialog: Boolean){
     // Report Dialog
 
-    val backgroundColor = (primaryColor.copy(alpha = 0.1f))
-    val primaryColor = Color(0xFFA7E8EB)
+
     val accentColor = Color(0xFF4DB6AC)
     val primaryTextColor = Color(0xFF212121)
     val secondaryTextColor = Color(0xFF757575)
     val cardBackgroundColor = Color.White
-    val buttonTextColor = Color(0xFF212121)
     val errorColor = Color(0xFFB00020)
     val warningColor = Color(0xFFFF6D00)
 
@@ -87,7 +85,6 @@ fun reportHandler(userId: String, username: String?, showReportDialog: Boolean){
 
         isReporting = true
 
-        // report document
         val reportData = hashMapOf(
             "reportedUserId" to userId,
             "reportedBy" to currentUser.uid,
@@ -250,7 +247,6 @@ fun reportHandler(userId: String, username: String?, showReportDialog: Boolean){
         )
     }
 
-    // Report Success Dialog
     if (showReportSuccessDialog) {
         AlertDialog(
             onDismissRequest = { showReportSuccessDialog = false },

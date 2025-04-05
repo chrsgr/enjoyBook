@@ -13,7 +13,6 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.BorderStroke
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -539,7 +538,6 @@ fun ProfilePage(
 
                             } else {
                                 // View mode
-
                                 ProfileField(
                                     label = "Bio",
                                     value = bio,

@@ -266,10 +266,8 @@ fun FavouritePage(
                                                 for (document in documents) {
                                                     db.collection("favorites").document(document.id).delete()
                                                 }
-                                                // Rimuovi dai preferiti locali
                                                 FavoritesManager.removeFavorite(book.id)
 
-                                                // Puoi mantenere la logica di refresh che avevi
                                                 refreshScope.launch {
                                                     delay(100)
                                                     refreshing = true
@@ -279,8 +277,6 @@ fun FavouritePage(
                                             }
                                             .addOnFailureListener { e ->
                                                 Log.e("FavoriteBookItem", "Errore nella rimozione del libro dai preferiti", e)
-                                                // Opzionale: mostra un messaggio all'utente
-                                                // Toast.makeText(context, "Impossibile rimuovere il libro dai preferiti", Toast.LENGTH_SHORT).show()
                                             }
                                     }
                                 }
@@ -389,7 +385,6 @@ fun FavoriteBookItem(
                 )
             }
 
-            // Button to remove from favorites
             IconButton(onClick = onRemove) {
                 Icon(
                     imageVector = Icons.Default.HeartBroken,

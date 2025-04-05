@@ -2,7 +2,6 @@ package com.example.enjoybook.pages
 
 import android.content.Context
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -75,7 +74,6 @@ import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.User
 import com.example.enjoybook.viewModel.SearchViewModel
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
 fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavController){
@@ -85,10 +83,9 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 
     var query by remember { mutableStateOf("") }
     val books by viewModel.books.collectAsState()
-    val users by viewModel.users.collectAsState() // Add this to the ViewModel
+    val users by viewModel.users.collectAsState()
 
-    // Search type selection
-    var searchType by remember { mutableStateOf("Books") } // Default to Books
+    var searchType by remember { mutableStateOf("Books") }
     val searchTypes = listOf("Books", "Users")
 
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -104,7 +101,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
-    //filtro la ricerca utenti: escludo il mio profilo
     val filteredUsers = users.filter { it.userId != currentUserId }
 
     val isLoading by viewModel.isLoading.collectAsState()
@@ -123,7 +119,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // Top Bar with updated colors
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -147,7 +142,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     value = query,
                     onValueChange = {
                         query = it
-                        // Update search results based on search type
                         if (it.isNotBlank()) {
                             if (searchType == "Books") {
                                 viewModel.searchBooks(it)
@@ -204,16 +198,8 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     )
                 )
 
-                /*IconButton(onClick = { navController.navigate("profile") }) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = Color.White
-                    )
-                }*/
             }
 
-            // Search Type Toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -253,7 +239,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Display search results if query exists
             if(query.isNotEmpty()) {
                 Text(
                     text = "Search Results for \"$query\"",
@@ -264,7 +249,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                 )
                 when {
                     isLoading -> {
-                        // Mostra l'indicatore di caricamento centrato
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -280,7 +264,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
 
                     else -> {
                         when (searchType) {
-                            // Books search results
                             "Books" -> {
                                 LazyColumn(
                                     modifier = Modifier
@@ -309,7 +292,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                                     }
                                 }
                             }
-                            // Users search results
                             "Users" -> {
                                 LazyColumn(
                                     modifier = Modifier
@@ -342,7 +324,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
                     }
                 }
             } else {
-                // Category header (only shown when no search is active)
                 Text(
                     text = "Browse by Category",
                     style = MaterialTheme.typography.titleMedium,
@@ -371,7 +352,6 @@ fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavContr
     }
 }
 
-// User Item Composable for displaying search results
 @Composable
 fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: NavController, context: Context) {
 
@@ -396,7 +376,6 @@ fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: N
                 },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // User avatar placeholder
             if (isAvatar.value && user?.profilePictureUrl != null)
              {
                 Box(
@@ -449,7 +428,6 @@ fun UserItem(user: User, primaryColor: Color, textColor: Color, navController: N
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // User details
             Column {
                 Text(
                     text = user.username,
@@ -496,7 +474,6 @@ fun CategoryButton(category: String, navController: NavController, primaryColor:
     }
 }
 
-// Updated BookItem with the new color scheme
 @Composable
 fun BookItem(book: Book, primaryColor: Color, textColor: Color, navController: NavController) {
 
@@ -521,7 +498,6 @@ fun BookItem(book: Book, primaryColor: Color, textColor: Color, navController: N
                 },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Book cover placeholder
 
             if (isFrontCover.value && book?.frontCoverUrl != null)
              {

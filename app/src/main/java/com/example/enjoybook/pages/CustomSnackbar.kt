@@ -65,15 +65,12 @@ fun CustomSnackbar(
     val alpha = remember { Animatable(0f) }
     val offset = remember { Animatable(100f) }
 
-    // Animation effects
     LaunchedEffect(key1 = state) {
-        // Animate alpha from 0 to 1
         alpha.animateTo(
             targetValue = 1f,
             animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
         )
 
-        // Animate sliding up
         offset.animateTo(
             targetValue = 0f,
             animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)

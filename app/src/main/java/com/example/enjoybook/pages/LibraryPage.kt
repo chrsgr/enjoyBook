@@ -1,7 +1,6 @@
 package com.example.enjoybook.pages
 
 import android.content.Context
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -76,7 +75,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import okhttp3.internal.platform.Jdk9Platform.Companion.isAvailable
 
 @Composable
 fun LibraryPage(navController: NavController) {
@@ -90,7 +88,6 @@ fun LibraryPage(navController: NavController) {
 
     val primaryColor = Color(0xFFB4E4E8)
     val secondaryColor = Color(0xFF1A8A8F)
-    val backgroundColor = (primaryColor.copy(alpha = 0.1f))
     val secondaryBackgroundColor = (primaryColor.copy(alpha = 0.1f))
 
 
@@ -139,17 +136,14 @@ fun LibraryPage(navController: NavController) {
                         .get()
                         .await()
 
-                    // Inside withContext(Dispatchers.IO) block
                     val lentBookDetails = borrowQuery.documents.mapNotNull { borrowDoc ->
                         val borrowId = borrowDoc.id
                         val bookId = borrowDoc.getString("bookId")
                         val borrowerId = borrowDoc.getString("borrowerId")
 
                         if (bookId != null && borrowerId != null) {
-                            // Fetch book details
                             val bookDoc = db.collection("books").document(bookId).get().await()
 
-                            // Only proceed if the book is NOT available
                             if (bookDoc.getBoolean("isAvailable") != true) {
                                 val book = Book(
                                     id = bookId,
@@ -454,7 +448,7 @@ fun BookCard(book: Book, navController: NavController) {
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 30.dp, vertical = 19.dp)
-                    .basicMarquee() // adds a scrolling effect if text is too long
+                    .basicMarquee()
             )
         }
     }
@@ -535,7 +529,6 @@ fun LentBookCard(lentBook: LentBook, navController: NavController) {
 
             Column(
                 modifier = Modifier
-                    //.weight(1f)
                     .padding(horizontal = 8.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {

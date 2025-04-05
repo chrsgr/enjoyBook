@@ -26,13 +26,11 @@ import com.example.enjoybook.data.Message
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
-import kotlinx.serialization.json.JsonNull.content
 import java.util.UUID
 
 
@@ -57,13 +55,11 @@ fun UserMessagingScreen(
 
     Log.d("Navigation", "message: ${targetUserId}")
 
-    // Recupera i messaggi
     LaunchedEffect(targetUserId) {
         val currentUserId = currentUser?.uid ?: return@LaunchedEffect
 
         Log.d("ChatMessage", "Recupera i messaggi e marca come letti")
 
-        // Prima di tutto, marca come letti i messaggi esistenti
         markMessagesAsRead(
             db,
             currentUserId,
@@ -72,7 +68,6 @@ fun UserMessagingScreen(
             onError = { e -> Log.e("Chat", "Errore nel marcare i messaggi: ${e.message}") }
         )
 
-        // Poi configura il listener che marcherà automaticamente i nuovi messaggi
         fetchMessages(db, currentUserId, targetUserId) { fetchedMessages ->
             messages = fetchedMessages.toList()
         }
@@ -109,7 +104,6 @@ fun UserMessagingScreen(
             return
         }
 
-        // Create a unique chat document ID that is always the same regardless of sender/receiver order
         val chatDocumentId = listOf(currentUser.uid, targetUserId).sorted().joinToString("_")
 
         val messageRef = when {
@@ -151,14 +145,11 @@ fun UserMessagingScreen(
             .document(chatDocumentId)
             .get()
             .addOnSuccessListener { chatDoc ->
-                // Se esiste il documento della chat, verifica se c'è l'array deletedFor
                 if (chatDoc.exists()) {
                     val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
 
-                    // Se la chat era stata eliminata dal destinatario, riattivala
                     if (deletedFor.contains(targetUserId)) {
 
-                        // Aggiorna il documento della chat per riattivarlo
                         db.collection("chats")
                             .document(chatDocumentId)
                             .update("deletedFor", emptyList<String>())
@@ -171,11 +162,9 @@ fun UserMessagingScreen(
                     }
                 }
 
-                // Procedi con il salvataggio del messaggio
                 saveMessageAndUpdateChat(db, messageRef, chatDocumentId, currentUser, targetUserId, messageContent)
             }
         .addOnFailureListener { e ->
-            // In caso di errore nel recupero della chat, procedi comunque con il messaggio
             Log.e("MessagingSystem", "Error checking chat status", e)
             saveMessageAndUpdateChat(db, messageRef, chatDocumentId, currentUser, targetUserId, messageContent)
         }
@@ -213,13 +202,12 @@ fun UserMessagingScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Lista dei messaggi
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 8.dp),
                 state = listState,
-                reverseLayout = true // Per mostrare i messaggi dal basso verso l'alto
+                reverseLayout = true
 
             ) {
                 items(messages.reversed()) { message ->
@@ -240,7 +228,6 @@ fun UserMessagingScreen(
                                     message,
                                     messages
                                 ) {
-                                    // Rimuovi il messaggio e i suoi reply dalla lista locale
                                     messages = messages.filter {
                                         it != message && it.replyToMessageId != message.id
                                     }
@@ -251,7 +238,6 @@ fun UserMessagingScreen(
                 }
             }
 
-            // Indicatore di risposta o modifica
             if (messageToReply != null) {
                 Row(
                     modifier = Modifier
@@ -290,14 +276,12 @@ fun UserMessagingScreen(
                 }
             }
 
-            // Area di input del messaggio
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // TextField for the message input
                 TextField(
                     value = newMessageText,
                     onValueChange = { newMessageText = it },
@@ -313,7 +297,6 @@ fun UserMessagingScreen(
                 )
 
 
-                // Pulsante di invio
                 IconButton(
                     onClick = {
                         if (currentUser != null) {
@@ -344,13 +327,10 @@ fun deleteMessage(
     onSuccess: () -> Unit = {},
     onFailure: (Exception) -> Unit = {}
 ) {
-    // Trova i messaggi che rispondono a questo messaggio
     val replyingMessages = messages.filter { it.replyToMessageId == message.id }
 
-    // Batch per eliminare il messaggio principale e i messaggi di risposta
     val batch = db.batch()
 
-    // Trova e aggiungi il documento del messaggio principale al batch
     db.collection("messages")
         .whereEqualTo("senderId", message.senderId)
         .whereEqualTo("receiverId", message.receiverId)
@@ -361,7 +341,6 @@ fun deleteMessage(
             snapshot.documents.firstOrNull()?.let { document ->
                 batch.delete(document.reference)
 
-                // Elimina anche i messaggi di risposta
                 replyingMessages.forEach { replyMessage ->
                     db.collection("messages")
                         .whereEqualTo("senderId", replyMessage.senderId)
@@ -376,7 +355,6 @@ fun deleteMessage(
                         }
                 }
 
-                // Esegui il batch
                 batch.commit()
                     .addOnSuccessListener {
                         Log.d("MessagingSystem", "Messaggio e risposte eliminati con successo")
@@ -418,7 +396,6 @@ fun MessageItem(
         contentAlignment = if (isCurrentUser) Alignment.CenterEnd else Alignment.CenterStart
     ) {
         Column {
-            // Mostra il contesto della risposta se esiste
             message.replyToMessageContent?.let { replyContent ->
                 Card(
                     modifier = Modifier
@@ -433,7 +410,6 @@ fun MessageItem(
                         modifier = Modifier.padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Linea verticale di demarcazione
                         Box(
                             modifier = Modifier
                                 .width(4.dp)
@@ -481,7 +457,6 @@ fun MessageItem(
                         fontSize = 16.sp
                     )
 
-                    // Mostra l'indicatore di modificato
                     if (message.edited) {
                         Text(
                             text = "Edit",
@@ -495,7 +470,6 @@ fun MessageItem(
                 }
             }
 
-            // Menu a discesa per le azioni
             if (expanded) {
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
@@ -535,7 +509,6 @@ fun MessageItem(
 }
 
 
-// Funzione per marcare i messaggi come letti
 fun markMessagesAsRead(
     db: FirebaseFirestore,
     currentUserId: String,
@@ -613,14 +586,9 @@ fun fetchMessages(
             val fetchedMessages = snapshot?.toObjects(Message::class.java) ?: emptyList()
             Log.d("MessagingSystem", "Ricevuti ${fetchedMessages.size} messaggi dal listener")
 
-            // Rimuovi la parte che marca automaticamente i messaggi come letti
-            // NON marcare qui i messaggi come letti
-
-            // Passa semplicemente i messaggi all'UI
             onMessagesReceived(fetchedMessages)
         }
 }
-// Funzione helper per salvare il messaggio e aggiornare la chat
 
 private fun saveMessageAndUpdateChat(
     db: FirebaseFirestore,
@@ -630,12 +598,10 @@ private fun saveMessageAndUpdateChat(
     targetUserId: String,
     messageContent: String
 ) {
-    // Save message to Firestore
     db.collection("messages")
         .document(messageRef.id)
         .set(messageRef)
         .addOnSuccessListener {
-            // Update chat document with merged fields
             val chatUpdates = hashMapOf<String, Any>(
                 "participants" to listOf(currentUser.uid, targetUserId),
                 "lastMessageTimestamp" to System.currentTimeMillis(),
@@ -643,8 +609,7 @@ private fun saveMessageAndUpdateChat(
                 "lastMessageSenderId" to currentUser.uid
             )
 
-            // Assicurati che deletedFor non contenga il destinatario
-            // (questo è necessario per le nuove chat o quelle senza deletedFor)
+
             chatUpdates["deletedFor"] = FieldValue.arrayRemove(targetUserId)
 
             db.collection("chats")

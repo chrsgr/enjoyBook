@@ -52,10 +52,8 @@ fun ChatListScreen(
     val primaryColor = Color(0xFFB4E4E8)
     val textColor = Color(0xFF333333)
 
-    // Coroutine scope for async operations
     val coroutineScope = rememberCoroutineScope()
 
-    // Function to load chats
     fun loadChats() {
         coroutineScope.launch {
             if (currentUser == null) {
@@ -65,32 +63,26 @@ fun ChatListScreen(
 
             val db = FirebaseFirestore.getInstance()
             try {
-                // Fetch chats collection using a more flexible query
                 val chatsSnapshot = db.collection("chats")
                     .whereArrayContains("participants", currentUser.uid)
                     .get()
                     .await()
 
-                // Process chat documents
                 val chats = chatsSnapshot.documents.mapNotNull { chatDoc ->
                     val participants = chatDoc.get("participants") as? List<String> ?: return@mapNotNull null
-                    //codice chat eliminate
                     val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
 
                     if (deletedFor.contains(currentUser.uid)) {
-                        return@mapNotNull null // Skip this chat if deleted for current user
+                        return@mapNotNull null
                     }
 
-                    // Find the partner (the other user in the chat)
                     val partnerId = participants.first { it != currentUser.uid }
 
-                    // Fetch partner's user details
                     val partnerSnapshot = db.collection("users")
                         .document(partnerId)
                         .get()
                         .await()
 
-                    // If partner details don't exist, skip this chat
                     if (!partnerSnapshot.exists()) return@mapNotNull null
 
                     val unreadMessagesCount = db.collection("messages")
@@ -111,7 +103,6 @@ fun ChatListScreen(
                     )
                 }
 
-                // Update chat list
                 chatList = chats
                 isLoading = false
 
@@ -129,27 +120,22 @@ fun ChatListScreen(
             val currentUserId = currentUser?.uid ?: return@launch
 
             try {
-                // Utilizziamo l'ID del partner per costruire entrambe le possibili combinazioni di ID di chat
                 val possibleChatId1 = "${currentUserId}_${chatItem.partnerId}"
                 val possibleChatId2 = "${chatItem.partnerId}_${currentUserId}"
 
-                // Prova entrambi i possibili ID
                 val chatDoc1 = db.collection("chats").document(possibleChatId1).get().await()
                 val chatDoc2 = db.collection("chats").document(possibleChatId2).get().await()
 
-                // Usa il documento che esiste
                 val chatDoc = if (chatDoc1.exists()) chatDoc1 else if (chatDoc2.exists()) chatDoc2 else null
 
                 if (chatDoc != null) {
                     Log.d("ChatListScreen", "Found chat document: ${chatDoc.id}")
 
-                    // Aggiorna deletedFor
                     val deletedFor = (chatDoc.get("deletedFor") as? List<String> ?: emptyList()).toMutableList()
 
                     if (!deletedFor.contains(currentUserId)) {
                         deletedFor.add(currentUserId)
 
-                        // Aggiorna il documento
                         db.collection("chats").document(chatDoc.id)
                             .update("deletedFor", deletedFor)
                             .addOnSuccessListener {
@@ -173,7 +159,6 @@ fun ChatListScreen(
         }
     }
 
-    // Trigger chat loading
     LaunchedEffect(currentUser) {
         loadChats()
     }
@@ -369,7 +354,6 @@ fun ChatListItem(
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // Chat Information
         Column {
             Text(
                 text = chatItem.partnerName,
@@ -387,13 +371,12 @@ fun ChatListItem(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        Column{// Timestamp
+        Column{
             Text(
                 text = formatTimestamp(chatItem.lastMessageTimestamp),
                 color = Color.Gray,
                 fontSize = 12.sp
             )
-            // Mostra il Badge se ci sono messaggi non letti
             if (chatItem.unreadMessages > 0) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Badge(

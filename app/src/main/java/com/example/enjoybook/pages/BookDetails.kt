@@ -220,7 +220,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         val db = FirebaseFirestore.getInstance()
 
         if (!FavoritesManager.isBookFavorite(book.id)) {
-            // Save book to favorites collection
             val favoriteBook = hashMapOf(
                 "bookId" to book.id,
                 "userId" to currentUser.uid,
@@ -265,7 +264,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 isLoanRequested = false
                 buttonText = if (isBookAvailable) "available" else "not available"
 
-                // Show on-screen notification
                 NotificationManager.showNotification(
                     message = "Loan request canceled successfully",
                     type = SnackbarType.INFO,
@@ -921,7 +919,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             }
                 }
 
-            // Review Dialog
             if (showReviewDialog) {
                 Dialog(onDismissRequest = { showReviewDialog = false }) {
                     Card(
@@ -934,7 +931,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         Box(
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            // Close button (X) in top left
                             IconButton(
                                 onClick = { showReviewDialog = false },
                                 modifier = Modifier.align(Alignment.TopStart)
@@ -946,7 +942,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                 )
                             }
 
-                            // Content
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -964,7 +959,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // Text field for review input
                                 OutlinedTextField(
                                     value = review,
                                     onValueChange = { review = it },
@@ -1010,7 +1004,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
             }
         }
 
-        // Contact Owner Dialog
         if (showContactDialog) {
             Dialog(onDismissRequest = { showContactDialog = false }) {
                 Card(
@@ -1034,7 +1027,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             )
                         }
 
-                        // Content
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()

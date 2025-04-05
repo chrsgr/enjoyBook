@@ -32,7 +32,6 @@ fun ScrollableTextWithScrollbar(
     maxHeight: Dp = 120.dp
 ) {
     val scrollState = rememberScrollState()
-    //to show
     val shouldShowScrollbar = scrollState.maxValue > 0
 
     Box(
