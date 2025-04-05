@@ -100,19 +100,15 @@ fun AddPage(
 
     val title = remember { mutableStateOf(initialTitle) }
     val author = remember { mutableStateOf(initialAuthor) }
-    val condition = remember { mutableStateOf("") }
     val description = remember { mutableStateOf(initialDescription) }
     val edition = remember { mutableStateOf("") }
     val year = remember { mutableStateOf(initialYear) }
-    val yearPattern = "^[0-9]{4}$".toRegex()
     val frontCoverUri = remember { mutableStateOf<Uri?>(null) }
     val backCoverUri = remember { mutableStateOf<Uri?>(null) }
 
-    // Camera state variables
     var showFrontCameraView by remember { mutableStateOf(false) }
     var showBackCameraView by remember { mutableStateOf(false) }
 
-    // Camera permission state
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -122,7 +118,6 @@ fun AddPage(
         )
     }
 
-    // Camera permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -136,7 +131,6 @@ fun AddPage(
         }
     }
 
-    // Request camera permission
     LaunchedEffect(key1 = true) {
         if (!hasCameraPermission) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -160,12 +154,10 @@ fun AddPage(
         }
     }
 
-    // Camera components
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(localContext) }
     val imageCapture = remember { ImageCapture.Builder().build() }
     val executor = remember { Executors.newSingleThreadExecutor() }
 
-    // Gallery pickers
     val frontCoverGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -239,10 +231,8 @@ fun AddPage(
                             }
 
                             it.frontCoverUrl?.let { url ->
-                                // Convert URL to URI if needed for display
                             }
                             it.backCoverUrl?.let { url ->
-                                // Convert URL to URI if needed for display
                             }
                         }
                     }
@@ -291,7 +281,6 @@ fun AddPage(
                 .padding(paddingValues)
                 .background(backgroundColor)
         ) {
-            // Camera view for front cover
             if (showFrontCameraView && hasCameraPermission) {
                 CameraView(
                     onPhotoCaptured = { uri ->
@@ -307,7 +296,6 @@ fun AddPage(
                     primaryColor = primaryColor
                 )
             }
-            // Camera view for back cover
             else if (showBackCameraView && hasCameraPermission) {
                 CameraView(
                     onPhotoCaptured = { uri ->
@@ -323,7 +311,6 @@ fun AddPage(
                     primaryColor = primaryColor
                 )
             }
-            // Main form view
             else if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -377,14 +364,12 @@ fun AddPage(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Book Cover Image Upload Section
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(180.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Front Cover Upload Box
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -408,7 +393,6 @@ fun AddPage(
                                             modifier = Modifier.fillMaxSize(),
                                             contentScale = ContentScale.Crop
                                         )
-                                        // Add a small edit button overlay
                                         Box(
                                             modifier = Modifier
                                                 .align(Alignment.TopEnd)
@@ -417,7 +401,6 @@ fun AddPage(
                                                 .clip(CircleShape)
                                                 .background(Color.Black.copy(alpha = 0.6f))
                                                 .clickable {
-                                                    // Show options to replace image
                                                     frontCoverUri.value = null
                                                 },
                                             contentAlignment = Alignment.Center
@@ -432,7 +415,6 @@ fun AddPage(
                                     }
                                 }
                                 else -> {
-                                    // Option buttons for camera or gallery
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
@@ -448,7 +430,6 @@ fun AddPage(
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                                         ) {
-                                            // Camera button
                                             IconButton(
                                                 onClick = {
                                                     if (hasCameraPermission) {
@@ -470,7 +451,6 @@ fun AddPage(
                                                 )
                                             }
 
-                                            // Gallery button
                                             IconButton(
                                                 onClick = { frontCoverGalleryLauncher.launch("image/*") },
                                                 modifier = Modifier
@@ -491,7 +471,6 @@ fun AddPage(
                             }
                         }
 
-                        // Back Cover Upload Box
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -515,7 +494,6 @@ fun AddPage(
                                             modifier = Modifier.fillMaxSize(),
                                             contentScale = ContentScale.Crop
                                         )
-                                        // Add a small edit button overlay
                                         Box(
                                             modifier = Modifier
                                                 .align(Alignment.TopEnd)
@@ -524,7 +502,6 @@ fun AddPage(
                                                 .clip(CircleShape)
                                                 .background(Color.Black.copy(alpha = 0.6f))
                                                 .clickable {
-                                                    // Show options to replace image
                                                     backCoverUri.value = null
                                                 },
                                             contentAlignment = Alignment.Center
@@ -539,7 +516,6 @@ fun AddPage(
                                     }
                                 }
                                 else -> {
-                                    // Option buttons for camera or gallery
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
@@ -555,7 +531,6 @@ fun AddPage(
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                                         ) {
-                                            // Camera button
                                             IconButton(
                                                 onClick = {
                                                     if (hasCameraPermission) {
@@ -577,7 +552,6 @@ fun AddPage(
                                                 )
                                             }
 
-                                            // Gallery button
                                             IconButton(
                                                 onClick = { backCoverGalleryLauncher.launch("image/*") },
                                                 modifier = Modifier

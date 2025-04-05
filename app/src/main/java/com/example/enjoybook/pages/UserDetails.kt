@@ -1536,10 +1536,14 @@ fun UserFollowList(
                             contentDescription = "Back"
                         )
                     }
-                }
+                },
+                        windowInsets = WindowInsets(0)
             )
-        }
-    ) { paddingValues ->
+        },
+        contentWindowInsets = WindowInsets(0),
+
+
+        ) { paddingValues ->
         if (isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),

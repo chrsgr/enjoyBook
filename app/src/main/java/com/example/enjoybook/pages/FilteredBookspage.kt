@@ -1,7 +1,6 @@
 package com.example.enjoybook.pages
 
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -17,14 +16,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,8 +37,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,27 +54,20 @@ import com.example.enjoybook.theme.secondaryColor
 import com.example.enjoybook.theme.textColor
 import com.example.enjoybook.viewModel.SearchViewModel
 
-/*Questa pagina serve per il SearchPage: la mia idea è che quando clicchiamo sul cercata o cerchiamo
-dei libri ordinandoli per categoria, spariscano le categorie mostrare in SearchPage e mostri il risultato
-
-TO DO: un'iconcina per il caricamento dei libri*/
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilteredBooksPage(category: String, navController: NavController, viewModel: SearchViewModel) {
 
-    val books by viewModel.books.collectAsState() // Osserva lo stato dei libri
+    val books by viewModel.books.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // Carica i libri filtrati per categoria all'apertura della schermata
     LaunchedEffect(category) {
         viewModel.filterForCategories(category)
     }
 
-    // Layout della pagina con la lista di libri
     when {
         isLoading -> {
-            // Mostra l'indicatore di caricamento centrato
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -188,12 +174,10 @@ fun BookListItem(book: Book, navController: NavController) {
             modifier = Modifier
                 .padding(16.dp)
                 .clickable {
-                    // Navigate to BookDetails screen when the book is clicked
                     navController.navigate("bookDetails/${book.id}")
                 },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Book cover placeholder
 
             if (isFrontCover.value && book?.frontCoverUrl != null) {
                 Box(
@@ -242,7 +226,6 @@ fun BookListItem(book: Book, navController: NavController) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Book details
             Column {
                 Text(
                     text = book.title,
