@@ -174,7 +174,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
         fetchLibraryBooks(userId) { books ->
             libraryBooks.value = books
         }
-        fetchFavoriteBooksUser { books ->
+        fetchFavoriteBooksUser(userId) { books ->
             favoritesBooks.value = books
         }
         fetchReadsUser(userId) { books ->
@@ -1285,17 +1285,24 @@ private fun fetchLibraryBooks(userId: String, onComplete: (List<Book>) -> Unit) 
         }
 }
 
-private fun fetchFavoriteBooksUser(onComplete: (List<FavoriteBook>) -> Unit) {
+private fun fetchFavoriteBooksUser(userId: String, onComplete: (List<FavoriteBook>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
     db.collection("favorites")
         .orderBy("addedAt", Query.Direction.DESCENDING)
+        .whereEqualTo("userId", userId)
         .get()
         .addOnSuccessListener { documents ->
             val booksList = mutableListOf<FavoriteBook>()
             for (document in documents) {
-                val book = document.toObject(FavoriteBook::class.java).copy(
-                    bookId = document.id
+                val book = FavoriteBook(
+                    bookId = document.getString("bookId") ?: "",
+                    author = document.getString("author") ?: "",
+                    addedAt = document.getTimestamp("addedAt") ?: Timestamp.now(),
+                    title = document.getString("title") ?: "",
+                    type = document.getString("type") ?: "",
+                    userId = document.getString("userId") ?: "",
+                    frontCoverUrl = document.getString("frontCoverUrl") ?: null,
                 )
                 booksList.add(book)
             }

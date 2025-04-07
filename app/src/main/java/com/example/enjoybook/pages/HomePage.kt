@@ -64,6 +64,7 @@ import com.example.enjoybook.data.FavoriteBook
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 
@@ -119,6 +120,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
         ){
             // Genre
             item {
+                //Spacer(modifier = Modifier.height(60.dp))
                 Box(
                     modifier = Modifier.padding(start = 16.dp)
                 ) {
@@ -316,6 +318,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                                         .fillMaxWidth()
                                 ) {
                                     favoritesBooks.value.forEach { book ->
+                                        Log.d("FavoritesHome", "${book.bookId}")
                                         FavoriteBookCard(
                                             book = book,
                                             primaryColor = primaryColor,
@@ -327,7 +330,48 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                                     }
                                 }
                             }
-
+                            /*if (favoritesBooks.isEmpty()) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.BookmarkBorder,
+                                        contentDescription = null,
+                                        tint = Color.LightGray,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "No favorites books yet",
+                                        color = Color.Gray,
+                                        fontSize = 16.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        "Add books to your favorites to see them here",
+                                        color = Color.Gray,
+                                        fontSize = 14.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier
+                                        .horizontalScroll(rememberScrollState())
+                                        .fillMaxWidth()
+                                ) {
+                                    favoritesBooks.forEach { book ->
+                                        FavoriteBookCard(
+                                            book = book,
+                                            primaryColor = primaryColor,
+                                            textColor = textColor,
+                                            onClick = {
+                                                navController.navigate("bookDetails/${book.id}")
+                                            }
+                                        )
+                                    }
+                                }
+                            }*/
                         }
                     }
                 }
@@ -423,6 +467,7 @@ fun FeatureBookCard(
                         model = imageUrl,
                         contentDescription = "Front Cover",
                         modifier = Modifier.fillMaxSize(),
+                        //contentScale = ContentScale.Crop
                     )
 
                     if (isNew) {
@@ -667,22 +712,35 @@ private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
 private fun fetchFavoriteBooks(onComplete: (List<FavoriteBook>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
-    db.collection("favorites")
-        .orderBy("addedAt", Query.Direction.DESCENDING)
-        .get()
-        .addOnSuccessListener { documents ->
-            val booksList = mutableListOf<FavoriteBook>()
-            for (document in documents) {
-                val book = document.toObject(FavoriteBook::class.java).copy(
-                    bookId = document.id
-                )
-                booksList.add(book)
+    val auth = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+
+    if (currentUser != null) {
+        db.collection("favorites")
+            .whereEqualTo("userId", currentUser.uid)
+            .orderBy("addedAt", Query.Direction.DESCENDING)
+            .get()
+            .addOnSuccessListener { documents ->
+                val booksList = mutableListOf<FavoriteBook>()
+                for (document in documents) {
+                    val book = FavoriteBook(
+                        bookId = document.getString("bookId") ?: "",
+                        author = document.getString("author") ?: "",
+                        addedAt = document.getTimestamp("addedAt") ?: Timestamp.now(),
+                        title = document.getString("title") ?: "",
+                        type = document.getString("type") ?: "",
+                        userId = document.getString("userId") ?: "",
+                        frontCoverUrl = document.getString("frontCoverUrl") ?: null,
+                    )
+                    Log.d("FavoritesHome", "${book.title}")
+                    booksList.add(book)
+                }
+                onComplete(booksList)
             }
-            onComplete(booksList)
-        }
-        .addOnFailureListener { exception ->
-            Log.e("Firestore", "Error getting featured books: ", exception)
-            onComplete(emptyList())
-        }
+            .addOnFailureListener { exception ->
+                Log.e("Firestore", "Error getting featured books: ", exception)
+                onComplete(emptyList())
+            }
+    }
 }
 

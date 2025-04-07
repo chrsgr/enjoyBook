@@ -516,7 +516,7 @@ private suspend fun searchBookInfoByISBN(isbn: String): BookInfo? = withContext(
         Log.d("GoogleBooksAPI", "Searching for book with ISBN: $isbn")
         val apiKey = "AIzaSyDA9btjrzoV5g-YqjcmzgLhrqzaWfXjjPw"
         val url = URL("https://www.googleapis.com/books/v1/volumes?q=isbn:$isbn&key=$apiKey")
-        Log.d("GoogleBooksAPI", "API URL: https://www.googleapis.com/books/v1/volumes?q=isbn:$isbn&key=<API_KEY>")
+        Log.d("GoogleBooksAPI", "API URL: https://www.googleapis.com/books/v1/volumes?q=isbn:$isbn&key=$apiKey")
 
         val connection = url.openConnection()
         connection.connectTimeout = 10000
