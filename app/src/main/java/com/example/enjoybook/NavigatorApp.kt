@@ -41,6 +41,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Divider
+import androidx.compose.material.TabRowDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
@@ -63,6 +64,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -77,6 +81,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -90,6 +95,8 @@ import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.User
 import com.example.enjoybook.pages.*
 import com.example.enjoybook.theme.errorColor
+import com.example.enjoybook.utils.NotificationItem
+import com.example.enjoybook.utils.NotificationsDialog
 import com.example.enjoybook.utils.deleteNotification
 import com.example.enjoybook.utils.handleAcceptLoanRequest
 import com.example.enjoybook.utils.handleRejectLoanRequest
@@ -697,100 +704,19 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
 
     // Dialog per le notifiche
     if (showNotificationPopup) {
-        Dialog(onDismissRequest = { showNotificationPopup = false }) {
-            Surface(
-                modifier = Modifier.width(320.dp),
-                shape = RoundedCornerShape(16.dp),
-                tonalElevation = 8.dp
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = null,
-                                tint = primaryColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Notifications",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = textColor
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { showNotificationPopup = false },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = Color.Gray
-                            )
-                        }
-                    }
-
-                    Divider(color = Color.LightGray.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (notifications.isEmpty()) {
-                        Log.d("Navigation", "User id if no notification: ${userId}")
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No notifications",
-                                color = Color.Gray,
-                                fontSize = 16.sp
-                            )
-                        }
-                    } else {
-                        Log.d("Navigation", "User id before lazycolumn: ${userId}")
-                        LazyColumn {
-                            Log.d("Navigation", "User id in the lazycolumn: ${userId}")
-                            items(notifications.size) { index ->
-                                val notification = notifications[index]
-                                com.example.enjoybook.utils.NotificationItem(
-                                    notification = notification,
-                                    primaryColor = primaryColor,
-                                    textColor = textColor,
-                                    errorColor = errorColor,
-                                    onAccept = {
-                                        handleAcceptLoanRequest(notification)
-                                        removeNotificationLocally(notification.id)
-                                    },
-                                    onReject = {
-                                        handleRejectLoanRequest(notification)
-                                        removeNotificationLocally(notification.id)
-                                    },
-                                    onDelete = {
-                                        deleteNotification(notification.id)
-                                        removeNotificationLocally(notification.id)
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
+        NotificationsDialog(
+            notifications = notifications,
+            showNotificationPopup = showNotificationPopup,
+            onDismiss = { showNotificationPopup = false },
+            navController = navController,
+            primaryColor = primaryColor,
+            textColor = textColor,
+            errorColor = errorColor,
+            removeNotificationLocally = { notificationId ->
+                removeNotificationLocally(notificationId)
             }
-        }
+        )
     }
 }
-
-
-
-
 
 

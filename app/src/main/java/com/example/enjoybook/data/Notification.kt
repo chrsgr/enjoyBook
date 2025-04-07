@@ -12,3 +12,4 @@ data class Notification(
     val title: String = "",
     val status: String = "PENDING"
 )
+

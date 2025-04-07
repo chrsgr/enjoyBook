@@ -49,6 +49,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -79,6 +80,7 @@ import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.FavoriteBook
+import com.example.enjoybook.data.Notification
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -91,6 +93,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
+import kotlin.collections.filter
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -547,7 +550,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                             )
                                         }
                                     }
-
+//MESSAGE
                                     OutlinedButton(
                                         onClick = {
                                             navController.navigate("messaging/$userId")
@@ -900,6 +903,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
         }
     }
 }
+
 private fun followUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
     val db = FirebaseFirestore.getInstance()
     val followData = hashMapOf(
@@ -910,14 +914,42 @@ private fun followUser(currentUserId: String, targetUserId: String, onComplete: 
 
     db.collection("follows")
         .add(followData)
-        .addOnSuccessListener {
-            onComplete()
+        .addOnSuccessListener { documentReference ->
+            db.collection("users").document(currentUserId)
+                .get()
+                .addOnSuccessListener { userDocument ->
+                    val username = userDocument.getString("username") ?: ""
+
+                    val notification = Notification(
+                        recipientId = targetUserId,
+                        senderId = currentUserId,
+                        message = "$username ti ha iniziato a seguire",
+                        timestamp = System.currentTimeMillis(),
+                        isRead = false,
+                        type = "FOLLOW",
+                        bookId = "",
+                        title = ""
+                    )
+
+                    db.collection("notifications").add(notification)
+                        .addOnSuccessListener {
+                            Log.d("UserDetails", "Follow notification sent")
+                            onComplete()
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("UserDetails", "Error sending follow notification", e)
+                            onComplete()
+                        }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("UserDetails", "Error getting user data", e)
+                    onComplete()
+                }
         }
         .addOnFailureListener { e ->
             Log.e("UserDetails", "Error following user: ", e)
         }
 }
-
 private fun unfollowUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
@@ -1400,212 +1432,3 @@ private fun checkFollowStatus(currentUserId: String, targetUserId: String, onRes
 
 
 
-
-@Composable
-fun FollowersScreen(navController: NavController, userId: String) {
-    val db = FirebaseFirestore.getInstance()
-    var followers by remember { mutableStateOf<List<User>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    LaunchedEffect(userId) {
-        db.collection("follows")
-            .whereEqualTo("followingId", userId)
-            .get()
-            .addOnSuccessListener { documents ->
-                val followerIds = documents.map { it.getString("followerId") ?: "" }
-                if (followerIds.isNotEmpty()) {
-                    fetchUsersFromIds(followerIds) { usersList ->
-                        followers = usersList
-                        isLoading = false
-                    }
-                } else {
-                    isLoading = false
-                }
-            }
-            .addOnFailureListener {
-                isLoading = false
-            }
-    }
-
-    UserFollowList(
-        navController = navController,
-        users = followers,
-        isLoading = isLoading,
-        title = "FOLLOWERS"
-    )
-}
-
-@Composable
-fun FollowingScreen(navController: NavController, userId: String) {
-    val db = FirebaseFirestore.getInstance()
-    var following by remember { mutableStateOf<List<User>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    LaunchedEffect(userId) {
-        db.collection("follows")
-            .whereEqualTo("followerId", userId)
-            .get()
-            .addOnSuccessListener { documents ->
-                val followingIds = documents.map { it.getString("followingId") ?: "" }
-                if (followingIds.isNotEmpty()) {
-                    fetchUsersFromIds(followingIds) { usersList ->
-                        following = usersList
-                        isLoading = false
-                    }
-                } else {
-                    isLoading = false
-                }
-            }
-            .addOnFailureListener {
-                isLoading = false
-            }
-    }
-
-    UserFollowList(
-        navController = navController,
-        users = following,
-        isLoading = isLoading,
-        title = "FOLLOWING"
-
-    )
-}
-
-private fun fetchUsersFromIds(userIds: List<String>, onComplete: (List<User>) -> Unit) {
-    val db = FirebaseFirestore.getInstance()
-    val users = mutableListOf<User>()
-    var completedQueries = 0
-
-    if (userIds.isEmpty()) {
-        onComplete(emptyList())
-        return
-    }
-
-    for (userId in userIds) {
-        db.collection("users").document(userId)
-            .get()
-            .addOnSuccessListener { document ->
-                if (document.exists()) {
-                    val user = User(
-                        userId = document.id,
-                        name = document.getString("name") ?: "",
-                        surname = document.getString("surname") ?: "",
-                        username = document.getString("username") ?: "",
-                        email = document.getString("email") ?: "",
-                        phone = document.getString("phone") ?: "",
-                        role = document.getString("role") ?: "",
-                        isBanned = document.getBoolean("isBanned"),
-                        isPrivate = document.getBoolean("isPrivate"),
-                        profilePictureUrl = document.getString("profilePictureUrl") ?: "",
-                        bio = document.getString("bio") ?: ""
-                    )
-                    users.add(user)
-                }
-
-                completedQueries++
-                if (completedQueries == userIds.size) {
-                    onComplete(users)
-                }
-            }
-            .addOnFailureListener {
-                completedQueries++
-                if (completedQueries == userIds.size) {
-                    onComplete(users)
-                }
-            }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun UserFollowList(
-    navController: NavController,
-    users: List<User>,
-    isLoading: Boolean,
-    title: String
-) {
-    val primaryColor = Color(0xFF2CBABE)
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(text = title, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                        windowInsets = WindowInsets(0)
-            )
-        },
-        contentWindowInsets = WindowInsets(0),
-
-
-        ) { paddingValues ->
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = primaryColor)
-            }
-        } else if (users.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("NO $title")
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                items(users.size) { index ->
-                    val user = users[index]
-                    UserListItem(user, navController)
-                    Divider()
-                }
-            }
-        }
-    }
-}
-@Composable
-fun UserListItem(user: User, navController: NavController) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                navController.navigate("userDetails/${user.userId}")
-            }
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = user.profilePictureUrl,
-            contentDescription = "Profile Picture",
-            modifier = Modifier
-                .size(50.dp)
-                .clip(CircleShape),
-            contentScale = ContentScale.Crop
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column {
-            Text(
-                text = user.username,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
-            Text(
-                text = "${user.name} ${user.surname}",
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
-        }
-    }
-}

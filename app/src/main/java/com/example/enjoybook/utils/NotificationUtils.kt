@@ -2,6 +2,7 @@ package com.example.enjoybook.utils
 
 import android.text.format.DateUtils
 import android.util.Log
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,11 +11,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.TabRowDefaults
 import androidx.compose.material.TabRowDefaults.Divider
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -31,8 +37,19 @@ import com.example.enjoybook.data.Notification
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.window.Dialog
+import androidx.navigation.NavController
 import com.example.enjoybook.pages.CustomSnackbar
 import com.example.enjoybook.pages.NotificationManager
 
@@ -44,7 +61,8 @@ fun NotificationItem(
     errorColor: Color,
     onAccept: () -> Unit = {},
     onReject: () -> Unit = {},
-    onDelete: () -> Unit = {}
+    onDelete: () -> Unit = {},
+    onUserClick: (String) -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -59,12 +77,45 @@ fun NotificationItem(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = notification.message,
-                    fontSize = 14.sp,
-                    color = textColor,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (notification.type == "FOLLOW") {
+                    // For follow notifications, we make the username part clickable
+                    val message = notification.message
+                    val usernameEndIndex = message.indexOf(" ti ha iniziato a seguire")
+                    if (usernameEndIndex > 0) {
+                        val username = message.substring(0, usernameEndIndex)
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = username,
+                                fontSize = 14.sp,
+                                color = Color.Blue,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { onUserClick(notification.senderId) }
+                            )
+                            Text(
+                                text = " ti ha iniziato a seguire",
+                                fontSize = 14.sp,
+                                color = textColor
+                            )
+                        }
+                    } else {
+                        // Fallback if message parsing fails
+                        Text(
+                            text = notification.message,
+                            fontSize = 14.sp,
+                            color = textColor,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                } else {
+                    // For other notification types, display the message as before
+                    Text(
+                        text = notification.message,
+                        fontSize = 14.sp,
+                        color = textColor,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 Text(
                     text = DateUtils.getRelativeTimeSpanString(
@@ -272,3 +323,208 @@ fun NotificationHost(
         }
     }
 }
+
+
+
+@Composable
+fun NotificationsDialog(
+    notifications: List<Notification>,
+    showNotificationPopup: Boolean,
+    onDismiss: () -> Unit,
+    navController: NavController,
+    primaryColor: Color,
+    textColor: Color,
+    errorColor: Color,
+    removeNotificationLocally: (String) -> Unit
+) {
+    if (showNotificationPopup) {
+        Dialog(onDismissRequest = onDismiss) {
+            Surface(
+                modifier = Modifier.width(320.dp),
+                shape = RoundedCornerShape(16.dp),
+                tonalElevation = 8.dp
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Header with close button
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = primaryColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Notifications",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = textColor
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.Gray
+                            )
+                        }
+                    }
+
+                    androidx.compose.material.Divider(color = Color.LightGray.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    var selectedTabIndex by remember { mutableStateOf(0) }
+                    val tabs = listOf("Books", "Follows")
+
+                    val bookNotifications = notifications.filter {
+                        it.type.contains("LOAN") || it.bookId.isNotEmpty()
+                    }
+                    val followNotifications = notifications.filter {
+                        it.type == "FOLLOW"
+                    }
+
+                    // Tab row
+                    TabRow(
+                        selectedTabIndex = selectedTabIndex,
+                        containerColor = Color.Transparent,
+                        contentColor = Color.Black,
+                        indicator = { tabPositions ->
+                            TabRowDefaults.Indicator(
+                                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                                height = 2.dp,
+                                color = primaryColor
+                            )
+                        }
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                text = {
+                                    Text(
+                                        text = title,
+                                        fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Content based on selected tab
+                    when (selectedTabIndex) {
+                        0 -> {
+                            // Books tab
+                            if (bookNotifications.isEmpty()) {
+                                EmptyNotificationsMessage()
+                            } else {
+                                NotificationsList(
+                                    notifications = bookNotifications,
+                                    primaryColor = primaryColor,
+                                    textColor = textColor,
+                                    errorColor = errorColor,
+                                    navController = navController,
+                                    removeNotificationLocally = removeNotificationLocally,
+                                    onUserClick = { userId ->
+                                        navController.navigate("userDetails/$userId")
+                                        onDismiss()
+                                    }
+                                )
+                            }
+                        }
+                        1 -> {
+                            // Follows tab
+                            if (followNotifications.isEmpty()) {
+                                EmptyNotificationsMessage()
+                            } else {
+                                NotificationsList(
+                                    notifications = followNotifications,
+                                    primaryColor = primaryColor,
+                                    textColor = textColor,
+                                    errorColor = errorColor,
+                                    navController = navController,
+                                    removeNotificationLocally = removeNotificationLocally,
+                                    onUserClick = { userId ->
+                                        navController.navigate("userDetails/$userId")
+                                        onDismiss()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyNotificationsMessage() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "No notifications",
+            color = Color.Gray,
+            fontSize = 16.sp
+        )
+    }
+}
+
+@Composable
+fun NotificationsList(
+    notifications: List<Notification>,
+    primaryColor: Color,
+    textColor: Color,
+    errorColor: Color,
+    navController: NavController,
+    removeNotificationLocally: (String) -> Unit,
+    onUserClick: (String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp)
+    ) {
+        items(notifications.size) { index ->
+            val notification = notifications[index]
+            NotificationItem(
+                notification = notification,
+                primaryColor = primaryColor,
+                textColor = textColor,
+                errorColor = errorColor,
+                onAccept = {
+                    handleAcceptLoanRequest(notification)
+                    removeNotificationLocally(notification.id)
+                },
+                onReject = {
+                    handleRejectLoanRequest(notification)
+                    removeNotificationLocally(notification.id)
+                },
+                onDelete = {
+                    deleteNotification(notification.id)
+                    removeNotificationLocally(notification.id)
+                },
+                onUserClick = onUserClick
+            )
+        }
+    }
+}
+
+
