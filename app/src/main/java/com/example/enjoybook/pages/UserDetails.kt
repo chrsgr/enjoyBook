@@ -551,6 +551,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                         }
                                     }
 //MESSAGE
+
                                     OutlinedButton(
                                         onClick = {
                                             navController.navigate("messaging/$userId")
@@ -585,45 +586,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                             }
                         }
 
-                        if (currentUser != null && currentUser.uid == userId) {
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        navController.navigate("chatList")
-                                    },
-                                    modifier = Modifier
-                                        .width(250.dp)
-                                        .height(50.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = primaryColor
-                                    ),
-                                    border = BorderStroke(1.dp, primaryColor),
-                                    shape = RoundedCornerShape(25.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Message,
-                                            contentDescription = "Messaggi",
-                                            tint = primaryColor,
-                                            modifier = Modifier.padding(end = 8.dp)
-                                        )
-                                        Text(
-                                            "Messages",
-                                            color = primaryColor,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
 
                     // Sezione libri caricati
