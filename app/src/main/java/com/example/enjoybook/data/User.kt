@@ -1,6 +1,5 @@
 package com.example.enjoybook.data
 
-import com.google.type.DateTime
 
 data class User(
     val userId: String = "",

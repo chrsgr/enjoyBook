@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Pending
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
@@ -86,6 +85,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     val successColor = Color(0xFF4CAF50)
     val warningColor = Color(0xFFFF9800)
     val cardBackground = Color.White
+
 
     var book by remember { mutableStateOf<Book?>(null) }
     var isLoading by remember { mutableStateOf(true) }

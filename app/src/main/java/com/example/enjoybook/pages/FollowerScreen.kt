@@ -1,5 +1,6 @@
 package com.example.enjoybook.pages
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.User
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 
 
@@ -250,5 +253,90 @@ fun UserListItem(user: User, navController: NavController) {
             )
         }
     }
+}
+
+
+
+ fun followUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+    val followData = hashMapOf(
+        "followerId" to currentUserId,
+        "followingId" to targetUserId,
+        "timestamp" to FieldValue.serverTimestamp()
+    )
+
+    db.collection("follows")
+        .add(followData)
+        .addOnSuccessListener { documentReference ->
+            db.collection("users").document(currentUserId)
+                .get()
+                .addOnSuccessListener { userDocument ->
+                    val username = userDocument.getString("username") ?: ""
+
+                    val notification = Notification(
+                        recipientId = targetUserId,
+                        senderId = currentUserId,
+                        message = "$username started following you",
+                        timestamp = System.currentTimeMillis(),
+                        isRead = false,
+                        type = "FOLLOW",
+                        bookId = "",
+                        title = ""
+                    )
+
+                    db.collection("notifications").add(notification)
+                        .addOnSuccessListener {
+                            Log.d("UserDetails", "Follow notification sent")
+                            onComplete()
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("UserDetails", "Error sending follow notification", e)
+                            onComplete()
+                        }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("UserDetails", "Error getting user data", e)
+                    onComplete()
+                }
+        }
+        .addOnFailureListener { e ->
+            Log.e("UserDetails", "Error following user: ", e)
+        }
+}
+ fun unfollowUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("follows")
+        .whereEqualTo("followerId", currentUserId)
+        .whereEqualTo("followingId", targetUserId)
+        .get()
+        .addOnSuccessListener { documents ->
+            val batch = db.batch()
+
+            for (document in documents) {
+                batch.delete(document.reference)
+            }
+
+            val approvedFollowerRef = db.collection("users")
+                .document(targetUserId)
+                .collection("approvedFollowers")
+                .document(currentUserId)
+
+            batch.delete(approvedFollowerRef)
+
+            batch.commit()
+                .addOnSuccessListener {
+                    Log.d("UserDetails", "Unfollowed user and removed from approved followers")
+                    onComplete()
+                }
+                .addOnFailureListener { e ->
+                    Log.e("UserDetails", "Error unfollowing user: ", e)
+                    onComplete()
+                }
+        }
+        .addOnFailureListener { e ->
+            Log.e("UserDetails", "Error finding follow relationship: ", e)
+            onComplete()
+        }
 }
 

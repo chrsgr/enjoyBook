@@ -12,9 +12,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,9 +37,9 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
@@ -49,7 +51,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -87,13 +88,12 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.enjoybook.data.User
 import com.example.enjoybook.utils.reportHandler
+import com.example.enjoybook.utils.requestToFollowUser
 import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
-import kotlin.collections.filter
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,6 +108,8 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     val textColor = Color(0xFF333333)
     val errorColor = Color(0xFFD32F2F)
     val warningColor = Color(0xFFFF9800)
+    val unavailableColor = Color(0xFFFFB74D)
+
 
     var user by remember { mutableStateOf<User?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -132,7 +134,27 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     var followerCount by remember { mutableStateOf(0) }
     var followingCount by remember { mutableStateOf(0) }
 
-    Log.d("UserDetails", "Function called with userId: $userId")
+    var followRequestStatus by remember { mutableStateOf<String?>(null) }
+    val approvedFollowers = remember { mutableStateOf<List<String>>(emptyList()) }
+
+    LaunchedEffect(userId) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").document(userId)
+            .collection("approvedFollowers")
+            .get()
+            .addOnSuccessListener { documents ->
+                val followerIds = documents.documents.map { it.id }
+                approvedFollowers.value = followerIds
+            }
+    }
+
+    LaunchedEffect(currentUser?.uid, userId, user?.isPrivate) {
+        if (currentUser != null && userId != currentUser.uid && user?.isPrivate == true) {
+            checkFollowRequestStatus(currentUser.uid, userId) { status ->
+                followRequestStatus = status
+            }
+        }
+    }
 
     LaunchedEffect(userId) {
         if (userId.isNotEmpty()) {
@@ -267,7 +289,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         titleContentColor = textColor
                     ),
                     actions = {
-                        // Settings icon
                         if(currentUser != null){
                             if(user?.userId == currentUser.uid){
                                 IconButton(
@@ -288,6 +309,26 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                         tint = Color.Black
                                     )
                                 }
+                            }
+                            else if (!isAdmin) {
+                                IconButton(
+                                    onClick = { showReportDialog = true },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.1f))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Report,
+                                        contentDescription = "Report",
+                                        tint = warningColor
+                                    )
+                                }
+                            }
+
+                            // Dialog report
+                            if (showReportDialog) {
+                                reportHandler(userId, user?.username, showReportDialog)
                             }
                         }
                     },
@@ -456,41 +497,8 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                                 )
                                             }
                                         }
-                                    } else {
-                                        // Pulsante report
-                                        OutlinedButton(
-                                            onClick = { showReportDialog = true },
-                                            modifier = Modifier
-                                                .width(250.dp)
-                                                .height(50.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(
-                                                contentColor = warningColor
-                                            ),
-                                            border = BorderStroke(1.dp, warningColor),
-                                            shape = RoundedCornerShape(25.dp)
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Report,
-                                                    contentDescription = "Report",
-                                                    tint = warningColor,
-                                                    modifier = Modifier.padding(end = 8.dp)
-                                                )
-                                                Text(
-                                                    "Report Account",
-                                                    color = warningColor,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                            }
-                                        }
 
-                                        // Dialog report
-                                        if (showReportDialog) {
-                                            reportHandler(userId, user?.username, showReportDialog)
-                                        }
+
                                     }
                                 }
                             }
@@ -512,15 +520,27 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                 ) {
                                     OutlinedButton(
                                         onClick = {
-                                            if (isFollowing) {
-                                                unfollowUser(currentUser.uid, userId) {
-                                                    isFollowing = false
-                                                    followerCount--
+                                            if (user?.isPrivate == true && !isFollowing) {
+                                                if (followRequestStatus == "pending") {
+                                                    cancelFollowRequest(currentUser.uid, userId) {
+                                                        followRequestStatus = null
+                                                    }
+                                                } else {
+                                                    requestToFollowUser(currentUser.uid, userId) {
+                                                        followRequestStatus = "pending"
+                                                    }
                                                 }
                                             } else {
-                                                followUser(currentUser.uid, userId) {
-                                                    isFollowing = true
-                                                    followerCount++
+                                                if (isFollowing) {
+                                                    unfollowUser(currentUser.uid, userId) {
+                                                        isFollowing = false
+                                                        followerCount--
+                                                    }
+                                                } else {
+                                                    followUser(currentUser.uid, userId) {
+                                                        isFollowing = true
+                                                        followerCount++
+                                                    }
                                                 }
                                             }
                                         },
@@ -528,10 +548,22 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                             .weight(1f)
                                             .height(44.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = if (isFollowing) Color.Gray else primaryColor,
-                                            containerColor = if (isFollowing) Color.LightGray.copy(alpha = 0.2f) else Color.Transparent
+                                            contentColor = when {
+                                                isFollowing -> Color(0xFF81C784)
+                                                followRequestStatus == "pending" -> Color(0xFFFFB74D)
+                                                else -> primaryColor
+                                            },
+                                            containerColor = when {
+                                                isFollowing -> Color.Transparent
+                                                followRequestStatus == "pending" -> Color.Transparent
+                                                else -> Color.Transparent
+                                            }
                                         ),
-                                        border = BorderStroke(1.dp, if (isFollowing) Color.Gray else primaryColor),
+                                        border = BorderStroke(1.dp, when {
+                                            isFollowing -> Color(0xFF81C784)
+                                            followRequestStatus == "pending" ->Color(0xFFFFB74D)
+                                            else -> primaryColor
+                                        }),
                                         shape = RoundedCornerShape(25.dp)
                                     ) {
                                         Row(
@@ -539,17 +571,34 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                             horizontalArrangement = Arrangement.Center
                                         ) {
                                             Icon(
-                                                imageVector = if (isFollowing) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
-                                                contentDescription = if (isFollowing) "Unfollow" else "Follow",
-                                                tint = if (isFollowing) Color.Gray else primaryColor,
+                                                imageVector = when {
+                                                    isFollowing -> Icons.Default.PersonRemove
+                                                    followRequestStatus == "pending" -> Icons.Default.HourglassBottom
+                                                    else -> Icons.Default.PersonAdd
+                                                },
+                                                contentDescription = when {
+                                                    isFollowing -> "Unfollow"
+                                                    followRequestStatus == "pending" -> "Requested"
+                                                    else -> "Follow"
+                                                },
+                                                tint = when {
+                                                    isFollowing -> Color(0xFF81C784)
+                                                    followRequestStatus == "pending" -> Color(0xFFFFB74D)
+                                                    else -> primaryColor
+                                                },
                                                 modifier = Modifier.padding(end = 8.dp)
                                             )
                                             Text(
-                                                if (isFollowing) "Following" else "Follow",
+                                                when {
+                                                    isFollowing -> "Following"
+                                                    followRequestStatus == "pending" -> "Requested"
+                                                    else -> "Follow"
+                                                },
                                                 fontWeight = FontWeight.Medium
                                             )
                                         }
                                     }
+
 //MESSAGE
 
                                     OutlinedButton(
@@ -618,6 +667,8 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                         .height(180.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
+
+
 
                                     if (libraryBooks.value.isEmpty()) {
                                         Column(
@@ -693,26 +744,29 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                         .height(180.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (currentUser != null) {
-                                        if(user?.isPrivate == true && currentUser.uid != userId) {
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Lock,
-                                                    contentDescription = null,
-                                                    tint = Color.LightGray,
-                                                    modifier = Modifier.size(48.dp)
-                                                )
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(
-                                                    "The list is private",
-                                                    color = Color.Gray,
-                                                    fontSize = 16.sp
-                                                )
+                                        if (currentUser != null) {
+                                            val isOwner = currentUser.uid == userId
+                                            val isApprovedFollower = approvedFollowers.value.contains(currentUser.uid)
+
+                                            if (user?.isPrivate == true && !isOwner && !isApprovedFollower) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Lock,
+                                                        contentDescription = null,
+                                                        tint = Color.LightGray,
+                                                        modifier = Modifier.size(48.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        "The list is private",
+                                                        color = Color.Gray,
+                                                        fontSize = 16.sp
+                                                    )
+                                                }
                                             }
-                                        }
-                                        else{
+                                            else{
                                             if (readsBooks.value.isEmpty()) {
                                                 Column(
                                                     horizontalAlignment = Alignment.CenterHorizontally
@@ -788,7 +842,10 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (currentUser != null) {
-                                        if(user?.isPrivate == true && currentUser.uid != userId) {
+                                        val isOwner = currentUser.uid == userId
+                                        val isApprovedFollower = approvedFollowers.value.contains(currentUser.uid)
+
+                                        if (user?.isPrivate == true && !isOwner && !isApprovedFollower) {
                                             Column(
                                                 horizontalAlignment = Alignment.CenterHorizontally
                                             ) {
@@ -805,7 +862,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                                     fontSize = 16.sp
                                                 )
                                             }
-                                        } else{
+                                        }  else{
                                             if (favoritesBooks.value.isEmpty()) {
                                                 Column(
                                                     horizontalAlignment = Alignment.CenterHorizontally
@@ -866,70 +923,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
     }
 }
 
-private fun followUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
-    val db = FirebaseFirestore.getInstance()
-    val followData = hashMapOf(
-        "followerId" to currentUserId,
-        "followingId" to targetUserId,
-        "timestamp" to FieldValue.serverTimestamp()
-    )
-
-    db.collection("follows")
-        .add(followData)
-        .addOnSuccessListener { documentReference ->
-            db.collection("users").document(currentUserId)
-                .get()
-                .addOnSuccessListener { userDocument ->
-                    val username = userDocument.getString("username") ?: ""
-
-                    val notification = Notification(
-                        recipientId = targetUserId,
-                        senderId = currentUserId,
-                        message = "$username ti ha iniziato a seguire",
-                        timestamp = System.currentTimeMillis(),
-                        isRead = false,
-                        type = "FOLLOW",
-                        bookId = "",
-                        title = ""
-                    )
-
-                    db.collection("notifications").add(notification)
-                        .addOnSuccessListener {
-                            Log.d("UserDetails", "Follow notification sent")
-                            onComplete()
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e("UserDetails", "Error sending follow notification", e)
-                            onComplete()
-                        }
-                }
-                .addOnFailureListener { e ->
-                    Log.e("UserDetails", "Error getting user data", e)
-                    onComplete()
-                }
-        }
-        .addOnFailureListener { e ->
-            Log.e("UserDetails", "Error following user: ", e)
-        }
-}
-private fun unfollowUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
-    val db = FirebaseFirestore.getInstance()
-
-    db.collection("follows")
-        .whereEqualTo("followerId", currentUserId)
-        .whereEqualTo("followingId", targetUserId)
-        .get()
-        .addOnSuccessListener { documents ->
-            for (document in documents) {
-                document.reference.delete()
-            }
-            onComplete()
-        }
-        .addOnFailureListener { e ->
-            Log.e("UserDetails", "Error unfollowing user: ", e)
-        }
-}
-
 @Composable
 fun SectionHeaderUser(
     icon: ImageVector,
@@ -957,304 +950,6 @@ fun SectionHeaderUser(
     }
 }
 
-@Composable
-fun BookCardUser(
-    book: Book,
-    primaryColor: Color,
-    textColor: Color,
-    onClick: () -> Unit
-) {
-    val calendar = Calendar.getInstance()
-    calendar.add(Calendar.DAY_OF_YEAR, -7)
-    val sevenDaysAgo = Timestamp(calendar.time)
-
-    val isNew = book.timestamp?.toDate()?.after(sevenDaysAgo.toDate()) == true
-
-    val isAvailable = book?.isAvailable
-
-    val isFrontCover = remember { mutableStateOf(true) }
-
-    Card(
-        modifier = Modifier
-            .padding(end = 16.dp)
-            .width(140.dp)
-            .height(180.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            if (isFrontCover.value && book?.frontCoverUrl != null)  {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(85.dp)
-                        .background(primaryColor.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val imageUrl = book?.frontCoverUrl
-
-                    val painter = rememberAsyncImagePainter(imageUrl)
-                    val state = painter.state
-
-                    if (state is AsyncImagePainter.State.Loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    }
-
-                    AsyncImage(
-                        model = imageUrl,
-                        contentDescription = "Front Cover",
-                        modifier = Modifier.fillMaxSize(),
-                        //contentScale = ContentScale.Crop
-                    )
-
-                    if (isNew && isAvailable != null && isAvailable == true) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .background(primaryColor, shape = RoundedCornerShape(bottomEnd = 8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "NEW",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-
-                    else if ((isNew && isAvailable != null && isAvailable == false) || (!isNew && isAvailable != null && isAvailable == false)) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .background(Color.Red)
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "NOT AVAILABLE",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            else {
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(85.dp)
-                        .background(primaryColor.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = Icons.Default.MenuBook,
-                        contentDescription = null,
-                        tint = primaryColor,
-                        modifier = Modifier.size(36.dp)
-                    )
-
-                    if (isNew && isAvailable != null && isAvailable == true) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .background(primaryColor, shape = RoundedCornerShape(bottomEnd = 8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "NEW",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-
-                    else if ((isNew && isAvailable != null && isAvailable == false) || (!isNew && isAvailable != null && isAvailable == false)) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .background(primaryColor, shape = RoundedCornerShape(bottomEnd = 8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "NOT AVAILABLE",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-            ) {
-                Text(
-                    text = book.title,
-                    color = textColor,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 14.sp
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = book.author,
-                    color = textColor.copy(alpha = 0.7f),
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                Text(
-                    text = book.type,
-                    color = Color.Black,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-            }
-        }
-    }
-}
-
-@Composable
-fun FavoriteBookCardUser(
-    book: FavoriteBook,
-    primaryColor: Color,
-    textColor: Color,
-    onClick: () -> Unit
-) {
-
-    val isFrontCover = remember { mutableStateOf(true) }
-
-    Card(
-        modifier = Modifier
-            .padding(end = 16.dp)
-            .width(140.dp)
-            .height(180.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            if (isFrontCover.value && book?.frontCoverUrl != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(85.dp)
-                        .background(primaryColor.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val imageUrl = book?.frontCoverUrl
-
-                    val painter = rememberAsyncImagePainter(imageUrl)
-                    val state = painter.state
-
-                    if (state is AsyncImagePainter.State.Loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    }
-
-                    AsyncImage(
-                        model = imageUrl,
-                        contentDescription = "Front Cover",
-                        modifier = Modifier.fillMaxSize(),
-                        //contentScale = ContentScale.Crop
-                    )
-
-                }
-            } else {
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(85.dp)
-                        .background(primaryColor.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = Icons.Default.MenuBook,
-                        contentDescription = null,
-                        tint = primaryColor,
-                        modifier = Modifier.size(36.dp)
-                    )
-
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-            ) {
-                Text(
-                    text = book.title,
-                    color = textColor,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 14.sp
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = book.author,
-                    color = textColor.copy(alpha = 0.7f),
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                Text(
-                    text = book.type,
-                    color = Color.Black,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-            }
-        }
-    }
-}
 
 private fun fetchLibraryBooks(userId: String, onComplete: (List<Book>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
@@ -1392,5 +1087,53 @@ private fun checkFollowStatus(currentUserId: String, targetUserId: String, onRes
         }
 }
 
+private fun checkFollowRequestStatus(requesterId: String, targetId: String, onResult: (String?) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("followRequests")
+        .whereEqualTo("requesterId", requesterId)
+        .whereEqualTo("targetId", targetId)
+        .whereEqualTo("status", "pending")
+        .get()
+        .addOnSuccessListener { documents ->
+            if (!documents.isEmpty) {
+                onResult("pending")
+            } else {
+                onResult(null)
+            }
+        }
+        .addOnFailureListener { e ->
+            Log.e("UserDetails", "Error checking follow request status: ", e)
+            onResult(null)
+        }
+}
+
+private fun cancelFollowRequest(requesterId: String, targetId: String, onComplete: () -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("followRequests")
+        .whereEqualTo("requesterId", requesterId)
+        .whereEqualTo("targetId", targetId)
+        .whereEqualTo("status", "pending")
+        .get()
+        .addOnSuccessListener { documents ->
+            for (document in documents) {
+                document.reference.delete()
+            }
+
+            // Also delete the notification
+            db.collection("notifications")
+                .whereEqualTo("senderId", requesterId)
+                .whereEqualTo("recipientId", targetId)
+                .whereEqualTo("type", "FOLLOW_REQUEST")
+                .get()
+                .addOnSuccessListener { notifications ->
+                    for (notification in notifications) {
+                        notification.reference.delete()
+                    }
+                    onComplete()
+                }
+        }
+}
 
 

@@ -52,6 +52,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.enjoybook.pages.CustomSnackbar
 import com.example.enjoybook.pages.NotificationManager
+import com.google.firebase.firestore.FieldValue
 
 @Composable
 fun NotificationItem(
@@ -62,7 +63,9 @@ fun NotificationItem(
     onAccept: () -> Unit = {},
     onReject: () -> Unit = {},
     onDelete: () -> Unit = {},
-    onUserClick: (String) -> Unit = {}
+    onUserClick: (String) -> Unit = {},
+    onAcceptFollow: () -> Unit = {},
+    onRejectFollow: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -77,12 +80,21 @@ fun NotificationItem(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                if (notification.type == "FOLLOW") {
-                    // For follow notifications, we make the username part clickable
+                if (notification.type == "FOLLOW" || notification.type == "FOLLOW_REQUEST") {
                     val message = notification.message
-                    val usernameEndIndex = message.indexOf(" ti ha iniziato a seguire")
+                    val usernameEndIndex = if (notification.type == "FOLLOW") {
+                        message.indexOf(" started following you")
+                    } else {
+                        message.indexOf(" requested to follow you")
+                    }
+
                     if (usernameEndIndex > 0) {
                         val username = message.substring(0, usernameEndIndex)
+                        val remainingText = if (notification.type == "FOLLOW") {
+                            " started following you"
+                        } else {
+                            " requested to follow you"
+                        }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
@@ -93,13 +105,12 @@ fun NotificationItem(
                                 modifier = Modifier.clickable { onUserClick(notification.senderId) }
                             )
                             Text(
-                                text = " ti ha iniziato a seguire",
+                                text = remainingText,
                                 fontSize = 14.sp,
                                 color = textColor
                             )
                         }
                     } else {
-                        // Fallback if message parsing fails
                         Text(
                             text = notification.message,
                             fontSize = 14.sp,
@@ -108,7 +119,6 @@ fun NotificationItem(
                         )
                     }
                 } else {
-                    // For other notification types, display the message as before
                     Text(
                         text = notification.message,
                         fontSize = 14.sp,
@@ -144,28 +154,56 @@ fun NotificationItem(
             }
         }
 
-        if (notification.type == "LOAN_REQUEST") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(
-                    onClick = { onReject() },
-                    colors = ButtonDefaults.textButtonColors(contentColor = errorColor)
+        when (notification.type) {
+            "LOAN_REQUEST" -> {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Text("Reject")
+                    TextButton(
+                        onClick = { onReject() },
+                        colors = ButtonDefaults.textButtonColors(contentColor = errorColor)
+                    ) {
+                        Text("Reject")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = { onAccept() },
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("Accept", color = Color.White)
+                    }
                 }
+            }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Button(
-                    onClick = { onAccept() },
-                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            "FOLLOW_REQUEST" -> {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Text("Accept", color = Color.White)
+                    TextButton(
+                        onClick = { onRejectFollow() },
+                        colors = ButtonDefaults.textButtonColors(contentColor = errorColor)
+                    ) {
+                        Text("Reject")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = { onAcceptFollow() },
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("Accept", color = Color.White)
+                    }
                 }
             }
         }
@@ -345,7 +383,6 @@ fun NotificationsDialog(
                 tonalElevation = 8.dp
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Header with close button
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -388,13 +425,14 @@ fun NotificationsDialog(
                     val tabs = listOf("Books", "Follows")
 
                     val bookNotifications = notifications.filter {
-                        it.type.contains("LOAN") || it.bookId.isNotEmpty()
-                    }
-                    val followNotifications = notifications.filter {
-                        it.type == "FOLLOW"
+                        it.type.contains("LOAN") || (it.bookId.isNotEmpty() && !it.type.contains("FOLLOW"))
                     }
 
-                    // Tab row
+                    val followNotifications = notifications.filter {
+                        it.type == "FOLLOW" || it.type == "FOLLOW_REQUEST" ||
+                                it.type == "FOLLOW_ACCEPTED"
+                    }
+
                     TabRow(
                         selectedTabIndex = selectedTabIndex,
                         containerColor = Color.Transparent,
@@ -423,7 +461,6 @@ fun NotificationsDialog(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Content based on selected tab
                     when (selectedTabIndex) {
                         0 -> {
                             // Books tab
@@ -517,6 +554,14 @@ fun NotificationsList(
                     handleRejectLoanRequest(notification)
                     removeNotificationLocally(notification.id)
                 },
+                onAcceptFollow = {
+                    handleAcceptFollowRequest(notification)
+                    removeNotificationLocally(notification.id)
+                },
+                onRejectFollow = {
+                    handleRejectFollowRequest(notification)
+                    removeNotificationLocally(notification.id)
+                },
                 onDelete = {
                     deleteNotification(notification.id)
                     removeNotificationLocally(notification.id)
@@ -527,4 +572,130 @@ fun NotificationsList(
     }
 }
 
+ fun requestToFollowUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+    val followRequestData = hashMapOf(
+        "requesterId" to currentUserId,
+        "targetId" to targetUserId,
+        "status" to "pending",
+        "timestamp" to FieldValue.serverTimestamp()
+    )
 
+    db.collection("followRequests")
+        .add(followRequestData)
+        .addOnSuccessListener { documentReference ->
+            db.collection("users").document(currentUserId)
+                .get()
+                .addOnSuccessListener { userDocument ->
+                    val username = userDocument.getString("username") ?: ""
+
+                    val notification = Notification(
+                        recipientId = targetUserId,
+                        senderId = currentUserId,
+                        message = "$username requested to follow you",
+                        timestamp = System.currentTimeMillis(),
+                        isRead = false,
+                        type = "FOLLOW_REQUEST",
+                        bookId = "",
+                        title = ""
+                    )
+
+                    db.collection("notifications").add(notification)
+                        .addOnSuccessListener {
+                            Log.d("UserDetails", "Follow request notification sent")
+                            onComplete()
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("UserDetails", "Error sending follow request notification", e)
+                            onComplete()
+                        }
+                }
+        }
+        .addOnFailureListener { e ->
+            Log.e("UserDetails", "Error creating follow request: ", e)
+        }
+}
+
+fun handleAcceptFollowRequest(notification: Notification) {
+    val db = FirebaseFirestore.getInstance()
+    val currentUser = FirebaseAuth.getInstance().currentUser
+
+    db.collection("notifications").document(notification.id)
+        .delete()
+        .addOnSuccessListener {
+            db.collection("followRequests")
+                .whereEqualTo("requesterId", notification.senderId)
+                .whereEqualTo("targetId", currentUser?.uid)
+                .whereEqualTo("status", "pending")
+                .get()
+                .addOnSuccessListener { requests ->
+                    for (request in requests) {
+                        request.reference.delete()
+                    }
+
+                    val followData = hashMapOf(
+                        "followerId" to notification.senderId,
+                        "followingId" to currentUser?.uid,
+                        "timestamp" to FieldValue.serverTimestamp()
+                    )
+
+                    db.collection("follows").add(followData)
+                        .addOnSuccessListener {
+                            val approvedFollowerData = hashMapOf(
+                                "userId" to notification.senderId,
+                                "approvedAt" to FieldValue.serverTimestamp()
+                            )
+
+                            db.collection("users").document(currentUser?.uid ?: "")
+                                .collection("approvedFollowers")
+                                .document(notification.senderId)
+                                .set(approvedFollowerData)
+                                .addOnSuccessListener {
+                                    Log.d("UserDetails", "Added user to approved followers")
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.e("UserDetails", "Error adding to approved followers", e)
+                                }
+
+                            db.collection("users").document(currentUser?.uid ?: "")
+                                .get()
+                                .addOnSuccessListener { userDoc ->
+                                    val username = userDoc.getString("username") ?: ""
+
+                                    val acceptNotification = Notification(
+                                        recipientId = notification.senderId,
+                                        senderId = currentUser?.uid ?: "",
+                                        message = "$username accept your follow request",
+                                        timestamp = System.currentTimeMillis(),
+                                        isRead = false,
+                                        type = "FOLLOW_ACCEPTED",
+                                        bookId = "",
+                                        title = ""
+                                    )
+
+                                    db.collection("notifications").add(acceptNotification)
+                                }
+                        }
+                }
+        }
+}
+
+fun handleRejectFollowRequest(notification: Notification) {
+    val db = FirebaseFirestore.getInstance()
+    val currentUser = FirebaseAuth.getInstance().currentUser
+
+    db.collection("notifications").document(notification.id)
+        .delete()
+        .addOnSuccessListener {
+            db.collection("followRequests")
+                .whereEqualTo("requesterId", notification.senderId)
+                .whereEqualTo("targetId", currentUser?.uid)
+                .whereEqualTo("status", "pending")
+                .get()
+                .addOnSuccessListener { requests ->
+                    for (request in requests) {
+                        request.reference.delete()
+                    }
+                }
+        }
+}

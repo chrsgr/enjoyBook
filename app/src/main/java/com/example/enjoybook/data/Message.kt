@@ -3,8 +3,6 @@ package com.example.enjoybook.data
 import java.util.UUID
 
 
-
-// Data classes for messaging
 data class Message(
     val id: String = UUID.randomUUID().toString(),
     val senderId: String = "",
