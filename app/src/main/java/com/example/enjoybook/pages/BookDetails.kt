@@ -1126,7 +1126,7 @@ fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
     val notification = Notification(
         recipientId = userId,
         senderId = currentUser.uid,
-        message = "Richiesta di affitto per libro '$title'",
+        message = "Book rental request '$title'",
         timestamp = System.currentTimeMillis(),
         isRead = false,
         type = "LOAN_REQUEST",

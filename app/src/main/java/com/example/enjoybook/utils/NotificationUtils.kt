@@ -265,7 +265,7 @@ fun handleAcceptLoanRequest(notification: Notification) {
                             val confirmationNotification = Notification(
                                 recipientId = requesterId,
                                 senderId = currentUser?.uid ?: "",
-                                message = "La tua richiesta per il libro '${notification.title}' è stata accettata",
+                                message = "Your book request '${notification.title}' is accepted",
                                 timestamp = System.currentTimeMillis(),
                                 isRead = false,
                                 type = "LOAN_ACCEPTED",
@@ -306,7 +306,7 @@ fun handleRejectLoanRequest(notification: Notification) {
             val rejectionNotification = Notification(
                 recipientId = requesterId,
                 senderId = FirebaseAuth.getInstance().currentUser?.uid ?: "",
-                message = "La tua richiesta per il libro '${notification.title}' è stata rifiutata",
+                message = "Your book request '${notification.title}' is rejected",
                 timestamp = System.currentTimeMillis(),
                 isRead = false,
                 type = "LOAN_REJECTED",
