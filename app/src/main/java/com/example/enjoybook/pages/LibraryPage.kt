@@ -1,6 +1,7 @@
 package com.example.enjoybook.pages
 
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -69,8 +70,10 @@ import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.LentBook
+import com.example.enjoybook.data.Notification
 import com.example.enjoybook.theme.primaryColor
 import com.example.enjoybook.theme.textColor
+import com.google.android.gms.tasks.Tasks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -600,6 +603,8 @@ fun LentBookCard(lentBook: LentBook, navController: NavController) {
 
                         scope.launch {
                             updateBorrow(db, lentBook.borrowId, lentBook.book.id, context)
+
+                            sendBookReturnConfirmationNotification(lentBook)
                         }
                     }
                 ) {
@@ -617,6 +622,51 @@ fun LentBookCard(lentBook: LentBook, navController: NavController) {
         )
     }
 
+}
+
+
+fun sendBookReturnConfirmationNotification(lentBook: LentBook) {
+    val db = FirebaseFirestore.getInstance()
+    val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+
+    FirebaseFirestore.getInstance().collection("users").document(currentUser.uid).get()
+        .addOnSuccessListener { document ->
+            val ownerUsername = document.getString("username") ?: "User"
+
+            val returnConfirmationNotification = Notification(
+                recipientId = lentBook.borrowerId,
+                senderId = currentUser.uid,
+                message = "Return of book '${lentBook.book.title}' confirmed by $ownerUsername",
+                timestamp = System.currentTimeMillis(),
+                isRead = false,
+                type = "RETURN_CONFIRMED",
+                bookId = lentBook.book.id,
+                title = lentBook.book.title
+            )
+
+            db.collection("notifications")
+                .add(returnConfirmationNotification)
+                .addOnSuccessListener {
+                }
+                .addOnFailureListener { e ->
+                }
+        }
+        .addOnFailureListener { e ->
+        }
+}
+
+ fun updateBorrow(db: FirebaseFirestore, borrowId: String, bookId: String, context: Context) {
+    try {
+        Tasks.await(db.collection("borrows").document(borrowId)
+            .update("status", "returned", "returnDate", System.currentTimeMillis()))
+
+        Tasks.await(db.collection("books").document(bookId)
+            .update("isAvailable", true))
+
+        Toast.makeText(context, "Book marked as returned", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Error updating book status", Toast.LENGTH_SHORT).show()
+    }
 }
 
 @Composable
@@ -665,36 +715,4 @@ fun ClickableTextWithNavigation(
     )
 }
 
-private suspend fun updateBorrow(
-    db: FirebaseFirestore,
-    borrowId: String,
-    bookId: String,
-    context: Context)
-{
-    try {
-        db.collection("borrows").document(borrowId)
-            .update("status", "concluded")
-            .await()
-
-        db.collection("books").document(bookId)
-            .update("isAvailable", true)
-            .await()
-
-        withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                "Book is now updated and available again",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    } catch (e: Exception) {
-        withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                "Failed to update book availability: ${e.message}",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-}
 
