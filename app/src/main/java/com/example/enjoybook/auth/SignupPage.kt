@@ -1,7 +1,12 @@
 package com.example.enjoybook.auth
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,6 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MenuBook
@@ -403,6 +410,7 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                     }
                 }
             )
+            PasswordRequirementsIndicator(password)
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -619,5 +627,71 @@ fun LoadingSpinner(message: String) {
                 tint = Color(0xFFA7E8EB)
             )
         }
+    }
+}
+
+@Composable
+fun PasswordRequirementsIndicator(password: String) {
+    val minLength = password.length >= 8
+    val hasUpperCase = password.any { it.isUpperCase() }
+    val hasDigit = password.any { it.isDigit() }
+    val hasSpecialChar = password.any { !it.isLetterOrDigit() }
+
+    AnimatedVisibility(
+        visible = password.isNotEmpty(),
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFF5F5F5)
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = "The password must contains:",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                    color = Color.DarkGray
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                PasswordRequirement("at least 8 characters", minLength)
+                PasswordRequirement("at least one uppercase letter", hasUpperCase)
+                PasswordRequirement("at least one digit", hasDigit)
+                PasswordRequirement("at least one special character", hasSpecialChar)
+            }
+        }
+    }
+}
+
+@Composable
+fun PasswordRequirement(text: String, isSatisfied: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        Icon(
+            imageVector = if (isSatisfied) Icons.Default.Check else Icons.Default.Circle,
+            contentDescription = null,
+            tint = if (isSatisfied) Color(0xFF4CAF50) else Color.Gray,
+            modifier = Modifier.size(16.dp)
+        )
+
+        Text(
+            text = text,
+            fontSize = 14.sp,
+            color = if (isSatisfied) Color.DarkGray else Color.Gray,
+            modifier = Modifier.padding(start = 8.dp)
+        )
     }
 }

@@ -70,6 +70,7 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.enjoybook.theme.primaryColor
+import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.EmailAuthProvider
@@ -85,7 +86,8 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfilePage(
-    navController: NavController
+    navController: NavController,
+    viewModel: AuthViewModel
 ) {
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
@@ -111,7 +113,6 @@ fun ProfilePage(
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
 
-    var originalPassword by remember { mutableStateOf("") }
     var isCurrentUserProfile by remember { mutableStateOf(true) }
 
     var currentPassword by remember { mutableStateOf("") }
@@ -120,6 +121,7 @@ fun ProfilePage(
     var currentPasswordVisible by remember { mutableStateOf(false) }
     var newPasswordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
 
     val secondaryColor = Color(0xFF1A8A8F)
     val backgroundColor = (primaryColor.copy(alpha = 0.1f))
@@ -617,6 +619,28 @@ fun ProfilePage(
                                     keyboardType = KeyboardType.Phone
                                 )
 
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                        .padding(top = 2.dp)
+                                ) {
+                                    IconButton(
+                                        onClick = { showInfoDialog = true },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = "Password requirements",
+                                            tint = Color(0xFF4DB6AC)
+                                        )
+                                    }
+                                    Text(
+                                        text = " Reset password",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+
+                                }
+
                                 ProfileField(
                                     label = "Current password",
                                     value = currentPassword,
@@ -836,6 +860,28 @@ fun ProfilePage(
                         }
                     }
 
+                    if (showInfoDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showInfoDialog = false },
+                            title = { Text("Password requirements") },
+                            text = {
+                                Column {
+                                    Text("Your password must contains::")
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    BulletPoint("At least 8 characters")
+                                    BulletPoint("At least one uppercase letter")
+                                    BulletPoint("At least one digit")
+                                    BulletPoint("At least one special character (@, #, $, etc.)")
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { showInfoDialog = false }) {
+                                    Text("I understand")
+                                }
+                            }
+                        )
+                    }
+
                     if (isCurrentUserProfile && !isEditing) {
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -877,7 +923,7 @@ fun ProfilePage(
                                     TextButton(
                                         onClick = {
                                             // Call a function to delete the account from the database
-                                            deleteUserAccount( navController )
+                                            deleteUserAccount( navController, viewModel )
                                             showDeleteConfirmation = false
                                         }
                                     ) {
@@ -1317,7 +1363,7 @@ fun ProfileField(
 }
 
 
-fun deleteUserAccount(navController: NavController) {
+fun deleteUserAccount(navController: NavController, viewModel: AuthViewModel) {
     val user = FirebaseAuth.getInstance().currentUser
     val db = FirebaseFirestore.getInstance()
 
@@ -1337,23 +1383,39 @@ fun deleteUserAccount(navController: NavController) {
                 Tasks.whenAllComplete(tasks).addOnSuccessListener {
                     currentUser.delete().addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            println("Account eliminato con successo.")
+                            println("Success: account deleted.")
 
                             navController.navigate("login") {
                                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
                                 launchSingleTop = true // Per evitare duplicati
                             }
+                            viewModel.signout()
+
                         } else {
-                            println("Errore nella cancellazione dell'account: ${task.exception?.message}")
+                            println("Error in the delete action: ${task.exception?.message}")
                         }
                     }
                 }.addOnFailureListener { e ->
-                    println("Errore nella cancellazione dei dati: ${e.message}")
+                    println("Error in the data delete: ${e.message}")
                 }
             }.addOnFailureListener { e ->
                 println("Errore nel recupero dei documenti: ${e.message}")
             }
         }
+    }
+}
+
+@Composable
+fun BulletPoint(text: String) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.padding(vertical = 2.dp)
+    ) {
+        Text(
+            text = "• ",
+            fontWeight = FontWeight.Bold
+        )
+        Text(text = text)
     }
 }
 
