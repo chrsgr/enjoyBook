@@ -58,8 +58,29 @@ fun UserMessagingScreen(
     LaunchedEffect(targetUserId) {
         val currentUserId = currentUser?.uid ?: return@LaunchedEffect
 
-        Log.d("ChatMessage", "Recupera i messaggi e marca come letti")
+        // First, make sure this chat isn't marked as deleted for the current user
+        val chatDocumentId = listOf(currentUserId, targetUserId).sorted().joinToString("_")
+        db.collection("chats")
+            .document(chatDocumentId)
+            .get()
+            .addOnSuccessListener { chatDoc ->
+                if (chatDoc.exists()) {
+                    val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
 
+                    // If chat was deleted for current user, restore it
+                    if (deletedFor.contains(currentUserId)) {
+                        val updatedDeletedFor = deletedFor.filter { it != currentUserId }
+                        db.collection("chats")
+                            .document(chatDocumentId)
+                            .update("deletedFor", updatedDeletedFor)
+                            .addOnSuccessListener {
+                                Log.d("Chat", "Chat restored for current user")
+                            }
+                    }
+                }
+            }
+
+        // Then proceed with marking messages as read
         markMessagesAsRead(
             db,
             currentUserId,
@@ -795,76 +816,4 @@ private fun defaultFetchMessages(
             onMessagesReceived(fetchedMessages)
         }
 }
-
-// Fallback function if we can't get deletion info
-private fun fetchAllMessages(
-    db: FirebaseFirestore,
-    currentUserId: String,
-    targetUserId: String,
-    onMessagesReceived: (List<Message>) -> Unit
-) {
-    db.collection("messages")
-        .where(
-            Filter.or(
-                Filter.and(
-                    Filter.equalTo("senderId", currentUserId),
-                    Filter.equalTo("receiverId", targetUserId)
-                ),
-                Filter.and(
-                    Filter.equalTo("senderId", targetUserId),
-                    Filter.equalTo("receiverId", currentUserId)
-                )
-            )
-        )
-        .orderBy("timestamp", Query.Direction.ASCENDING)
-        .addSnapshotListener { snapshot, e ->
-            if (e != null) {
-                Log.e("MessagingSystem", "Error fetching messages: ${e.message}")
-                return@addSnapshotListener
-            }
-
-            val fetchedMessages = snapshot?.toObjects(Message::class.java) ?: emptyList()
-            Log.d("MessagingSystem", "Received ${fetchedMessages.size} messages")
-            onMessagesReceived(fetchedMessages)
-        }
-}
-
-private fun saveMessageAndUpdateChat(
-    db: FirebaseFirestore,
-    messageRef: Message,
-    chatDocumentId: String,
-    currentUser: FirebaseUser,
-    targetUserId: String,
-    messageContent: String,
-    deletedFor: List<String> = emptyList()
-) {
-    db.collection("messages")
-        .document(messageRef.id)
-        .set(messageRef)
-        .addOnSuccessListener {
-            val chatUpdates = hashMapOf<String, Any>(
-                "participants" to listOf(currentUser.uid, targetUserId),
-                "lastMessageTimestamp" to System.currentTimeMillis(),
-                "lastMessage" to messageContent,
-                "lastMessageSenderId" to currentUser.uid,
-                "deletedFor" to deletedFor  // Important - keep track of who deleted the chat
-            )
-
-            db.collection("chats")
-                .document(chatDocumentId)
-                .set(chatUpdates, SetOptions.merge())
-                .addOnSuccessListener {
-                    Log.d("MessagingSystem", "Chat document updated")
-                }
-                .addOnFailureListener { e ->
-                    Log.e("MessagingSystem", "Error updating chat document", e)
-                }
-        }
-        .addOnFailureListener { e ->
-            Log.e("MessagingSystem", "Error sending message", e)
-        }
-}
-
-
-
 
