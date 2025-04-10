@@ -72,6 +72,7 @@ import coil.request.ImageRequest
 import com.example.enjoybook.theme.primaryColor
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -112,6 +113,13 @@ fun ProfilePage(
 
     var originalPassword by remember { mutableStateOf("") }
     var isCurrentUserProfile by remember { mutableStateOf(true) }
+
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmNewPassword by remember { mutableStateOf("") }
+    var currentPasswordVisible by remember { mutableStateOf(false) }
+    var newPasswordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
 
     val secondaryColor = Color(0xFF1A8A8F)
     val backgroundColor = (primaryColor.copy(alpha = 0.1f))
@@ -199,6 +207,26 @@ fun ProfilePage(
         }
     }
 
+    fun isPasswordValid(password: String): Pair<Boolean, String> {
+        val minLength = 8
+        val hasUpperCase = password.any { it.isUpperCase() }
+        val hasDigit = password.any { it.isDigit() }
+        val hasSpecialChar = password.any { !it.isLetterOrDigit() }
+
+        return when {
+            password.length < minLength ->
+                Pair(false, "The password must contain at least $minLength characters")
+            !hasUpperCase ->
+                Pair(false, "The password must contain at least one uppercase letter")
+            !hasDigit ->
+                Pair(false, "The password must contain at least one number")
+            !hasSpecialChar ->
+                Pair(false, "The password must contain at least one special character (@, #, $, etc...)")
+            else ->
+                Pair(true, "Password valid")
+        }
+    }
+
     fun saveUserData() {
         if (currentUser == null) {
             errorMessage = "You must be logged in to save profile"
@@ -212,8 +240,35 @@ fun ProfilePage(
             return
         }
 
+        val isPasswordChangeRequested = newPassword.isNotBlank() || confirmNewPassword.isNotBlank()
+
+        if (isPasswordChangeRequested) {
+            // Verificare che la password attuale sia stata inserita
+            if (currentPassword.isBlank()) {
+                errorMessage = "Current password is required to change password"
+                showErrorDialog = true
+                return
+            }
+
+            // Verificare che le nuove password corrispondano
+            if (newPassword != confirmNewPassword) {
+                errorMessage = "New passwords do not match"
+                showErrorDialog = true
+                return
+            }
+
+            // Verificare che la nuova password soddisfi i requisiti di sicurezza
+            val (isValid, validationMessage) = isPasswordValid(newPassword)
+            if (!isValid) {
+                errorMessage = validationMessage
+                showErrorDialog = true
+                return
+            }
+        }
+
         isSaving = true
 
+        // Verificare se lo username è già preso
         firestore.collection("users")
             .whereEqualTo("username", username)
             .get()
@@ -225,13 +280,8 @@ fun ProfilePage(
                     isSaving = false
                     errorMessage = "Username is already taken. Please choose a different username."
                     showErrorDialog = true
-                    Toast.makeText(
-                        context,
-                        "Username is already taken. Please choose a different username.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-
                 } else {
+                    // Preparare i dati utente da aggiornare
                     val userData = hashMapOf(
                         "name" to name,
                         "surname" to surname,
@@ -247,6 +297,7 @@ fun ProfilePage(
                         userData["profilePictureUrl"] = it.toString()
                     }
 
+                    // Funzione per aggiornare Firestore
                     val updateFirestore = {
                         firestore.collection("users").document(currentUser.uid)
                             .update(userData as Map<String, Any>)
@@ -265,37 +316,62 @@ fun ProfilePage(
                                 showErrorDialog = true
                                 Toast.makeText(
                                     context,
-                                    "Profile updated successfully",
+                                    "Failed to update profile: ${e.message}",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
                     }
 
+                    // Verificare il tipo di account e procedere con il cambio password se richiesto
                     firestore.collection("users").document(currentUser.uid)
                         .get()
                         .addOnSuccessListener { document ->
                             val isGoogleAuth = document.getBoolean("isGoogleAuth") ?: false
 
-                            if (password.isNotBlank() && password != originalPassword) {
+                            if (isPasswordChangeRequested) {
                                 if (isGoogleAuth) {
+                                    // Gli account Google non possono cambiare password dall'app
                                     isSaving = false
                                     errorMessage =
                                         "Google accounts cannot change their password through the app. Please manage your Google account settings instead."
                                     showErrorDialog = true
                                 } else {
-                                    currentUser.updatePassword(password)
-                                        .addOnCompleteListener { task ->
-                                            if (task.isSuccessful) {
-                                                updateFirestore()
-                                            } else {
-                                                isSaving = false
-                                                errorMessage =
-                                                    "Failed to update password: ${task.exception?.message}"
-                                                showErrorDialog = true
-                                            }
+                                    // Riautenticare l'utente prima di cambiare la password
+                                    val credential = EmailAuthProvider.getCredential(currentUser.email!!, currentPassword)
+
+                                    currentUser.reauthenticate(credential)
+                                        .addOnSuccessListener {
+                                            // Dopo la riautenticazione, aggiorna la password
+                                            currentUser.updatePassword(newPassword)
+                                                .addOnSuccessListener {
+                                                    // Reset dei campi password dopo l'aggiornamento
+                                                    currentPassword = ""
+                                                    newPassword = ""
+                                                    confirmNewPassword = ""
+
+                                                    // Aggiorna i dati dell'utente su Firestore
+                                                    updateFirestore()
+
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Password updated successfully",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                                .addOnFailureListener { e ->
+                                                    isSaving = false
+                                                    errorMessage = "Failed to update password: ${e.message}"
+                                                    showErrorDialog = true
+                                                }
+                                        }
+                                        .addOnFailureListener { e ->
+                                            isSaving = false
+                                            errorMessage = "Authentication failed: Current password is incorrect"
+                                            showErrorDialog = true
                                         }
                                 }
                             } else {
+                                // Se non c'è cambio password, aggiorna solo i dati dell'utente
                                 updateFirestore()
                             }
                         }
@@ -311,6 +387,23 @@ fun ProfilePage(
                 errorMessage = "Failed to check username uniqueness: ${e.message}"
                 showErrorDialog = true
             }
+    }
+
+
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = { Text("Error") },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                TextButton(onClick = { showErrorDialog = false }) {
+                    Text("OK")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 
     val sheetState = rememberModalBottomSheetState()
@@ -525,11 +618,44 @@ fun ProfilePage(
                                 )
 
                                 ProfileField(
-                                    label = "Password",
-                                    value = password,
-                                    onValueChange = { password = it },
+                                    label = "Current password",
+                                    value = currentPassword,
+                                    onValueChange = { currentPassword = it },
+                                    isEditing = isEditing,
+                                    leadingIcon = Icons.Default.Password,
+                                    isPassword = true,
+                                    passwordVisible = currentPasswordVisible,
+                                    onTogglePasswordVisibility = { currentPasswordVisible = !currentPasswordVisible },
+                                    isEnabled = !isGoogleAccount.value,
+                                    disabledMessage = if (isGoogleAccount.value)
+                                        "Password management is handled through your Google account"
+                                    else null
+                                )
+
+                                ProfileField(
+                                    label = "New password",
+                                    value = newPassword,
+                                    onValueChange = { newPassword = it },
                                     isEditing = isEditing,
                                     leadingIcon = Icons.Default.Lock,
+                                    isPassword = true,
+                                    passwordVisible = newPasswordVisible,
+                                    onTogglePasswordVisibility = { newPasswordVisible = !newPasswordVisible },
+                                    isEnabled = !isGoogleAccount.value,
+                                    disabledMessage = if (isGoogleAccount.value)
+                                        "Password management is handled through your Google account"
+                                    else null
+                                )
+
+                                ProfileField(
+                                    label = "Confirm new password",
+                                    value = confirmNewPassword,
+                                    onValueChange = { confirmNewPassword = it },
+                                    isEditing = isEditing,
+                                    leadingIcon = Icons.Default.Lock,
+                                    isPassword = true,
+                                    passwordVisible = confirmPasswordVisible,
+                                    onTogglePasswordVisibility = { confirmPasswordVisible = !confirmPasswordVisible },
                                     isEnabled = !isGoogleAccount.value,
                                     disabledMessage = if (isGoogleAccount.value)
                                         "Password management is handled through your Google account"

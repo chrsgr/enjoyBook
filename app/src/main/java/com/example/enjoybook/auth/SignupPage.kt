@@ -95,13 +95,29 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
             "Invalid email format"
         } else null
 
+        val minLength = 8
+        val hasUpperCase = password.any { it.isUpperCase() }
+        val hasDigit = password.any { it.isDigit() }
+        val hasSpecialChar = password.any { !it.isLetterOrDigit() }
+
         passwordError = if (password.isEmpty()) {
             isValid = false
             "Password is required"
-        } else if (password.length < 6) {
+        } else if (password.length < minLength) {
             isValid = false
-            "Password must be at least 6 characters"
-        } else null
+            "Password must be at least ${minLength} characters"
+        } else if(!hasUpperCase){
+            isValid = false
+            "The password must contain at least one uppercase letter"
+        } else if(!hasDigit){
+            isValid = false
+            "The password must contain at least one digit"
+        }
+        else if(!hasSpecialChar){
+            isValid = false
+            "The password must contain at least one special character (@, #, $, etc...)"
+        }
+        else null
 
         confirmPasswordError = if (confirmPassword.isEmpty()) {
             isValid = false
