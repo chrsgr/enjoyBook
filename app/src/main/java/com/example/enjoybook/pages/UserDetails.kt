@@ -1008,7 +1008,7 @@ private fun fetchReadsUser(userId: String, onComplete: (List<Book>) -> Unit) {
 
     db.collection("borrows")
         .whereEqualTo("borrowerId", userId)
-        .whereEqualTo("status", "concluded")
+        .whereEqualTo("status", "returned")
         .get()
         .addOnSuccessListener { userBorrowsSnapshot ->
             val bookBorrowIds = userBorrowsSnapshot.documents.mapNotNull { it.getString("bookId") }.toSet()

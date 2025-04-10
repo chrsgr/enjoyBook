@@ -459,6 +459,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                 )
                             }
                         }
+                        if (currentUserEmail != book?.userEmail) {
 
                         Box(
                             modifier = Modifier
@@ -493,12 +494,16 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                     .size(36.dp)
                                     .background(Color.White.copy(alpha = 0.8f), CircleShape)
                             ) {
-                                Icon(
-                                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
-                                    contentDescription = "Favorite",
-                                    tint = Color.Red,
-                                    modifier = Modifier.size(20.dp)
-                                )
+
+
+
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = "Favorite",
+                                        tint = Color.Red,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
 
@@ -641,48 +646,51 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     }
 
                     // Available/Unavailable button
-                    Button(
-                        onClick = { toggleLoanRequest() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = when (buttonText) {
-                                "requested" -> warningColor
-                                "not available" -> errorColor
-                                else -> successColor
-                            }
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        val icon = when (buttonText) {
-                            "requested" -> Icons.Default.Pending
-                            "not available" -> Icons.Default.DoNotTouch
-                            else -> Icons.Default.CheckCircle
-                        }
+                    if (currentUserEmail != book?.userEmail) {
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(vertical = 4.dp)
+
+                        Button(
+                            onClick = { toggleLoanRequest() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = when (buttonText) {
+                                    "requested" -> warningColor
+                                    "not available" -> errorColor
+                                    else -> successColor
+                                }
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = when (buttonText) {
-                                    "requested" -> "Requested"
-                                    "not available" -> "Unavailable"
-                                    else -> "Available"
-                                },
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium
-                            )
+                            val icon = when (buttonText) {
+                                "requested" -> Icons.Default.Pending
+                                "not available" -> Icons.Default.DoNotTouch
+                                else -> Icons.Default.CheckCircle
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = when (buttonText) {
+                                        "requested" -> "Requested"
+                                        "not available" -> "Unavailable"
+                                        else -> "Available"
+                                    },
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
-
                     // Review button
                     Button(
                         onClick = { showReviewDialog = true },
@@ -710,7 +718,9 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         }
                     }
                 }
+
                 Spacer(modifier = Modifier.height(24.dp))
+
 
                 Card(
                     modifier = Modifier

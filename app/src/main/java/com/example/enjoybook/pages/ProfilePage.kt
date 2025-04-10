@@ -582,13 +582,6 @@ fun ProfilePage(
                                     leadingIcon = Icons.Default.Phone
                                 )
 
-                                ProfileField(
-                                    label = "Password",
-                                    value = password,
-                                    onValueChange = { password = it },
-                                    isEditing = false,
-                                    leadingIcon = Icons.Default.Password
-                                )
 
                                 var stringPrivate = if(isPrivate) "Private" else "Public"
 
