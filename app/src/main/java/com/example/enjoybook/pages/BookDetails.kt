@@ -69,7 +69,6 @@ import kotlinx.coroutines.flow.asStateFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-
 fun BookDetails(navController: NavController, authViewModel: AuthViewModel, bookId: String) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     val currentUserEmail = currentUser?.email ?: ""
@@ -101,7 +100,9 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
     val firestore = FirebaseFirestore.getInstance()
 
-
+    // Updated to handle string availability status
+    var availabilityStatus by remember { mutableStateOf("available") }
+    var buttonText by remember { mutableStateOf("available") }
 
     LaunchedEffect(Unit) {
         if (currentUser != null) {
@@ -136,9 +137,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     var bookReviews by remember { mutableStateOf<List<Review>>(emptyList()) }
     val submittedReviews = remember { mutableStateListOf<Pair<String, String>>() }
 
-    var isBookAvailable by remember { mutableStateOf(true) }
-    var buttonText by remember { mutableStateOf("available") }
-
     LaunchedEffect(bookId) {
         if (bookId.isNotEmpty()) {
             db.collection("books").document(bookId)
@@ -147,8 +145,9 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     if (document != null && document.exists()) {
                         book = document.toObject(Book::class.java)
 
-                        isBookAvailable = document.getBoolean("isAvailable") ?: true
-                        buttonText = if (isBookAvailable) "available" else "not available"
+                        // Get availability status as string
+                        availabilityStatus = document.getString("isAvailable") ?: "available"
+                        buttonText = availabilityStatus
 
                         val documentId = document.id
 
@@ -186,7 +185,7 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
     var showContactDialog by remember { mutableStateOf(false) }
     var showLoanRequestDialog by remember { mutableStateOf(false) }
     var deleteRequest by remember { mutableStateOf(false) }
-    var isLoanRequested by remember { mutableStateOf(false) }
+    var isLoanRequested by remember { mutableStateOf(availabilityStatus == "requested") }
     val coroutineScope = rememberCoroutineScope()
 
     var isFavorite by remember { mutableStateOf(FavoritesManager.isBookFavorite(bookId)) }
@@ -256,53 +255,81 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         }
     }
 
-
+    // Updated to handle string availability status
     fun toggleLoanRequest() {
-        when {
-            isLoanRequested -> {
-                deleteRequest = true
-                isLoanRequested = false
-                buttonText = if (isBookAvailable) "available" else "not available"
+        when (availabilityStatus) {
+            "requested" -> {
+                // If the current user has requested this book
+                if (currentUserEmail == book?.userEmail) {
+                    // Book owner is canceling the request status
+                    availabilityStatus = "available"
+                    buttonText = "available"
 
-                NotificationManager.showNotification(
-                    message = "Loan request canceled successfully",
-                    type = SnackbarType.INFO,
-                    duration = 3000
-                )
+                    // Update the book's status in Firestore
+                    db.collection("books").document(bookId)
+                        .update("isAvailable", "available")
+                        .addOnSuccessListener {
+                            NotificationManager.showNotification(
+                                message = "Book is now available",
+                                type = SnackbarType.SUCCESS,
+                                duration = 3000
+                            )
+                        }
+                } else {
+                    // Someone else requested it, and now we're canceling
+                    deleteRequest = true
+                    availabilityStatus = "available"
+                    buttonText = "available"
 
-                coroutineScope.launch {
-                    delay(2000)
-                    deleteRequest = false
+                    // Update in Firestore
+                    db.collection("books").document(bookId)
+                        .update("isAvailable", "available")
+                        .addOnSuccessListener {
+                            NotificationManager.showNotification(
+                                message = "Loan request canceled successfully",
+                                type = SnackbarType.INFO,
+                                duration = 3000
+                            )
+                        }
+
+                    coroutineScope.launch {
+                        delay(2000)
+                        deleteRequest = false
+                    }
                 }
             }
-
-            isBookAvailable -> {
-                showLoanRequestDialog = true
-                isLoanRequested = true
+            "available" -> {
+                // Book is available, so we're requesting it
+                availabilityStatus = "requested"
                 buttonText = "requested"
+                isLoanRequested = true
 
-                sendBookRequestNotification(book?.userId.toString(), book!!.title, book!!.id)
+                // Update in Firestore
+                db.collection("books").document(bookId)
+                    .update("isAvailable", "requested")
+                    .addOnSuccessListener {
+                        // Send notification to book owner
+                        sendBookRequestNotification(book?.userId.toString(), book!!.title, book!!.id)
 
-                NotificationManager.showNotification(
-                    message = "Loan request sent successfully",
-                    type = SnackbarType.SUCCESS,
-                    duration = 3000,
+                        NotificationManager.showNotification(
+                            message = "Loan request sent successfully",
+                            type = SnackbarType.SUCCESS,
+                            duration = 3000
+                        )
+                    }
 
-                )
-
+                showLoanRequestDialog = true
                 coroutineScope.launch {
                     delay(2000)
                     showLoanRequestDialog = false
                 }
             }
-
-            else -> {
-                // "not available" case
+            "not available" -> {
+                // Book is not available
                 showLoanRequestDialog = false
                 isLoanRequested = false
                 buttonText = "not available"
 
-                // Show on-screen notification
                 NotificationManager.showNotification(
                     message = "Sorry, this book is currently unavailable",
                     type = SnackbarType.ERROR,
@@ -383,542 +410,534 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                         normalColor = textColor
                     )
 
+                    Spacer(modifier = Modifier.height(24.dp))
 
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(130.dp, 200.dp)
-                            .shadow(8.dp, RoundedCornerShape(8.dp))
-                            .background(Color(0xFFBDEBEE), shape = RoundedCornerShape(8.dp))
-                            .clickable { isFrontCover.value = !isFrontCover.value }
-                    ) {
-                        if ((isFrontCover.value && book?.frontCoverUrl != null) ||
-                            (!isFrontCover.value && book?.backCoverUrl != null)
-                        ) {
-                            val imageUrl =
-                                if (isFrontCover.value) book?.frontCoverUrl else book?.backCoverUrl
-
-                            val painter = rememberAsyncImagePainter(imageUrl)
-
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (painter.state is AsyncImagePainter.State.Loading) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        color = Color.White,
-                                        strokeWidth = 2.dp
-                                    )
-                                }
-                            }
-
-                            AsyncImage(
-                                model = imageUrl,
-                                contentDescription = if (isFrontCover.value) "Front Cover" else "Back Cover",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(8.dp)
-                                    .background(
-                                        Color.Black.copy(alpha = 0.7f),
-                                        RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = if (isFrontCover.value) "Front" else "Back",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.MenuBook,
-                                    contentDescription = "No Cover Available",
-                                    tint = primaryColor,
-                                    modifier = Modifier.size(64.dp)
-                                )
-                            }
-                        }
-                        if (currentUserEmail != book?.userEmail) {
-
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(8.dp)
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    if (!isFavorite) {
-                                        val favoriteBook = Book(
-                                            id = bookId,
-                                            author = book!!.author,
-                                            condition = book!!.condition,
-                                            edition = book!!.edition,
-                                            title = book!!.title,
-                                            titleLower = book!!.titleLower,
-                                            type = book!!.type,
-                                            userEmail = book!!.userEmail,
-                                            userId = book!!.userId,
-                                            year = book!!.year,
-                                            frontCoverUrl = book?.frontCoverUrl,
-                                            backCoverUrl = book?.backCoverUrl
-                                        )
-                                        toggleFavorite(favoriteBook)
-                                        isAnimating = true
-                                    } else {
-                                        toggleFavorite(book!!)
-                                    }
-                                    isFavorite = !isFavorite
-                                },
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(Color.White.copy(alpha = 0.8f), CircleShape)
-                            ) {
-
-
-
-                                    Icon(
-                                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = "Favorite",
-                                        tint = Color.Red,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        if (isAnimating) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Favorite,
-                                    contentDescription = null,
-                                    tint = Color.Red.copy(alpha = alpha),
-                                    modifier = Modifier
-                                        .scale(scale)
-                                        .size(24.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(24.dp))
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
                     ) {
-                        BookInfoItem(
-                            label = "AUTHORS",
-                            value = book?.author ?: "",
-                            textColor = textColor,
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(130.dp, 200.dp)
+                                .shadow(8.dp, RoundedCornerShape(8.dp))
+                                .background(Color(0xFFBDEBEE), shape = RoundedCornerShape(8.dp))
+                                .clickable { isFrontCover.value = !isFrontCover.value }
+                        ) {
+                            if ((isFrontCover.value && book?.frontCoverUrl != null) ||
+                                (!isFrontCover.value && book?.backCoverUrl != null)
+                            ) {
+                                val imageUrl =
+                                    if (isFrontCover.value) book?.frontCoverUrl else book?.backCoverUrl
 
-                        BookInfoItem(
-                            label = "EDITION",
-                        value = if (book?.edition.isNullOrEmpty()) "no edition available" else book!!.edition,
-                        textColor = textColor,
-                        )
-                        BookInfoItem(
-                            label = "YEAR",
-                            value = book?.year ?: "",
-                            textColor = textColor,
-                        )
-                        BookInfoItem(
-                            label = "GENRE",
-                            value = book?.type ?: "",
-                            textColor = textColor,
-                        )
-                        BookInfoItem(
-                            label = "CONDITION",
-                            value = book?.condition ?: "",
-                            textColor = textColor,
-                        )
-                    }
-                }
+                                val painter = rememberAsyncImagePainter(imageUrl)
 
-                Spacer(modifier = Modifier.height(32.dp))
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (painter.state is AsyncImagePainter.State.Loading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = Color.White,
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                }
 
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = cardBackground),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp)
-                    ) {
-                        Column {
-                            Text(
-                                text = "Description",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = primaryColor,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            if (book?.description?.isNotEmpty() == true) {
-                                ScrollableTextWithScrollbar(
-                                    text = book?.description?: "",
-                                    textColor = textColor,
-                                    scrollbarColor = primaryColor
+                                AsyncImage(
+                                    model = imageUrl,
+                                    contentDescription = if (isFrontCover.value) "Front Cover" else "Back Cover",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
                                 )
+
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(8.dp)
+                                        .background(
+                                            Color.Black.copy(alpha = 0.7f),
+                                            RoundedCornerShape(4.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isFrontCover.value) "Front" else "Back",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             } else {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = "No description available",
-                                        fontWeight = FontWeight.Medium,
-                                        color = textColor.copy(alpha = 0.6f)
+                                    Icon(
+                                        imageVector = Icons.Default.MenuBook,
+                                        contentDescription = "No Cover Available",
+                                        tint = primaryColor,
+                                        modifier = Modifier.size(64.dp)
+                                    )
+                                }
+                            }
+                            if (currentUserEmail != book?.userEmail) {
+
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .padding(8.dp)
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            if (!isFavorite) {
+                                                val favoriteBook = Book(
+                                                    id = bookId,
+                                                    author = book!!.author,
+                                                    condition = book!!.condition,
+                                                    edition = book!!.edition,
+                                                    title = book!!.title,
+                                                    titleLower = book!!.titleLower,
+                                                    type = book!!.type,
+                                                    userEmail = book!!.userEmail,
+                                                    userId = book!!.userId,
+                                                    year = book!!.year,
+                                                    frontCoverUrl = book?.frontCoverUrl,
+                                                    backCoverUrl = book?.backCoverUrl
+                                                )
+                                                toggleFavorite(favoriteBook)
+                                                isAnimating = true
+                                            } else {
+                                                toggleFavorite(book!!)
+                                            }
+                                            isFavorite = !isFavorite
+                                        },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Color.White.copy(alpha = 0.8f), CircleShape)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
+                                            contentDescription = "Favorite",
+                                            tint = Color.Red,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (isAnimating) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Favorite,
+                                        contentDescription = null,
+                                        tint = Color.Red.copy(alpha = alpha),
+                                        modifier = Modifier
+                                            .scale(scale)
+                                            .size(24.dp)
                                     )
                                 }
                             }
                         }
+
+                        Spacer(modifier = Modifier.width(24.dp))
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            BookInfoItem(
+                                label = "AUTHORS",
+                                value = book?.author ?: "",
+                                textColor = textColor,
+                            )
+
+                            BookInfoItem(
+                                label = "EDITION",
+                                value = if (book?.edition.isNullOrEmpty()) "no edition available" else book!!.edition,
+                                textColor = textColor,
+                            )
+                            BookInfoItem(
+                                label = "YEAR",
+                                value = book?.year ?: "",
+                                textColor = textColor,
+                            )
+                            BookInfoItem(
+                                label = "GENRE",
+                                value = book?.type ?: "",
+                                textColor = textColor,
+                            )
+                            BookInfoItem(
+                                label = "CONDITION",
+                                value = book?.condition ?: "",
+                                textColor = textColor,
+                            )
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(32.dp))
 
-
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-
-                    if (currentUserEmail != book?.userEmail) {
-                    // Contact button
-                    Button(
-                        onClick = { navController.navigate("messaging/${book?.userId}")},
-                        colors = ButtonDefaults.buttonColors(containerColor = secondaryColor),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = cardBackground),
+                        elevation = CardDefaults.cardElevation(4.dp)
                     ) {
-
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Chat,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp)
+                        ) {
+                            Column {
                                 Text(
-                                    text = "Chat with owner",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium
+                                    text = "Description",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = primaryColor,
+                                    modifier = Modifier.padding(bottom = 8.dp)
                                 )
+
+                                if (book?.description?.isNotEmpty() == true) {
+                                    ScrollableTextWithScrollbar(
+                                        text = book?.description?: "",
+                                        textColor = textColor,
+                                        scrollbarColor = primaryColor
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No description available",
+                                            fontWeight = FontWeight.Medium,
+                                            color = textColor.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
 
-                    // Available/Unavailable button
-                    if (currentUserEmail != book?.userEmail) {
+                    Spacer(modifier = Modifier.height(32.dp))
 
 
-                        Button(
-                            onClick = { toggleLoanRequest() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = when (buttonText) {
-                                    "requested" -> warningColor
-                                    "not available" -> errorColor
-                                    else -> successColor
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+
+                        if (currentUserEmail != book?.userEmail) {
+                            // Contact button
+                            Button(
+                                onClick = { navController.navigate("messaging/${book?.userId}")},
+                                colors = ButtonDefaults.buttonColors(containerColor = secondaryColor),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Chat,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Chat with owner",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                 }
-                            ),
+                            }
+                        }
+
+                        // Available/Unavailable button with updated colors and text based on status
+                        if (currentUserEmail != book?.userEmail) {
+                            Button(
+                                onClick = { toggleLoanRequest() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = when (availabilityStatus) {
+                                        "requested" -> warningColor
+                                        "not available" -> errorColor
+                                        else -> successColor
+                                    }
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                val icon = when (availabilityStatus) {
+                                    "requested" -> Icons.Default.Pending
+                                    "not available" -> Icons.Default.DoNotTouch
+                                    else -> Icons.Default.CheckCircle
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = when (availabilityStatus) {
+                                            "requested" -> "Requested"
+                                            "not available" -> "Unavailable"
+                                            else -> "Available"
+                                        },
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                        // Review button
+                        Button(
+                            onClick = { showReviewDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            val icon = when (buttonText) {
-                                "requested" -> Icons.Default.Pending
-                                "not available" -> Icons.Default.DoNotTouch
-                                else -> Icons.Default.CheckCircle
-                            }
-
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier.padding(vertical = 4.dp)
                             ) {
                                 Icon(
-                                    imageVector = icon,
+                                    imageVector = Icons.Default.Star,
                                     contentDescription = null,
                                     tint = Color.White,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = when (buttonText) {
-                                        "requested" -> "Requested"
-                                        "not available" -> "Unavailable"
-                                        else -> "Available"
-                                    },
+                                    text = "Review",
                                     color = Color.White,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
                         }
                     }
-                    // Review button
-                    Button(
-                        onClick = { showReviewDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Review",
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
 
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 180.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = cardBackground),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Box(
+                    Card(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp)
+                            .fillMaxWidth()
+                            .heightIn(min = 180.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = cardBackground),
+                        elevation = CardDefaults.cardElevation(4.dp)
                     ) {
-                        if (submittedReviews.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp)
+                        ) {
+                            if (submittedReviews.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Comment,
-                                        contentDescription = null,
-                                        tint = textColor.copy(alpha = 0.3f),
-                                        modifier = Modifier.size(36.dp)
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Comment,
+                                            contentDescription = null,
+                                            tint = textColor.copy(alpha = 0.3f),
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "No reviews yet",
+                                            fontWeight = FontWeight.Medium,
+                                            color = textColor.copy(alpha = 0.6f)
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Be the first to share your thoughts!",
+                                            fontSize = 12.sp,
+                                            color = textColor.copy(alpha = 0.4f),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            } else {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Comment,
+                                            contentDescription = null,
+                                            tint = primaryColor,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Reviews",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            color = primaryColor
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "(${submittedReviews.size})",
+                                            fontSize = 14.sp,
+                                            color = textColor.copy(alpha = 0.6f)
+                                        )
+                                    }
+
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "No reviews yet",
-                                        fontWeight = FontWeight.Medium,
-                                        color = textColor.copy(alpha = 0.6f)
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Be the first to share your thoughts!",
-                                        fontSize = 12.sp,
-                                        color = textColor.copy(alpha = 0.4f),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        } else {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Comment,
-                                        contentDescription = null,
-                                        tint = primaryColor,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Reviews",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp,
-                                        color = primaryColor
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "(${submittedReviews.size})",
-                                        fontSize = 14.sp,
-                                        color = textColor.copy(alpha = 0.6f)
-                                    )
-                                }
+                                    Divider(color = primaryColor.copy(alpha = 0.2f))
+                                    Spacer(modifier = Modifier.height(8.dp))
 
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Divider(color = primaryColor.copy(alpha = 0.2f))
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Column(
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    submittedReviews.forEachIndexed { index, (authorEmail, reviewText) ->
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 4.dp),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = if (authorEmail == currentUserEmail)
-                                                    primaryColor.copy(alpha = 0.1f)
-                                                else
-                                                    cardBackground
-                                            ),
-                                            shape = RoundedCornerShape(8.dp)
-                                        ) {
-                                            Row(
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        submittedReviews.forEachIndexed { index, (authorEmail, reviewText) ->
+                                            Card(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(12.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.Top
+                                                    .padding(vertical = 4.dp),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = if (authorEmail == currentUserEmail)
+                                                        primaryColor.copy(alpha = 0.1f)
+                                                    else
+                                                        cardBackground
+                                                ),
+                                                shape = RoundedCornerShape(8.dp)
                                             ) {
-                                                // Review text
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(32.dp)
-                                                                .background(
-                                                                    primaryColor.copy(alpha = 0.2f),
-                                                                    CircleShape
-                                                                ),
-                                                            contentAlignment = Alignment.Center
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(12.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.Top
+                                                ) {
+                                                    // Review text
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically
                                                         ) {
-                                                            Text(
-                                                                text = authorEmail.firstOrNull()
-                                                                    ?.uppercase() ?: "?",
-                                                                color = primaryColor,
-                                                                fontWeight = FontWeight.Bold
-                                                            )
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(32.dp)
+                                                                    .background(
+                                                                        primaryColor.copy(alpha = 0.2f),
+                                                                        CircleShape
+                                                                    ),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Text(
+                                                                    text = authorEmail.firstOrNull()
+                                                                        ?.uppercase() ?: "?",
+                                                                    color = primaryColor,
+                                                                    fontWeight = FontWeight.Bold
+                                                                )
+                                                            }
+                                                            Spacer(modifier = Modifier.width(8.dp))
+                                                            Column {
+                                                                Text(
+                                                                    text = authorEmail.split("@")
+                                                                        .first(),
+                                                                    fontSize = 14.sp,
+                                                                    fontWeight = FontWeight.Medium,
+                                                                    color = textColor
+                                                                )
+                                                            }
                                                         }
-                                                        Spacer(modifier = Modifier.width(8.dp))
-                                                        Column {
-                                                            Text(
-                                                                text = authorEmail.split("@")
-                                                                    .first(),
-                                                                fontSize = 14.sp,
-                                                                fontWeight = FontWeight.Medium,
-                                                                color = textColor
-                                                            )
-                                                        }
+
+                                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                                        Text(
+                                                            text = reviewText,
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = textColor,
+                                                            modifier = Modifier.padding(start = 40.dp)
+                                                        )
                                                     }
 
-                                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                                    Text(
-                                                        text = reviewText,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = textColor,
-                                                        modifier = Modifier.padding(start = 40.dp)
-                                                    )
-                                                }
-
-                                                // Delete button
-                                                if (authorEmail == currentUserEmail) {
-                                                    IconButton(
-                                                        onClick = {
-                                                            db.collection("reviews")
-                                                                .whereEqualTo("bookId", bookId)
-                                                                .whereEqualTo(
-                                                                    "userEmail",
-                                                                    currentUserEmail
-                                                                )
-                                                                .whereEqualTo(
-                                                                    "review",
-                                                                    submittedReviews[index].second
-                                                                )
-                                                                .get()
-                                                                .addOnSuccessListener { documents ->
-                                                                    for (document in documents) {
-                                                                        // Delete the document
-                                                                        db.collection("reviews")
-                                                                            .document(document.id)
-                                                                            .delete()
-                                                                            .addOnSuccessListener {
-                                                                                Log.d(
-                                                                                    "ReviewDialog",
-                                                                                    "Review successfully deleted"
-                                                                                )
-                                                                                // Remove from local state after successful deletion
-                                                                                submittedReviews.removeAt(
-                                                                                    index
-                                                                                )
-                                                                            }
-                                                                            .addOnFailureListener { e ->
-                                                                                Log.e(
-                                                                                    "ReviewDialog",
-                                                                                    "Error deleting review",
-                                                                                    e
-                                                                                )
-                                                                            }
+                                                    // Delete button
+                                                    if (authorEmail == currentUserEmail) {
+                                                        IconButton(
+                                                            onClick = {
+                                                                db.collection("reviews")
+                                                                    .whereEqualTo("bookId", bookId)
+                                                                    .whereEqualTo(
+                                                                        "userEmail",
+                                                                        currentUserEmail
+                                                                    )
+                                                                    .whereEqualTo(
+                                                                        "review",
+                                                                        submittedReviews[index].second
+                                                                    )
+                                                                    .get()
+                                                                    .addOnSuccessListener { documents ->
+                                                                        for (document in documents) {
+                                                                            // Delete the document
+                                                                            db.collection("reviews")
+                                                                                .document(document.id)
+                                                                                .delete()
+                                                                                .addOnSuccessListener {
+                                                                                    Log.d(
+                                                                                        "ReviewDialog",
+                                                                                        "Review successfully deleted"
+                                                                                    )
+                                                                                    // Remove from local state after successful deletion
+                                                                                    submittedReviews.removeAt(
+                                                                                        index
+                                                                                    )
+                                                                                }
+                                                                                .addOnFailureListener { e ->
+                                                                                    Log.e(
+                                                                                        "ReviewDialog",
+                                                                                        "Error deleting review",
+                                                                                        e
+                                                                                    )
+                                                                                }
+                                                                        }
                                                                     }
-                                                                }
-                                                        },
-                                                        modifier = Modifier
-                                                            .size(32.dp)
-                                                            .padding(4.dp)
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Delete,
-                                                            contentDescription = "Delete review",
-                                                            tint = errorColor,
-                                                            modifier = Modifier.size(16.dp)
-                                                        )
+                                                            },
+                                                            modifier = Modifier
+                                                                .size(32.dp)
+                                                                .padding(4.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Delete,
+                                                                contentDescription = "Delete review",
+                                                                tint = errorColor,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
-                                        }
 
-                                        if (index < submittedReviews.size - 1) {
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                            if (index < submittedReviews.size - 1) {
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                            }
                                         }
                                     }
                                 }
@@ -927,7 +946,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     }
                 }
             }
-                }
 
             if (showReviewDialog) {
                 Dialog(onDismissRequest = { showReviewDialog = false }) {
@@ -1072,7 +1090,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 }
             }
         }
-
     }
 }
 
@@ -1130,6 +1147,7 @@ private fun fetchReviewsForBook(bookId: String, callback: (List<Review>) -> Unit
             callback(emptyList())
         }
 }
+
 fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
     val currentUser = FirebaseAuth.getInstance().currentUser ?: return
 
@@ -1154,11 +1172,6 @@ fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
             Log.e("Notifications", "Error sending notification", e)
         }
 }
-
-
-
-
-
 
 object NotificationManager {
     private val _notificationState = MutableStateFlow<SnackbarNotificationState?>(null)
@@ -1189,11 +1202,3 @@ object NotificationManager {
         _notificationState.value = null
     }
 }
-
-
-
-
-
-
-
-

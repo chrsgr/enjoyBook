@@ -50,7 +50,9 @@ fun BookCardUser(
 
     val isNew = book.timestamp?.toDate()?.after(sevenDaysAgo.toDate()) == true
 
-    val isAvailable = book?.isAvailable
+    // Updated: handle isAvailable as a string
+    val availabilityStatus = book.isAvailable ?: "available"
+    val isBookAvailable = availabilityStatus == "available"
 
     val isFrontCover = remember { mutableStateOf(true) }
 
@@ -68,7 +70,7 @@ fun BookCardUser(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            if (isFrontCover.value && book?.frontCoverUrl != null)  {
+            if (isFrontCover.value && book.frontCoverUrl != null)  {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -76,7 +78,7 @@ fun BookCardUser(
                         .background(primaryColor.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    val imageUrl = book?.frontCoverUrl
+                    val imageUrl = book.frontCoverUrl
 
                     val painter = rememberAsyncImagePainter(imageUrl)
                     val state = painter.state
@@ -93,10 +95,10 @@ fun BookCardUser(
                         model = imageUrl,
                         contentDescription = "Front Cover",
                         modifier = Modifier.fillMaxSize(),
-                        //contentScale = ContentScale.Crop
                     )
 
-                    if (isNew && isAvailable != null && isAvailable == true) {
+                    // Show NEW tag if the book is new and available
+                    if (isNew && isBookAvailable) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
@@ -112,26 +114,41 @@ fun BookCardUser(
                         }
                     }
 
-                    else if ((isNew && isAvailable != null && isAvailable == false) || (!isNew && isAvailable != null && isAvailable == false)) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .background(Color.Red)
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "NOT AVAILABLE",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
+                    // Show availability status tags
+                    when (availabilityStatus) {
+                        "requested" -> {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .background(Color(0xFFFF9800)) // Orange for requested
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "REQUESTED",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                        "not available" -> {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .background(Color.Red)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "NOT AVAILABLE",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
                 }
-            }
-
-            else {
-
+            } else {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -146,7 +163,8 @@ fun BookCardUser(
                         modifier = Modifier.size(36.dp)
                     )
 
-                    if (isNew && isAvailable != null && isAvailable == true) {
+                    // Show NEW tag if the book is new and available
+                    if (isNew && isBookAvailable) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
@@ -162,19 +180,37 @@ fun BookCardUser(
                         }
                     }
 
-                    else if ((isNew && isAvailable != null && isAvailable == false) || (!isNew && isAvailable != null && isAvailable == false)) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .background(primaryColor, shape = RoundedCornerShape(bottomEnd = 8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "NOT AVAILABLE",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
+                    // Show availability status tags
+                    when (availabilityStatus) {
+                        "requested" -> {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .background(Color(0xFFFF9800)) // Orange for requested
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "REQUESTED",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                        "not available" -> {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .background(Color.Red)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "NOT AVAILABLE",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
                 }
@@ -216,7 +252,6 @@ fun BookCardUser(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
             }
         }
     }
@@ -229,7 +264,6 @@ fun FavoriteBookCardUser(
     textColor: Color,
     onClick: () -> Unit
 ) {
-
     val isFrontCover = remember { mutableStateOf(true) }
 
     Card(
@@ -271,12 +305,9 @@ fun FavoriteBookCardUser(
                         model = imageUrl,
                         contentDescription = "Front Cover",
                         modifier = Modifier.fillMaxSize(),
-                        //contentScale = ContentScale.Crop
                     )
-
                 }
             } else {
-
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -290,7 +321,6 @@ fun FavoriteBookCardUser(
                         tint = primaryColor,
                         modifier = Modifier.size(36.dp)
                     )
-
                 }
             }
 
@@ -330,7 +360,6 @@ fun FavoriteBookCardUser(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
             }
         }
     }

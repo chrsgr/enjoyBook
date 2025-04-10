@@ -86,18 +86,16 @@ fun LibraryPage(navController: NavController) {
     var borrowedBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableStateOf(0) }
-    var idBorrow by remember {mutableStateOf("")}
-
 
     val primaryColor = Color(0xFFB4E4E8)
     val secondaryColor = Color(0xFF1A8A8F)
     val secondaryBackgroundColor = (primaryColor.copy(alpha = 0.1f))
 
-
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             val db = FirebaseFirestore.getInstance()
 
+            // Load borrowed books
             db.collection("borrows")
                 .whereEqualTo("borrowerId", currentUser.uid)
                 .whereEqualTo("status", "accepted")
@@ -119,18 +117,19 @@ fun LibraryPage(navController: NavController) {
                                         author = doc.getString("author") ?: "",
                                         type = doc.getString("type") ?: "",
                                         userId = doc.getString("userId") ?: "",
-                                        isAvailable = false,
+                                        isAvailable = "requested",
                                         userEmail = doc.getString("userEmail") ?: "",
                                         frontCoverUrl = doc.getString("frontCoverUrl") ?: null,
                                         backCoverUrl = doc.getString("backCoverUrl") ?: null
                                     )
                                 }
                             }
-                            .addOnFailureListener {  }
+                            .addOnFailureListener { /* Handle failure */ }
                     }
                 }
-                .addOnFailureListener { }
+                .addOnFailureListener { /* Handle failure */ }
 
+            // Load lent books with proper de-duplication
             withContext(Dispatchers.IO) {
                 try {
                     val borrowQuery = db.collection("borrows")
@@ -139,29 +138,40 @@ fun LibraryPage(navController: NavController) {
                         .get()
                         .await()
 
-                    val lentBookDetails = borrowQuery.documents.mapNotNull { borrowDoc ->
+                    // Use a HashSet of book IDs to track uniqueness
+                    val processedBookIds = HashSet<String>()
+                    val lentBooksList = mutableListOf<LentBook>()
+
+                    for (borrowDoc in borrowQuery.documents) {
+                        val bookId = borrowDoc.getString("bookId") ?: continue
+
+                        // Skip if we've already processed this book
+                        if (bookId in processedBookIds) continue
+
                         val borrowId = borrowDoc.id
-                        val bookId = borrowDoc.getString("bookId")
-                        val borrowerId = borrowDoc.getString("borrowerId")
+                        val borrowerId = borrowDoc.getString("borrowerId") ?: continue
 
-                        if (bookId != null && borrowerId != null) {
-                            val bookDoc = db.collection("books").document(bookId).get().await()
+                        // Add to processed set
+                        processedBookIds.add(bookId)
 
-                            if (bookDoc.getBoolean("isAvailable") != true) {
-                                val book = Book(
-                                    id = bookId,
-                                    title = bookDoc.getString("title") ?: "",
-                                    author = bookDoc.getString("author") ?: "",
-                                    type = bookDoc.getString("type") ?: "",
-                                    userId = bookDoc.getString("userId") ?: "",
-                                    isAvailable = false,
-                                    userEmail = bookDoc.getString("userEmail") ?: "",
-                                    frontCoverUrl = bookDoc.getString("frontCoverUrl") ?: null,
-                                    backCoverUrl = bookDoc.getString("backCoverUrl") ?: null
-                                )
+                        val bookDoc = db.collection("books").document(bookId).get().await()
 
-                                val borrowerDoc = db.collection("users").document(borrowerId).get().await()
+                        if (bookDoc.getString("isAvailable") == "not available") {
+                            val book = Book(
+                                id = bookId,
+                                title = bookDoc.getString("title") ?: "",
+                                author = bookDoc.getString("author") ?: "",
+                                type = bookDoc.getString("type") ?: "",
+                                userId = bookDoc.getString("userId") ?: "",
+                                isAvailable = "not available",
+                                userEmail = bookDoc.getString("userEmail") ?: "",
+                                frontCoverUrl = bookDoc.getString("frontCoverUrl") ?: null,
+                                backCoverUrl = bookDoc.getString("backCoverUrl") ?: null
+                            )
 
+                            val borrowerDoc = db.collection("users").document(borrowerId).get().await()
+
+                            lentBooksList.add(
                                 LentBook(
                                     book = book,
                                     borrowId = borrowId,
@@ -169,12 +179,12 @@ fun LibraryPage(navController: NavController) {
                                     borrowerName = borrowerDoc.getString("name") ?: "Unknown",
                                     borrowerEmail = borrowerDoc.getString("email") ?: ""
                                 )
-                            } else null
-                        } else null
+                            )
+                        }
                     }
 
                     withContext(Dispatchers.Main) {
-                        lentBooks = lentBookDetails
+                        lentBooks = lentBooksList
                         isLoading = false
                     }
                 } catch (e: Exception) {
@@ -266,8 +276,6 @@ fun LibraryPage(navController: NavController) {
         }
     }
 }
-
-
 
 @Composable
 fun BookGrid(
@@ -559,7 +567,6 @@ fun LentBookCard(lentBook: LentBook, navController: NavController) {
 
                 Surface(
                     shape = RoundedCornerShape(4.dp),
-                    //color = availableColor.copy(alpha = 0.2f),
                     color = primaryColor.copy(alpha = 0.2f),
                     modifier = Modifier
                         .clickable { showDialog = true }
@@ -621,7 +628,6 @@ fun LentBookCard(lentBook: LentBook, navController: NavController) {
             textContentColor = textColor.copy(alpha = 0.7f)
         )
     }
-
 }
 
 
@@ -647,21 +653,29 @@ fun sendBookReturnConfirmationNotification(lentBook: LentBook) {
             db.collection("notifications")
                 .add(returnConfirmationNotification)
                 .addOnSuccessListener {
+                    // Success handling if needed
                 }
                 .addOnFailureListener { e ->
+                    // Error handling if needed
                 }
         }
         .addOnFailureListener { e ->
+            // Error handling if needed
         }
 }
 
- fun updateBorrow(db: FirebaseFirestore, borrowId: String, bookId: String, context: Context) {
+fun updateBorrow(db: FirebaseFirestore, borrowId: String, bookId: String, context: Context) {
     try {
         Tasks.await(db.collection("borrows").document(borrowId)
             .update("status", "returned", "returnDate", System.currentTimeMillis()))
 
+        // Update to use string-based availability
+        val updates = hashMapOf<String, Any>(
+            "isAvailable" to "available"
+        )
+
         Tasks.await(db.collection("books").document(bookId)
-            .update("isAvailable", true))
+            .update(updates))
 
         Toast.makeText(context, "Book marked as returned", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
@@ -714,5 +728,3 @@ fun ClickableTextWithNavigation(
         }
     )
 }
-
-

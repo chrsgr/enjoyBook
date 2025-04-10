@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Pending
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -61,7 +62,8 @@ fun ListBookAddPage(navController: NavController) {
     val textColor = Color(0xFF333333)
     val deleteColor = Color(0xFFE57373)
     val availableColor = Color(0xFF81C784)
-    val unavailableColor = Color(0xFFFFB74D)
+    val requestedColor = Color(0xFFFF9800)
+    val unavailableColor = Color(0xFFE57373)
     val secondaryColor = Color(0xFF1A8A8F)
 
     var booksList by remember { mutableStateOf<List<BookWithId>>(emptyList()) }
@@ -97,8 +99,7 @@ fun ListBookAddPage(navController: NavController) {
                         "YOUR ADD BOOK LIST",
                         color = textColor,
                         fontWeight = FontWeight.Bold,
-
-                        )
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -116,8 +117,7 @@ fun ListBookAddPage(navController: NavController) {
                 windowInsets = WindowInsets(0)
             )
         },
-
-    floatingActionButton = {
+        floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate("add_book_screen") },
                 containerColor = primaryColor,
@@ -196,6 +196,7 @@ fun ListBookAddPage(navController: NavController) {
                             textColor = textColor,
                             deleteColor = deleteColor,
                             availableColor = availableColor,
+                            requestedColor = requestedColor,
                             unavailableColor = unavailableColor,
                             onDeleteClick = {
                                 scope.launch {
@@ -232,6 +233,7 @@ fun ListBookAddPage(navController: NavController) {
 
 
 data class BookWithId(val id: String, val book: Book)
+
 private fun loadUserBooks(db: FirebaseFirestore, userId: String?, onComplete: (List<BookWithId>) -> Unit) {
     if (userId == null) {
         onComplete(emptyList())
@@ -243,14 +245,14 @@ private fun loadUserBooks(db: FirebaseFirestore, userId: String?, onComplete: (L
         .get()
         .addOnSuccessListener { documents ->
             val booksList = documents.map { doc ->
-                val isAvailable = doc.getBoolean("isAvailable")
-
+                // Updated: get isAvailable as a string instead of boolean
+                val availabilityStatus = doc.getString("isAvailable") ?: "available"
 
                 BookWithId(
                     id = doc.id,
                     book = Book(
                         id = doc.id,
-                        isAvailable = isAvailable,
+                        isAvailable = availabilityStatus,
                         title = doc.getString("title") ?: "",
                         author = doc.getString("author") ?: "",
                         condition = doc.getString("condition") ?: "",
@@ -288,13 +290,14 @@ fun BookItem(
     textColor: Color,
     deleteColor: Color,
     availableColor: Color,
+    requestedColor: Color,
     unavailableColor: Color,
     onDeleteClick: () -> Unit,
     onEditClick: () -> Unit,
     onClick: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    var isAvailable by remember { mutableStateOf(book.isAvailable) }
+    var availabilityStatus by remember { mutableStateOf(book.isAvailable ?: "available") }
     var showDialog by remember { mutableStateOf(false) }
     var favoritesCount by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -313,23 +316,26 @@ fun BookItem(
             title = { Text("Update Availability") },
             text = {
                 Text(
-                    text = if (book.isAvailable == true) "Mark this book as unavailable?" else "Mark this book as available again?"
+                    text = when(availabilityStatus) {
+                        "available" -> "Mark this book as unavailable?"
+                        "not available" -> "Mark this book as available again?"
+                        "requested" -> "This book is currently requested. Change status?"
+                        else -> "Update book availability status?"
+                    }
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // Update local state
-                        isAvailable = if(isAvailable == false) true else false
+                        // Toggle between available and not available
+                        availabilityStatus = if(availabilityStatus == "available") "not available" else "available"
                         showDialog = false
 
                         // Update Firebase
                         scope.launch {
-                            isAvailable?.let {
-                                updateBookAvailability(
-                                    db, book.id, it, context, onUpdateComplete = { onRefresh() }
-                                )
-                            }
+                            updateBookAvailability(
+                                db, book.id, availabilityStatus, context, onUpdateComplete = { onRefresh() }
+                            )
                         }
                     }
                 ) {
@@ -369,14 +375,12 @@ fun BookItem(
                         .clip(RoundedCornerShape(4.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!book?.frontCoverUrl.isNullOrBlank()) {
+                    if (!book.frontCoverUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = book.frontCoverUrl,
                             contentDescription = "Book Cover",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
-
-
                         )
                     } else {
                         Icon(
@@ -393,7 +397,7 @@ fun BookItem(
                         .weight(1f)
                         .padding(start = 16.dp)
                 ) {
-                    // Sezione Titolo e Preferiti
+                    // Title and Favorites section
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -490,59 +494,87 @@ fun BookItem(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(30.dp)
                     ) {
-                        // Available
-                        if(book?.isAvailable == true) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = availableColor.copy(alpha = 0.2f),
-                                modifier = Modifier
-                                    .clickable { showDialog = true }
-                                    .padding(end = 4.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                        // Display different status based on availability
+                        when (availabilityStatus) {
+                            "available" -> {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = availableColor.copy(alpha = 0.2f),
+                                    modifier = Modifier
+                                        .clickable { showDialog = true }
+                                        .padding(end = 4.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = availableColor
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Available",
-                                        fontSize = 12.sp,
-                                        color = availableColor
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = availableColor
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Available",
+                                            fontSize = 12.sp,
+                                            color = availableColor
+                                        )
+                                    }
                                 }
                             }
-                        }
-
-                        else{
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = unavailableColor.copy(alpha = 0.2f),
-                                modifier = Modifier
-                                    .clickable { showDialog = true }
-                                    .padding(end = 4.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                            "requested" -> {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = requestedColor.copy(alpha = 0.2f),
+                                    modifier = Modifier
+                                        .clickable { showDialog = true }
+                                        .padding(end = 4.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Cancel,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = unavailableColor
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Unvailable",
-                                        fontSize = 12.sp,
-                                        color = unavailableColor
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Pending,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = requestedColor
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Requested",
+                                            fontSize = 12.sp,
+                                            color = requestedColor
+                                        )
+                                    }
+                                }
+                            }
+                            else -> {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = unavailableColor.copy(alpha = 0.2f),
+                                    modifier = Modifier
+                                        .clickable { showDialog = true }
+                                        .padding(end = 4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Cancel,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = unavailableColor
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Unavailable",
+                                            fontSize = 12.sp,
+                                            color = unavailableColor
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -579,8 +611,6 @@ fun BookItem(
                     }
                 }
             }
-
-
         }
     }
 }
@@ -588,12 +618,12 @@ fun BookItem(
 private suspend fun updateBookAvailability(
     db: FirebaseFirestore,
     bookId: String,
-    isAvailable: Boolean,
+    availabilityStatus: String,
     context: Context,
-    onUpdateComplete: () -> Unit = {})
-{
+    onUpdateComplete: () -> Unit = {}
+) {
     try {
-
+        // Check for active borrows if needed
         val borrowSnapshot = db.collection("borrows")
             .whereEqualTo("bookId", bookId)
             .whereEqualTo("status", "accepted")
@@ -602,50 +632,25 @@ private suspend fun updateBookAvailability(
 
         val bookBorrowIds = borrowSnapshot.documents.mapNotNull { it.getString("borrowId") }
 
-        if(bookBorrowIds.isNotEmpty()){
-
-        }
+        // Proceed with the update
+        val updates = hashMapOf<String, Any>(
+            "isAvailable" to availabilityStatus
+        )
 
         db.collection("books").document(bookId)
-            .update("isAvailable", isAvailable)
+            .update(updates)
             .await()
 
         withContext(Dispatchers.Main) {
+            val statusText = when (availabilityStatus) {
+                "available" -> "available"
+                "requested" -> "requested"
+                else -> "unavailable"
+            }
+
             Toast.makeText(
                 context,
-                "Book is now ${if (isAvailable) "available" else "unavailable"}",
-                Toast.LENGTH_SHORT
-            ).show()
-
-            onUpdateComplete()
-        }
-    } catch (e: Exception) {
-        withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                "Failed to update book availability: ${e.message}",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-}
-
-private suspend fun searchForBorrow(
-    db: FirebaseFirestore,
-    bookId: String,
-    isAvailable: Boolean,
-    context: Context,
-    onUpdateComplete: () -> Unit = {})
-{
-    try {
-        db.collection("books").document(bookId)
-            .update("isAvailable", isAvailable)
-            .await()
-
-        withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                "Book is now ${if (isAvailable) "available" else "unavailable"}",
+                "Book is now $statusText",
                 Toast.LENGTH_SHORT
             ).show()
 

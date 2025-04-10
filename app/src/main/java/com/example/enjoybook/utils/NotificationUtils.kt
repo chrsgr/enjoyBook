@@ -243,7 +243,7 @@ fun handleAcceptLoanRequest(notification: Notification) {
             Log.d("Notifications", "Original notification deleted immediately")
 
             db.collection("books").document(notification.bookId)
-                .update("isAvailable", false)
+                .update("isAvailable", "not available")
                 .addOnSuccessListener {
                     Log.d("Notifications", "Book marked as unavailable")
 

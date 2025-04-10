@@ -4,7 +4,7 @@ import com.google.firebase.Timestamp
 
 data class Book(
     val id: String = "",
-    val isAvailable: Boolean? = true,
+    val isAvailable: String = "",
     val author: String = "",
     val condition: String = "",
     val description: String = "",

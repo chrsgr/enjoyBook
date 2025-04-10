@@ -694,7 +694,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                                 .fillMaxWidth()
                                         ) {
                                             libraryBooks.value.forEach { book ->
-                                                if(book?.isAvailable == true) {
+
                                                     BookCardUser(
                                                         book = book,
                                                         primaryColor = primaryColor,
@@ -703,7 +703,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                                                             navController.navigate("bookDetails/${book.id}")
                                                         }
                                                     )
-                                                }
+
                                             }
                                         }
                                     }
@@ -960,6 +960,7 @@ private fun fetchLibraryBooks(userId: String, onComplete: (List<Book>) -> Unit) 
         .get()
         .addOnSuccessListener { documents ->
             val booksList = mutableListOf<Book>()
+            Log.d("bookslIST", booksList.toString());
             for (document in documents) {
                 val book = document.toObject(Book::class.java).copy(
                     id = document.id
@@ -1008,7 +1009,7 @@ private fun fetchReadsUser(userId: String, onComplete: (List<Book>) -> Unit) {
 
     db.collection("borrows")
         .whereEqualTo("borrowerId", userId)
-        .whereEqualTo("status", "returned")
+       // .whereEqualTo("status", "returned")
         .get()
         .addOnSuccessListener { userBorrowsSnapshot ->
             val bookBorrowIds = userBorrowsSnapshot.documents.mapNotNull { it.getString("bookId") }.toSet()
