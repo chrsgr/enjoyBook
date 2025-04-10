@@ -162,12 +162,13 @@ fun UserMessagingScreen(
                     if (!querySnapshot.isEmpty) {
                         val messageDoc = querySnapshot.documents[0]
 
-                        // Update the message
+                        // Update the message content and set edited flag to true
+                        // but DON'T update the timestamp
                         messageDoc.reference.update(
                             mapOf(
                                 "content" to messageContent,
-                                "edited" to true,
-                                "timestamp" to System.currentTimeMillis()
+                                "edited" to true
+                                // Removed "timestamp" update to preserve original timestamp
                             )
                         ).addOnSuccessListener {
                             // Update chat metadata
