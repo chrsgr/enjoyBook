@@ -88,6 +88,32 @@ fun UserMessagingScreen(
     }
 
 
+    // Helper function to update chat metadata
+    fun updateChatMetadata(
+        db: FirebaseFirestore,
+        chatDocumentId: String,
+        currentUserId: String,
+        targetUserId: String,
+        messageContent: String
+    ) {
+        val chatUpdates = hashMapOf<String, Any>(
+            "participants" to listOf(currentUserId, targetUserId),
+            "lastMessageTimestamp" to System.currentTimeMillis(),
+            "lastMessage" to messageContent,
+            "lastMessageSenderId" to currentUserId
+        )
+
+        db.collection("chats")
+            .document(chatDocumentId)
+            .set(chatUpdates, SetOptions.merge())
+            .addOnSuccessListener {
+                Log.d("MessagingSystem", "Chat document updated")
+            }
+            .addOnFailureListener { e ->
+                Log.e("MessagingSystem", "Error updating chat document", e)
+            }
+    }
+
     fun sendMessage(
         db: FirebaseFirestore,
         currentUser: FirebaseUser,
@@ -106,14 +132,40 @@ fun UserMessagingScreen(
 
         val chatDocumentId = listOf(currentUser.uid, targetUserId).sorted().joinToString("_")
 
+        if (editedMessage != null) {
+            // Get reference to the existing message document
+            db.collection("messages")
+                .whereEqualTo("id", editedMessage.id)
+                .get()
+                .addOnSuccessListener { querySnapshot ->
+                    if (!querySnapshot.isEmpty) {
+                        val messageDoc = querySnapshot.documents[0]
+
+                        // Update the message
+                        messageDoc.reference.update(
+                            mapOf(
+                                "content" to messageContent,
+                                "edited" to true,
+                                "timestamp" to System.currentTimeMillis()
+                            )
+                        ).addOnSuccessListener {
+                            // Update chat metadata
+                            updateChatMetadata(db, chatDocumentId, currentUser.uid, targetUserId, messageContent)
+                            Log.d("MessagingSystem", "Message edited successfully")
+                        }.addOnFailureListener { e ->
+                            Log.e("MessagingSystem", "Error editing message", e)
+                        }
+                    } else {
+                        Log.e("MessagingSystem", "Message to edit not found")
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("MessagingSystem", "Error finding message to edit", e)
+                }
+            return
+        }
+
         val messageRef = when {
-            editedMessage != null -> {
-                editedMessage.copy(
-                    content = messageContent,
-                    edited = true,
-                    timestamp = System.currentTimeMillis()
-                )
-            }
             replyToMessage != null -> {
                 Message(
                     id = UUID.randomUUID().toString(),
@@ -140,34 +192,91 @@ fun UserMessagingScreen(
             }
         }
 
-
+        // First check if chat exists and handle deletion status
         db.collection("chats")
             .document(chatDocumentId)
             .get()
             .addOnSuccessListener { chatDoc ->
                 if (chatDoc.exists()) {
                     val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
+                    val updatedDeletedFor = deletedFor.toMutableList()
 
-                    if (deletedFor.contains(targetUserId)) {
+                    // If current user had deleted this chat, remove them from deletedFor
+                    if (updatedDeletedFor.contains(currentUser.uid)) {
+                        updatedDeletedFor.remove(currentUser.uid)
 
-                        db.collection("chats")
-                            .document(chatDocumentId)
-                            .update("deletedFor", emptyList<String>())
-                            .addOnSuccessListener {
-                                Log.d("MessagingSystem", "Chat reactivated for recipient")
-                            }
-                            .addOnFailureListener { e ->
-                                Log.e("MessagingSystem", "Error reactivating chat", e)
-                            }
+                        // Don't remove the deletion timestamp - we'll still filter based on it
                     }
-                }
 
-                saveMessageAndUpdateChat(db, messageRef, chatDocumentId, currentUser, targetUserId, messageContent)
+                    // Save the message first
+                    db.collection("messages")
+                        .document(messageRef.id)
+                        .set(messageRef)
+                        .addOnSuccessListener {
+                            // Then update the chat metadata
+                            val chatUpdates = hashMapOf<String, Any>(
+                                "participants" to listOf(currentUser.uid, targetUserId),
+                                "lastMessageTimestamp" to System.currentTimeMillis(),
+                                "lastMessage" to messageContent,
+                                "lastMessageSenderId" to currentUser.uid,
+                                "deletedFor" to updatedDeletedFor  // Updated deletedFor list
+                            )
+
+                            db.collection("chats")
+                                .document(chatDocumentId)
+                                .set(chatUpdates, SetOptions.merge())
+                                .addOnSuccessListener {
+                                    Log.d("MessagingSystem", "Chat document updated")
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.e("MessagingSystem", "Error updating chat document", e)
+                                }
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("MessagingSystem", "Error sending message", e)
+                        }
+                } else {
+                    // Create new chat - no deletion history
+                    db.collection("messages")
+                        .document(messageRef.id)
+                        .set(messageRef)
+                        .addOnSuccessListener {
+                            val chatData = hashMapOf(
+                                "participants" to listOf(currentUser.uid, targetUserId),
+                                "lastMessageTimestamp" to System.currentTimeMillis(),
+                                "lastMessage" to messageContent,
+                                "lastMessageSenderId" to currentUser.uid,
+                                "deletedFor" to emptyList<String>()
+                            )
+
+                            db.collection("chats")
+                                .document(chatDocumentId)
+                                .set(chatData)
+                                .addOnSuccessListener {
+                                    Log.d("MessagingSystem", "New chat created")
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.e("MessagingSystem", "Error creating chat", e)
+                                }
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("MessagingSystem", "Error sending first message", e)
+                        }
+                }
             }
-        .addOnFailureListener { e ->
-            Log.e("MessagingSystem", "Error checking chat status", e)
-            saveMessageAndUpdateChat(db, messageRef, chatDocumentId, currentUser, targetUserId, messageContent)
-        }
+            .addOnFailureListener { e ->
+                Log.e("MessagingSystem", "Error checking chat status", e)
+                // Fallback to just sending message
+                db.collection("messages")
+                    .document(messageRef.id)
+                    .set(messageRef)
+                    .addOnSuccessListener {
+                        Log.d("MessagingSystem", "Message sent (fallback)")
+                    }
+                    .addOnFailureListener { e2 ->
+                        Log.e("MessagingSystem", "Error sending message (fallback)", e2)
+                    }
+            }
     }
 
     Scaffold(
@@ -300,7 +409,24 @@ fun UserMessagingScreen(
                 IconButton(
                     onClick = {
                         if (currentUser != null) {
-                            sendMessage(db, currentUser, targetUserId, newMessageText)
+                            when {
+                                messageToEdit != null -> {
+                                    // Handle edit
+                                    sendMessage(db, currentUser, targetUserId, newMessageText,
+                                        replyToMessage = null, editedMessage = messageToEdit)
+                                    messageToEdit = null
+                                }
+                                messageToReply != null -> {
+                                    // Handle reply
+                                    sendMessage(db, currentUser, targetUserId, newMessageText,
+                                        replyToMessage = messageToReply)
+                                    messageToReply = null
+                                }
+                                else -> {
+                                    // Normal message
+                                    sendMessage(db, currentUser, targetUserId, newMessageText)
+                                }
+                            }
                             newMessageText = ""
                         }
                     },
@@ -400,7 +526,8 @@ fun MessageItem(
                 Card(
                     modifier = Modifier
                         .widthIn(max = 250.dp)
-                        .padding(bottom = 4.dp),
+                        .padding(bottom = 4.dp)
+                        .align(if (isCurrentUser) Alignment.End else Alignment.Start),
                     colors = CardDefaults.cardColors(
                         containerColor = Color.LightGray.copy(alpha = 0.3f)
                     ),
@@ -419,13 +546,22 @@ fun MessageItem(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        Text(
-                            text = replyContent,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Column {
+                            Text(
+                                text = "Reply to message:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.DarkGray,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                text = replyContent,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -433,6 +569,7 @@ fun MessageItem(
             Card(
                 modifier = Modifier
                     .widthIn(max = 300.dp)
+                    .align(if (isCurrentUser) Alignment.End else Alignment.Start)
                     .combinedClickable(
                         onClick = { expanded = !expanded },
                         onLongClick = { expanded = true }
@@ -459,7 +596,7 @@ fun MessageItem(
 
                     if (message.edited) {
                         Text(
-                            text = "Edit",
+                            text = "Edited",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (isCurrentUser) Color.White.copy(alpha = 0.7f) else Color.Gray,
                             modifier = Modifier
@@ -472,7 +609,9 @@ fun MessageItem(
 
             if (expanded) {
                 Row(
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .align(if (isCurrentUser) Alignment.End else Alignment.Start),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     TextButton(onClick = {
@@ -507,7 +646,6 @@ fun MessageItem(
         }
     }
 }
-
 
 fun markMessagesAsRead(
     db: FirebaseFirestore,
@@ -561,8 +699,78 @@ fun fetchMessages(
     targetUserId: String,
     onMessagesReceived: (List<Message>) -> Unit
 ) {
-    Log.d("ChatMessage", "Configurando listener per messaggi tra $currentUserId e $targetUserId")
+    val chatDocumentId = listOf(currentUserId, targetUserId).sorted().joinToString("_")
 
+    // First get the chat document to check deletion status
+    db.collection("chats")
+        .document(chatDocumentId)
+        .get()
+        .addOnSuccessListener { chatDoc ->
+            var deletionTimestamp: Long = 0
+
+            if (chatDoc.exists()) {
+                // Check if current user previously deleted this chat
+                val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
+
+                // Get the user-specific deletion timestamp field
+                val deletionField = "deletedTimestamp_$currentUserId"
+                deletionTimestamp = chatDoc.getLong(deletionField) ?: 0
+
+                Log.d("MessagingSystem", "Deletion timestamp for $currentUserId: $deletionTimestamp")
+            }
+
+            // Now fetch messages with appropriate filtering
+            val messageQuery = db.collection("messages")
+                .where(
+                    Filter.or(
+                        Filter.and(
+                            Filter.equalTo("senderId", currentUserId),
+                            Filter.equalTo("receiverId", targetUserId)
+                        ),
+                        Filter.and(
+                            Filter.equalTo("senderId", targetUserId),
+                            Filter.equalTo("receiverId", currentUserId)
+                        )
+                    )
+                )
+                .orderBy("timestamp", Query.Direction.ASCENDING)
+
+            messageQuery.addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.e("MessagingSystem", "Error fetching messages: ${e.message}")
+                    return@addSnapshotListener
+                }
+
+                val fetchedMessages = snapshot?.toObjects(Message::class.java) ?: emptyList()
+
+                // Filter out messages before deletion timestamp if needed
+                val filteredMessages = if (deletionTimestamp > 0) {
+                    Log.d("MessagingSystem", "Filtering messages before $deletionTimestamp")
+                    fetchedMessages.filter { it.timestamp > deletionTimestamp }
+                } else {
+                    fetchedMessages
+                }
+
+                Log.d("MessagingSystem",
+                    "Received ${fetchedMessages.size} messages, showing ${filteredMessages.size} after filtering")
+
+                onMessagesReceived(filteredMessages)
+            }
+        }
+        .addOnFailureListener { e ->
+            Log.e("MessagingSystem", "Error checking chat deletion status: ${e.message}")
+            // Fallback to fetching all messages if we can't determine deletion status
+            defaultFetchMessages(db, currentUserId, targetUserId, onMessagesReceived)
+        }
+}
+
+// Fallback function to fetch all messages if deletion check fails
+private fun defaultFetchMessages(
+    db: FirebaseFirestore,
+    currentUserId: String,
+    targetUserId: String,
+    onMessagesReceived: (List<Message>) -> Unit
+) {
     db.collection("messages")
         .where(
             Filter.or(
@@ -584,8 +792,39 @@ fun fetchMessages(
             }
 
             val fetchedMessages = snapshot?.toObjects(Message::class.java) ?: emptyList()
-            Log.d("MessagingSystem", "Ricevuti ${fetchedMessages.size} messaggi dal listener")
+            onMessagesReceived(fetchedMessages)
+        }
+}
 
+// Fallback function if we can't get deletion info
+private fun fetchAllMessages(
+    db: FirebaseFirestore,
+    currentUserId: String,
+    targetUserId: String,
+    onMessagesReceived: (List<Message>) -> Unit
+) {
+    db.collection("messages")
+        .where(
+            Filter.or(
+                Filter.and(
+                    Filter.equalTo("senderId", currentUserId),
+                    Filter.equalTo("receiverId", targetUserId)
+                ),
+                Filter.and(
+                    Filter.equalTo("senderId", targetUserId),
+                    Filter.equalTo("receiverId", currentUserId)
+                )
+            )
+        )
+        .orderBy("timestamp", Query.Direction.ASCENDING)
+        .addSnapshotListener { snapshot, e ->
+            if (e != null) {
+                Log.e("MessagingSystem", "Error fetching messages: ${e.message}")
+                return@addSnapshotListener
+            }
+
+            val fetchedMessages = snapshot?.toObjects(Message::class.java) ?: emptyList()
+            Log.d("MessagingSystem", "Received ${fetchedMessages.size} messages")
             onMessagesReceived(fetchedMessages)
         }
 }
@@ -596,7 +835,8 @@ private fun saveMessageAndUpdateChat(
     chatDocumentId: String,
     currentUser: FirebaseUser,
     targetUserId: String,
-    messageContent: String
+    messageContent: String,
+    deletedFor: List<String> = emptyList()
 ) {
     db.collection("messages")
         .document(messageRef.id)
@@ -606,11 +846,9 @@ private fun saveMessageAndUpdateChat(
                 "participants" to listOf(currentUser.uid, targetUserId),
                 "lastMessageTimestamp" to System.currentTimeMillis(),
                 "lastMessage" to messageContent,
-                "lastMessageSenderId" to currentUser.uid
+                "lastMessageSenderId" to currentUser.uid,
+                "deletedFor" to deletedFor  // Important - keep track of who deleted the chat
             )
-
-
-            chatUpdates["deletedFor"] = FieldValue.arrayRemove(targetUserId)
 
             db.collection("chats")
                 .document(chatDocumentId)

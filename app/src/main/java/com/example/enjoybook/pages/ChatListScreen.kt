@@ -68,42 +68,44 @@ fun ChatListScreen(
                     .get()
                     .await()
 
-                val chats = chatsSnapshot.documents.mapNotNull { chatDoc ->
-                    val participants = chatDoc.get("participants") as? List<String> ?: return@mapNotNull null
+                val chatItems = mutableListOf<ChatItem>()
+
+                for (chatDoc in chatsSnapshot.documents) {
+                    val participants = chatDoc.get("participants") as? List<String> ?: continue
                     val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
 
                     if (deletedFor.contains(currentUser.uid)) {
-                        return@mapNotNull null
+                        continue
                     }
 
-                    val partnerId = participants.first { it != currentUser.uid }
+                    val partnerId = participants.firstOrNull { it != currentUser.uid } ?: continue
 
                     val partnerSnapshot = db.collection("users")
                         .document(partnerId)
                         .get()
                         .await()
 
-                    if (!partnerSnapshot.exists()) return@mapNotNull null
+                    if (!partnerSnapshot.exists()) continue
 
                     val unreadMessagesCount = db.collection("messages")
                         .whereEqualTo("receiverId", currentUser.uid)
+                        .whereEqualTo("senderId", partnerId)
                         .whereEqualTo("read", false)
                         .get()
                         .await()
                         .size()
 
-
-                    ChatItem(
+                    chatItems.add(ChatItem(
                         partnerId = partnerId,
                         partnerName = partnerSnapshot.getString("username") ?: "Unknown User",
                         lastMessage = chatDoc.getString("lastMessage") ?: "",
-                        lastMessageTimestamp = chatDoc.getLong("lastMessageTimestamp") ?: 0L,
+                        lastMessageTimestamp = chatDoc.getLong("lastMessageTimestamp") ?: System.currentTimeMillis(),
                         profilePictureUrl = partnerSnapshot.getString("profilePictureUrl") ?: "",
                         unreadMessages = unreadMessagesCount
-                    )
+                    ))
                 }
 
-                chatList = chats
+                chatList = chatItems.sortedByDescending { it.lastMessageTimestamp }
                 isLoading = false
 
             } catch (e: Exception) {
@@ -120,15 +122,11 @@ fun ChatListScreen(
             val currentUserId = currentUser?.uid ?: return@launch
 
             try {
-                val possibleChatId1 = "${currentUserId}_${chatItem.partnerId}"
-                val possibleChatId2 = "${chatItem.partnerId}_${currentUserId}"
+                val chatDocumentId = listOf(currentUserId, chatItem.partnerId).sorted().joinToString("_")
+                val chatDocRef = db.collection("chats").document(chatDocumentId)
+                val chatDoc = chatDocRef.get().await()
 
-                val chatDoc1 = db.collection("chats").document(possibleChatId1).get().await()
-                val chatDoc2 = db.collection("chats").document(possibleChatId2).get().await()
-
-                val chatDoc = if (chatDoc1.exists()) chatDoc1 else if (chatDoc2.exists()) chatDoc2 else null
-
-                if (chatDoc != null) {
+                if (chatDoc.exists()) {
                     Log.d("ChatListScreen", "Found chat document: ${chatDoc.id}")
 
                     val deletedFor = (chatDoc.get("deletedFor") as? List<String> ?: emptyList()).toMutableList()
@@ -136,11 +134,19 @@ fun ChatListScreen(
                     if (!deletedFor.contains(currentUserId)) {
                         deletedFor.add(currentUserId)
 
-                        db.collection("chats").document(chatDoc.id)
-                            .update("deletedFor", deletedFor)
+                        // Store deletion timestamp in a dedicated field with user ID
+                        val currentTime = System.currentTimeMillis()
+                        val fieldName = "deletedTimestamp_$currentUserId"
+
+                        val updates = mapOf(
+                            "deletedFor" to deletedFor,
+                            fieldName to currentTime
+                        )
+
+                        chatDocRef.update(updates)
                             .addOnSuccessListener {
-                                Log.d("ChatListScreen", "Successfully updated deletedFor: $deletedFor")
-                                // Aggiorna la UI
+                                Log.d("ChatListScreen", "Successfully updated deletedFor and timestamp")
+                                // Update UI
                                 chatList = chatList.filter { it.partnerId != chatItem.partnerId }
                             }
                             .addOnFailureListener { e ->
