@@ -31,6 +31,9 @@ import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 
@@ -537,51 +540,62 @@ fun MessageItem(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
+    // Format the timestamp as hour:minute
+    val timeString = remember(message.timestamp) {
+        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+        sdf.format(Date(message.timestamp))
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 2.dp),
         contentAlignment = if (isCurrentUser) Alignment.CenterEnd else Alignment.CenterStart
     ) {
-        Column {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 250.dp)
+                .padding(horizontal = 8.dp)
+        ) {
             message.replyToMessageContent?.let { replyContent ->
                 Card(
                     modifier = Modifier
-                        .widthIn(max = 250.dp)
-                        .padding(bottom = 4.dp)
-                        .align(if (isCurrentUser) Alignment.End else Alignment.Start),
+                        .align(if (isCurrentUser) Alignment.End else Alignment.Start)
+                        .padding(bottom = 2.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = Color.LightGray.copy(alpha = 0.3f)
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(6.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(8.dp),
+                        modifier = Modifier.padding(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .width(4.dp)
-                                .height(40.dp)
-                                .background(Color(0xFF2CBABE), shape = RoundedCornerShape(2.dp))
+                                .width(2.dp)
+                                .height(30.dp)
+                                .background(Color(0xFF2CBABE), shape = RoundedCornerShape(1.dp))
                         )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
 
                         Column {
                             Text(
                                 text = "Reply to message:",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.DarkGray,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
                             )
 
                             Text(
                                 text = replyContent,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.Gray,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 12.sp
                             )
                         }
                     }
@@ -590,7 +604,7 @@ fun MessageItem(
 
             Card(
                 modifier = Modifier
-                    .widthIn(max = 300.dp)
+                    .wrapContentWidth() // Adatta alla larghezza del contenuto
                     .align(if (isCurrentUser) Alignment.End else Alignment.Start)
                     .combinedClickable(
                         onClick = { expanded = !expanded },
@@ -602,19 +616,71 @@ fun MessageItem(
                     )
                 ),
                 shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomStart = if (isCurrentUser) 16.dp else 4.dp,
-                    bottomEnd = if (isCurrentUser) 4.dp else 16.dp
+                    topStart = 12.dp,
+                    topEnd = 12.dp,
+                    bottomStart = if (isCurrentUser) 12.dp else 4.dp,
+                    bottomEnd = if (isCurrentUser) 4.dp else 12.dp
                 )
             ) {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .widthIn(min = 50.dp) // Larghezza minima
+                ) {
                     Text(
                         text = message.content,
                         color = if (isCurrentUser) Color.White else Color.Black,
-                        modifier = Modifier.padding(12.dp),
-                        fontSize = 16.sp
+                        modifier = Modifier.padding(8.dp),
+                        fontSize = 14.sp
                     )
+
+                    Row(
+                        modifier = Modifier
+                            .padding(start = 8.dp, end = 8.dp, bottom = 4.dp, top = 0.dp)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Time
+                        Text(
+                            text = timeString,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isCurrentUser) Color.White.copy(alpha = 0.7f) else Color.Gray,
+                            fontSize = 9.sp
+                        )
+
+                        Spacer(modifier = Modifier.width(3.dp))
+
+                        // Read receipts (only show for current user's messages)
+                        if (isCurrentUser) {
+                            if (message.read) {
+                                // Double check mark for read
+                                Row {
+                                    Icon(
+                                        imageVector = Icons.Default.Done,
+                                        contentDescription = "Read",
+                                        modifier = Modifier.size(10.dp),
+                                        tint = Color.White.copy(alpha = 0.7f)
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Done,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .offset(x = (-5).dp),
+                                        tint = Color.White.copy(alpha = 0.7f)
+                                    )
+                                }
+                            } else {
+                                // Single check mark for sent but unread
+                                Icon(
+                                    imageVector = Icons.Default.Done,
+                                    contentDescription = "Sent",
+                                    modifier = Modifier.size(10.dp),
+                                    tint = Color.White.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
 
                     if (message.edited) {
                         Text(
@@ -622,8 +688,9 @@ fun MessageItem(
                             style = MaterialTheme.typography.bodySmall,
                             color = if (isCurrentUser) Color.White.copy(alpha = 0.7f) else Color.Gray,
                             modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
-                                .align(Alignment.End)
+                                .padding(horizontal = 8.dp, vertical = 1.dp)
+                                .align(Alignment.End),
+                            fontSize = 9.sp
                         )
                     }
                 }
@@ -632,23 +699,29 @@ fun MessageItem(
             if (expanded) {
                 Row(
                     modifier = Modifier
-                        .padding(top = 4.dp)
+                        .padding(top = 2.dp)
                         .align(if (isCurrentUser) Alignment.End else Alignment.Start),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    TextButton(onClick = {
-                        onReply()
-                        expanded = false
-                    }) {
-                        Text("Reply")
+                    TextButton(
+                        onClick = {
+                            onReply()
+                            expanded = false
+                        },
+                        contentPadding = PaddingValues(4.dp)
+                    ) {
+                        Text("Reply", fontSize = 12.sp)
                     }
 
                     if (isCurrentUser) {
-                        TextButton(onClick = {
-                            onEdit()
-                            expanded = false
-                        }) {
-                            Text("Edit")
+                        TextButton(
+                            onClick = {
+                                onEdit()
+                                expanded = false
+                            },
+                            contentPadding = PaddingValues(4.dp)
+                        ) {
+                            Text("Edit", fontSize = 12.sp)
                         }
 
                         TextButton(
@@ -658,9 +731,10 @@ fun MessageItem(
                             },
                             colors = ButtonDefaults.textButtonColors(
                                 contentColor = Color.Red
-                            )
+                            ),
+                            contentPadding = PaddingValues(4.dp)
                         ) {
-                            Text("Delete")
+                            Text("Delete", fontSize = 12.sp)
                         }
                     }
                 }
