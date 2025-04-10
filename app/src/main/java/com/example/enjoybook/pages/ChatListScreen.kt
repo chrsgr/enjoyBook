@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.example.enjoybook.data.ChatItem
 import com.example.enjoybook.viewModel.AuthViewModel
 
 import com.google.firebase.auth.FirebaseAuth
@@ -378,14 +379,7 @@ fun <T> SwipeToDeleteItem(
         directions = setOf(DismissDirection.EndToStart)
     )
 }
-data class ChatItem(
-    val partnerId: String,
-    val partnerName: String,
-    val lastMessage: String,
-    val lastMessageTimestamp: Long,
-    val profilePictureUrl: String = "",
-    val unreadMessages: Int
-)
+
 
 @Composable
 fun ChatListItem(

@@ -18,3 +18,11 @@ data class Message(
 
     )
 
+data class ChatItem(
+    val partnerId: String,
+    val partnerName: String,
+    val lastMessage: String,
+    val lastMessageTimestamp: Long,
+    val profilePictureUrl: String = "",
+    val unreadMessages: Int
+)
