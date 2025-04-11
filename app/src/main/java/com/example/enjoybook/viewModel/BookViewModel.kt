@@ -20,7 +20,6 @@ class BooksViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
-    // Lista completa di tutte le lettere dell'alfabeto
     private val allLetters = ('A'..'Z').toList()
 
     init {
@@ -43,20 +42,16 @@ class BooksViewModel : ViewModel() {
                     doc.toObject(Book::class.java)?.copy(id = doc.id)
                 }
 
-                // Raggruppiamo i libri per l'iniziale del titolo
                 val grouped = booksList.groupBy { book ->
                     if (book.title.isNotEmpty()) book.title[0].uppercaseChar() else '#'
                 }.toSortedMap()
 
-                // Creiamo una mappa con tutte le lettere, anche quelle senza libri
                 val completeMap = mutableMapOf<Char, List<Book>>()
 
-                // Aggiungiamo tutte le lettere dell'alfabeto
                 for (letter in allLetters) {
                     completeMap[letter] = grouped[letter] ?: emptyList()
                 }
 
-                // Ordiniamo la mappa
                 _booksGrouped.value = completeMap.toSortedMap()
             } catch (e: Exception) {
                 Log.e("BooksByInitialViewModel", "Error loading books", e)

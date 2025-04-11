@@ -16,7 +16,6 @@ class SearchViewModel : ViewModel() {
     private val _books = MutableStateFlow<List<Book>>(emptyList())
     val books: StateFlow<List<Book>> = _books
 
-    // Add StateFlow for users
     private val _users = MutableStateFlow<List<User>>(emptyList())
     val users: StateFlow<List<User>> = _users
 
@@ -33,14 +32,11 @@ class SearchViewModel : ViewModel() {
                 val db = FirebaseFirestore.getInstance()
                 val allBooks = db.collection("books").get().await()
 
-                // Filter books that contain the query in title or author
                 val bookList = allBooks.documents.mapNotNull { doc ->
                     val book = doc.toObject(Book::class.java)
                     if (book != null) {
-                        // Create copied book with ID set
                         val bookWithId = book.copy(id = doc.id)
 
-                        // Check if book matches search criteria
                         if (bookWithId.title.lowercase().contains(lowerCaseQuery) ||
                             bookWithId.author.lowercase().contains(lowerCaseQuery)) {
                             bookWithId
@@ -71,14 +67,11 @@ class SearchViewModel : ViewModel() {
                 val db = FirebaseFirestore.getInstance()
                 val allUsers = db.collection("users").get().await()
 
-                // Filter users that contain the query in username, name or surname
                 val userList = allUsers.documents.mapNotNull { doc ->
                     val user = doc.toObject(User::class.java)
                     if (user != null) {
-                        // Create copied user with ID set
                         val userWithId = user.copy(userId = doc.id)
 
-                        // Check if user matches search criteria
                         if (userWithId.username.lowercase().contains(lowerCaseQuery) ||
                             userWithId.name.lowercase().contains(lowerCaseQuery) ||
                             userWithId.surname.lowercase().contains(lowerCaseQuery)) {

@@ -11,24 +11,15 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.NavController
 import com.example.enjoybook.R
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.userProfileChangeRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.security.MessageDigest
@@ -55,7 +46,6 @@ class AuthViewModel(val context: Context): ViewModel() {
             return
         }
 
-        // Always check if the user has a username, regardless of authentication method
         db.collection("users").document(currentUser.uid)
             .get()
             .addOnSuccessListener { document ->
@@ -63,15 +53,11 @@ class AuthViewModel(val context: Context): ViewModel() {
                     val username = document.getString("username") ?: ""
 
                     if (username.isBlank()) {
-                        // Username vuoto, deve configurarlo
                         _authState.value = AuthState.WaitingForUsername
                     } else {
-                        // Username presente, utente completamente autenticato
                         _authState.value = AuthState.Authenticated
                     }
                 } else {
-                    // Documento utente non trovato, comportamento anomalo
-                    // Meglio fare logout e richiedere l'autenticazione
                     auth.signOut()
                     _authState.value = AuthState.Unauthenticated
                 }
@@ -89,7 +75,6 @@ class AuthViewModel(val context: Context): ViewModel() {
 
         _authState.value = AuthState.Loading
 
-        //verifica se l'email è già usata per autenticazione Google
         db.collection("users")
             .whereEqualTo("email", email)
             .whereEqualTo("isGoogleAuth", true)
@@ -117,15 +102,12 @@ class AuthViewModel(val context: Context): ViewModel() {
                             _authState.value = AuthState.Error("Banned account. Denied access.")
                         } else {
 
-                            // Se l'utente non è bannato e l'email non è usata con Google, procedi con il login tradizionale
                             auth.signInWithEmailAndPassword(email, password)
                                 .addOnCompleteListener { task ->
 
-                                    // Modify the successful login section in the login method
                                     if (task.isSuccessful) {
                                         val user = auth.currentUser
                                         if (user != null && user.isEmailVerified) {
-                                            // Instead of directly setting to Authenticated, check the auth status
                                             checkAuthStatus()
                                         } else {
                                             auth.signOut()
@@ -166,13 +148,11 @@ class AuthViewModel(val context: Context): ViewModel() {
 
         _authState.value = AuthState.Loading
 
-        // Prima verifica se l'email è già usata per autenticazione Google
         db.collection("users")
             .whereEqualTo("email", email)
             .get()
             .addOnSuccessListener { documents ->
                 if (!documents.isEmpty) {
-                    // Controlla se l'utente esiste con Google Auth
                     for (document in documents) {
                         val isGoogleAuth = document.getBoolean("isGoogleAuth") ?: false
                         if (isGoogleAuth) {
@@ -185,12 +165,10 @@ class AuthViewModel(val context: Context): ViewModel() {
 
                 isUsernameTaken(username) { isTaken ->
                     if (isTaken) {
-                        // Mostra un messaggio di errore (l'username è già preso)
                         _authState.value = AuthState.Error("This username is already.")
                         return@isUsernameTaken
 
                     } else {
-                        // Se l'email non è usata con Google, procedi con la registrazione
                         auth.createUserWithEmailAndPassword(email, password)
                             .addOnCompleteListener { task ->
                                 if (task.isSuccessful) {
@@ -208,7 +186,6 @@ class AuthViewModel(val context: Context): ViewModel() {
                                                     val profilePictureUrl =
                                                         "https://ui-avatars.com/api/?name=$encodedName&background=random&color=fff&size=200"
 
-                                                    // Aggiorna anche il profilo utente di Firebase Auth
                                                     val profileUpdates = userProfileChangeRequest {
                                                         photoUri = Uri.parse(profilePictureUrl)
                                                     }
@@ -282,10 +259,8 @@ class AuthViewModel(val context: Context): ViewModel() {
         query.get().addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 val documents = task.result
-                // Se ci sono documenti, significa che l'username è già preso
                 onComplete(documents?.isEmpty == false)
             } else {
-                // In caso di errore nella query
                 Log.w("Signup", "Error checking username", task.exception)
                 onComplete(false)
             }
@@ -293,37 +268,37 @@ class AuthViewModel(val context: Context): ViewModel() {
     }
 
 
-    fun updatePassword(newPassword: String) {
-        val user = auth.currentUser
-        if (user == null) {
-            _authState.value = AuthState.Error("Unauthenticated user")
-            return
-        }
+//    fun updatePassword(newPassword: String) {
+//        val user = auth.currentUser
+//        if (user == null) {
+//            _authState.value = AuthState.Error("Unauthenticated user")
+//            return
+//        }
+//
+//        _authState.value = AuthState.Loading
+//
+//        user.updatePassword(newPassword)
+//            .addOnCompleteListener { task ->
+//                if (task.isSuccessful) {
+//
+//                    updatePasswordInDatabase(user.uid, newPassword)
+//                } else {
+//                    _authState.value = AuthState.Error(task.exception?.message ?: "Errore nell'aggiornamento della password")
+//                }
+//            }
+//    }
 
-        _authState.value = AuthState.Loading
-
-        user.updatePassword(newPassword)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-
-                    updatePasswordInDatabase(user.uid, newPassword)
-                } else {
-                    _authState.value = AuthState.Error(task.exception?.message ?: "Errore nell'aggiornamento della password")
-                }
-            }
-    }
-
-    private fun updatePasswordInDatabase(userId: String, newPassword: String) {
-        val userRef = db.collection("users").document(userId)
-
-        userRef.update("password", newPassword)
-            .addOnSuccessListener {
-                _authState.value = AuthState.Authenticated
-            }
-            .addOnFailureListener { e ->
-                _authState.value = AuthState.Error("Errore aggiornando la password nel database")
-            }
-    }
+//    private fun updatePasswordInDatabase(userId: String, newPassword: String) {
+//        val userRef = db.collection("users").document(userId)
+//
+//        userRef.update("password", newPassword)
+//            .addOnSuccessListener {
+//                _authState.value = AuthState.Authenticated
+//            }
+//            .addOnFailureListener { e ->
+//                _authState.value = AuthState.Error("Errore aggiornando la password nel database")
+//            }
+//    }
 
     fun resetPassword(email: String) {
         if (email.isEmpty()) {
@@ -333,7 +308,6 @@ class AuthViewModel(val context: Context): ViewModel() {
 
         _authState.value = AuthState.Loading
 
-        // Prima controlla se l'utente è registrato con Google
         db.collection("users")
             .whereEqualTo("email", email)
             .get()
@@ -348,7 +322,6 @@ class AuthViewModel(val context: Context): ViewModel() {
                     }
                 }
 
-                // Procedi con il reset della password
                 auth.sendPasswordResetEmail(email)
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
@@ -377,7 +350,6 @@ class AuthViewModel(val context: Context): ViewModel() {
                 return@launch
             }
 
-            // Verifica se l'username è già in uso
             db.collection("users")
                 .whereEqualTo("username", username)
                 .get()
@@ -387,11 +359,9 @@ class AuthViewModel(val context: Context): ViewModel() {
                         return@addOnSuccessListener
                     }
 
-                    // L'username è disponibile, aggiorniamo il profilo utente
                     db.collection("users").document(currentUser.uid)
                         .update("username", username)
                         .addOnSuccessListener {
-                            // Username salvato, aggiorna lo stato di autenticazione
                             _authState.value = AuthState.Authenticated
                             callback(true, null)
                         }
@@ -406,7 +376,6 @@ class AuthViewModel(val context: Context): ViewModel() {
     }
 
     //PROVA AUTENTICAZIONE GOOGLE
-
     private fun createNonce(): String{
         val rawNonce = UUID.randomUUID().toString()
         val bytes = rawNonce.toByteArray()
@@ -445,10 +414,8 @@ class AuthViewModel(val context: Context): ViewModel() {
                         val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                         val firebaseCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
 
-                        // Ottiene l'email dal token prima dell'autenticazione
                         val email = googleIdTokenCredential.id
 
-                        // Controlla se l'email è già usata con autenticazione standard
                         db.collection("users")
                             .whereEqualTo("email", email)
                             .whereEqualTo("isGoogleAuth", false)
@@ -459,7 +426,6 @@ class AuthViewModel(val context: Context): ViewModel() {
                                     return@addOnSuccessListener
                                 }
 
-                                // Verifica se l'utente è bannato
                                 db.collection("users")
                                     .whereEqualTo("email", email)
                                     .get()
@@ -473,7 +439,6 @@ class AuthViewModel(val context: Context): ViewModel() {
                                             _authState.value = AuthState.Error("Banned account. Denied access.")
                                         } else {
 
-                                            // Se l'utente non è bannato, procedi con l'autenticazione Google
                                             auth.signInWithCredential(firebaseCredential)
                                                 .addOnCompleteListener { task ->
                                                     if (task.isSuccessful) {
@@ -491,18 +456,15 @@ class AuthViewModel(val context: Context): ViewModel() {
                                                             db.collection("users").document(uid).get()
                                                                 .addOnSuccessListener { document ->
                                                                     if (document.exists()) {
-                                                                        // L'utente esiste, aggiorna solo i campi di Google
                                                                         db.collection("users").document(uid)
                                                                             .update(googleUpdates as Map<String, Any>)
                                                                             .addOnSuccessListener {
-                                                                                // Invece di impostare direttamente Authenticated, controlla se l'username è vuoto
                                                                                 checkAuthStatus()
                                                                             }
                                                                             .addOnFailureListener { e ->
                                                                                 _authState.value = AuthState.Error(e.message ?: "Error updating user data")
                                                                             }
                                                                     } else {
-                                                                        // Primo accesso: crea un nuovo utente
                                                                         val displayName = user.displayName ?: ""
                                                                         val nameParts = displayName.split(" ", limit = 2)
                                                                         val firstName = nameParts.getOrNull(0) ?: ""
@@ -523,7 +485,6 @@ class AuthViewModel(val context: Context): ViewModel() {
                                                                         db.collection("users").document(uid)
                                                                             .set(fullUserData)
                                                                             .addOnSuccessListener {
-                                                                                // Invece di impostare direttamente Authenticated, imposta WaitingForUsername
                                                                                 _authState.value = AuthState.WaitingForUsername
 
                                                                             }

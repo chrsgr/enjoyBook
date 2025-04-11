@@ -484,7 +484,6 @@ fun NotificationsDialog(
                             }
                         }
                         1 -> {
-                            // Follows tab
                             if (followNotifications.isEmpty()) {
                                 EmptyNotificationsMessage()
                             } else {

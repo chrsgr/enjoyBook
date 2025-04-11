@@ -933,7 +933,6 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                         }
                     }
                 } else {
-                    // Messaggio se l'utente è nullo
                     item {
                         Text(
                             text = "No user available",
@@ -1037,10 +1036,9 @@ private fun fetchReadsUser(userId: String, onComplete: (List<Book>) -> Unit) {
 
     db.collection("borrows")
         .whereEqualTo("borrowerId", userId)
-        .whereEqualTo("status", "returned") // Only include books with "returned" status
+        .whereEqualTo("status", "returned")
         .get()
         .addOnSuccessListener { userBorrowsSnapshot ->
-            // Extract the book IDs from the borrow documents
             val bookIds = userBorrowsSnapshot.documents.mapNotNull { it.getString("bookId") }
 
             if (bookIds.isEmpty()) {
@@ -1048,7 +1046,6 @@ private fun fetchReadsUser(userId: String, onComplete: (List<Book>) -> Unit) {
                 return@addOnSuccessListener
             }
 
-            // Fetch the book details
             db.collection("books")
                 .whereIn(FieldPath.documentId(), bookIds)
                 .get()

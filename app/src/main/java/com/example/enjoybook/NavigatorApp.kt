@@ -25,29 +25,19 @@ import com.example.enjoybook.auth.SignupPage
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Divider
-import androidx.compose.material.TabRowDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
@@ -63,10 +53,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -80,8 +66,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -96,11 +80,7 @@ import com.example.enjoybook.data.Notification
 import com.example.enjoybook.data.User
 import com.example.enjoybook.pages.*
 import com.example.enjoybook.theme.errorColor
-import com.example.enjoybook.utils.NotificationItem
 import com.example.enjoybook.utils.NotificationsDialog
-import com.example.enjoybook.utils.deleteNotification
-import com.example.enjoybook.utils.handleAcceptLoanRequest
-import com.example.enjoybook.utils.handleRejectLoanRequest
 import com.example.enjoybook.utils.markNotificationsAsRead
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.BooksViewModel
@@ -304,7 +284,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                     backStackEntry ->
                 val category = backStackEntry.arguments?.getString("category") ?: ""
                 Log.d("NavHost", "Navigato a filteredbooks con categoria: $category")
-                // Passa category al ViewModel
                 FilteredBooksPage(category, navController, searchViewModel)
             }
 
@@ -541,8 +520,6 @@ fun MainTopBar(navController: NavHostController, authViewModel: AuthViewModel) {
                             isPrivate = document.getBoolean("isPrivate") ?: null,
                             profilePictureUrl = document.getString("profilePictureUrl") ?: ""
                         )*/
-                        Log.d("Navigation", "User id: ${user?.userId}")
-                        Log.d("Navigation", "Current user in the user listener: ${currentUser.uid}, ${userId}")
                     }
                 }
                 .addOnFailureListener { e ->

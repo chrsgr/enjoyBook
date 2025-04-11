@@ -275,7 +275,6 @@ fun UserMessagingScreen(
             }
             .addOnFailureListener { e ->
                 Log.e("MessagingSystem", "Error checking chat status", e)
-                // Fallback to just sending message
                 db.collection("messages")
                     .document(messageRef.id)
                     .set(messageRef)
@@ -420,19 +419,16 @@ fun UserMessagingScreen(
                         if (currentUser != null) {
                             when {
                                 messageToEdit != null -> {
-                                    // Handle edit
                                     sendMessage(db, currentUser, targetUserId, newMessageText,
                                         replyToMessage = null, editedMessage = messageToEdit)
                                     messageToEdit = null
                                 }
                                 messageToReply != null -> {
-                                    // Handle reply
                                     sendMessage(db, currentUser, targetUserId, newMessageText,
                                         replyToMessage = messageToReply)
                                     messageToReply = null
                                 }
                                 else -> {
-                                    // Normal message
                                     sendMessage(db, currentUser, targetUserId, newMessageText)
                                 }
                             }
@@ -524,7 +520,6 @@ fun MessageItem(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    // Format the timestamp as hour:minute
     val timeString = remember(message.timestamp) {
         val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
         sdf.format(Date(message.timestamp))
@@ -588,7 +583,7 @@ fun MessageItem(
 
             Card(
                 modifier = Modifier
-                    .wrapContentWidth() // Adatta alla larghezza del contenuto
+                    .wrapContentWidth()
                     .align(if (isCurrentUser) Alignment.End else Alignment.Start)
                     .combinedClickable(
                         onClick = { expanded = !expanded },
@@ -608,7 +603,7 @@ fun MessageItem(
             ) {
                 Column(
                     modifier = Modifier
-                        .widthIn(min = 50.dp) // Larghezza minima
+                        .widthIn(min = 50.dp)
                 ) {
                     Text(
                         text = message.content,
@@ -634,7 +629,6 @@ fun MessageItem(
 
                         Spacer(modifier = Modifier.width(3.dp))
 
-                        // Read receipts (only show for current user's messages)
                         if (isCurrentUser) {
                             if (message.read) {
                                 // Double check mark for read
@@ -781,7 +775,6 @@ fun fetchMessages(
 ) {
     val chatDocumentId = listOf(currentUserId, targetUserId).sorted().joinToString("_")
 
-    // First get the chat document to check deletion status
     db.collection("chats")
         .document(chatDocumentId)
         .get()
@@ -789,17 +782,13 @@ fun fetchMessages(
             var deletionTimestamp: Long = 0
 
             if (chatDoc.exists()) {
-                // Check if current user previously deleted this chat
-                val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
 
-                // Get the user-specific deletion timestamp field
                 val deletionField = "deletedTimestamp_$currentUserId"
                 deletionTimestamp = chatDoc.getLong(deletionField) ?: 0
 
                 Log.d("MessagingSystem", "Deletion timestamp for $currentUserId: $deletionTimestamp")
             }
 
-            // Now fetch messages with appropriate filtering
             val messageQuery = db.collection("messages")
                 .where(
                     Filter.or(
@@ -823,7 +812,6 @@ fun fetchMessages(
 
                 val fetchedMessages = snapshot?.toObjects(Message::class.java) ?: emptyList()
 
-                // Filter out messages before deletion timestamp if needed
                 val filteredMessages = if (deletionTimestamp > 0) {
                     Log.d("MessagingSystem", "Filtering messages before $deletionTimestamp")
                     fetchedMessages.filter { it.timestamp > deletionTimestamp }
@@ -838,13 +826,10 @@ fun fetchMessages(
             }
         }
         .addOnFailureListener { e ->
-            Log.e("MessagingSystem", "Error checking chat deletion status: ${e.message}")
-            // Fallback to fetching all messages if we can't determine deletion status
             defaultFetchMessages(db, currentUserId, targetUserId, onMessagesReceived)
         }
 }
 
-// Fallback function to fetch all messages if deletion check fails
 private fun defaultFetchMessages(
     db: FirebaseFirestore,
     currentUserId: String,
