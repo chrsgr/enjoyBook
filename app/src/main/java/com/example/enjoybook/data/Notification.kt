@@ -10,6 +10,7 @@ data class Notification(
     val id: String = "",
     val senderId: String = "",
     val title: String = "",
-    val status: String = ""
+    val status: String = "",
+    val senderUsername: String = "",
 )
 
