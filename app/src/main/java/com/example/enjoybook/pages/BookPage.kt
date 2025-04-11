@@ -107,7 +107,7 @@ fun BookPage(
                         contentDescription = "Add Book",
                         modifier = Modifier.padding(end = 8.dp)
                     )
-                    Text("Add Book")
+                    Text("List add book")
                 }
             }
         }
