@@ -626,54 +626,46 @@ fun BookItem(
     }
 }
 
-internal suspend fun updateBookAvailability(
+suspend fun updateBookAvailability(
     db: FirebaseFirestore,
     bookId: String,
-    availabilityStatus: String,
+    newStatus: String,
     context: Context,
-    onUpdateComplete: () -> Unit = {}
+    onUpdateComplete: () -> Unit
 ) {
     try {
-        // Check for active borrows if needed
-        val borrowSnapshot = db.collection("borrows")
+        val bookRef = db.collection("books").document(bookId)
+        val bookDoc = bookRef.get().await()
+
+        bookRef.update("isAvailable", newStatus).await()
+
+        val borrowsQuery = db.collection("borrows")
             .whereEqualTo("bookId", bookId)
             .whereEqualTo("status", "accepted")
             .get()
             .await()
 
-        val bookBorrowIds = borrowSnapshot.documents.mapNotNull { it.getString("borrowId") }
-
-        // Proceed with the update
-        val updates = hashMapOf<String, Any>(
-            "isAvailable" to availabilityStatus
-        )
-
-        db.collection("books").document(bookId)
-            .update(updates)
-            .await()
+        for (borrowDoc in borrowsQuery.documents) {
+            db.collection("borrows").document(borrowDoc.id)
+                .update(
+                    mapOf(
+                        "status" to "returned",
+                        "returnDate" to System.currentTimeMillis()
+                    )
+                ).await()
+        }
 
         withContext(Dispatchers.Main) {
-            val statusText = when (availabilityStatus) {
-                "available" -> "available"
-                "requested" -> "requested"
-                else -> "unavailable"
-            }
-
             Toast.makeText(
                 context,
-                "Book is now $statusText",
+                if (newStatus == "available") "Book marked as returned" else "Book status updated",
                 Toast.LENGTH_SHORT
             ).show()
-
             onUpdateComplete()
         }
     } catch (e: Exception) {
         withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                "Failed to update book availability: ${e.message}",
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(context, "Error updating book status: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 }

@@ -103,41 +103,57 @@ fun LibraryPage(navController: NavController) {
         if (currentUser != null) {
             val db = FirebaseFirestore.getInstance()
 
-            // Load borrowed books
+            // Load borrowed books - UPDATED to include both accepted AND returned books
             db.collection("borrows")
                 .whereEqualTo("borrowerId", currentUser.uid)
-                .whereEqualTo("status", "accepted")
+                .whereIn("status", listOf("accepted", "returned")) // Include both accepted and returned books
                 .get()
                 .addOnSuccessListener { borrowDocs ->
                     val borrowedBookIds = borrowDocs.mapNotNull { it.getString("bookId") }
 
                     if (borrowedBookIds.isEmpty()) {
                         borrowedBooks = emptyList()
+                        isLoading = false
                     } else {
                         db.collection("books")
                             .whereIn(FieldPath.documentId(), borrowedBookIds)
                             .get()
                             .addOnSuccessListener { bookDocs ->
+                                // Create a map from borrow documents to track status
+                                val borrowStatusMap = borrowDocs.associate {
+                                    it.getString("bookId")!! to it.getString("status")!!
+                                }
+
                                 borrowedBooks = bookDocs.map { doc ->
+                                    val bookId = doc.id
+                                    // Use the status from the borrow document
+                                    val borrowStatus = borrowStatusMap[bookId] ?: "accepted"
+
                                     Book(
-                                        id = doc.id,
+                                        id = bookId,
                                         title = doc.getString("title") ?: "",
                                         author = doc.getString("author") ?: "",
                                         type = doc.getString("type") ?: "",
                                         userId = doc.getString("userId") ?: "",
-                                        isAvailable = "requested",
+                                        // Set book status based on borrow status
+                                        isAvailable = borrowStatus,
                                         userEmail = doc.getString("userEmail") ?: "",
                                         frontCoverUrl = doc.getString("frontCoverUrl") ?: null,
                                         backCoverUrl = doc.getString("backCoverUrl") ?: null
                                     )
                                 }
+                                isLoading = false
                             }
-                            .addOnFailureListener { /* Handle failure */ }
+                            .addOnFailureListener {
+                                isLoading = false
+                            }
                     }
                 }
-                .addOnFailureListener { /* Handle failure */ }
+                .addOnFailureListener {
+                    isLoading = false
+                }
 
-            // Load lent books with proper de-duplication
+            // Load lent books (unchanged)
             withContext(Dispatchers.IO) {
                 try {
                     val borrowQuery = db.collection("borrows")
@@ -177,8 +193,7 @@ fun LibraryPage(navController: NavController) {
                                 backCoverUrl = bookDoc.getString("backCoverUrl") ?: null
                             )
 
-                            val borrowerDoc =
-                                db.collection("users").document(borrowerId).get().await()
+                            val borrowerDoc = db.collection("users").document(borrowerId).get().await()
 
                             lentBooksList.add(
                                 LentBook(
@@ -468,6 +483,24 @@ fun BookCard(book: Book, navController: NavController) {
                         )
                     }
                 }
+
+                // Show "Returned" label when the book status is "returned"
+                if (book.isAvailable == "returned") {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(8.dp)
+                            .background(Color(0xFF4CAF50).copy(alpha = 0.8f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "Returned",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -491,16 +524,16 @@ fun BookCard(book: Book, navController: NavController) {
 
 
 @Composable
-fun LentBookCard(lentBook: LentBook, navController: NavController,book: Book,     onRefresh: () -> Unit,
-
-                 ) {
-
+fun LentBookCard(
+    lentBook: LentBook,
+    navController: NavController,
+    book: Book,
+    onRefresh: () -> Unit,
+) {
     var showDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val db = FirebaseFirestore.getInstance()
     val context = LocalContext.current
-    var availabilityStatus by remember { mutableStateOf(book.isAvailable ?: "available") }
-
 
     Card(
         modifier = Modifier
@@ -628,26 +661,43 @@ fun LentBookCard(lentBook: LentBook, navController: NavController,book: Book,   
             title = { androidx.compose.material3.Text("Update Borrow") },
             text = {
                 androidx.compose.material3.Text(
-                    text = "Do you want sign the borrow as concluded?"
+                    text = "Do you want to mark this book as returned?"
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showDialog = false
-
-                        availabilityStatus = if(availabilityStatus == "available") "not available" else "available"
-
                         scope.launch {
-                            updateBookAvailability(
-                                db, book.id, availabilityStatus, context, onUpdateComplete = { onRefresh() }
-                            )
+                            try {
+                                // 1. Update the book availability to "available"
+                                db.collection("books").document(book.id)
+                                    .update("isAvailable", "available")
+                                    .await()
 
-                            sendBookReturnConfirmationNotification(lentBook)
+                                // 2. Update the borrow status to "returned" - THIS IS CRITICAL
+                                db.collection("borrows").document(lentBook.borrowId)
+                                    .update(
+                                        mapOf(
+                                            "status" to "returned",
+                                            "returnDate" to System.currentTimeMillis()
+                                        )
+                                    )
+                                    .await()
 
+                                // 3. Send notification about the return
+                                sendBookReturnConfirmationNotification(lentBook)
+
+                                // 4. Show success message
+                                Toast.makeText(context, "Book marked as returned", Toast.LENGTH_SHORT).show()
+
+                                // 5. Refresh the UI
+                                onRefresh()
+                            } catch (e: Exception) {
+                                Log.e("LentBookCard", "Error updating borrow status", e)
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
                         }
-
-
                     }
                 ) {
                     androidx.compose.material3.Text("Confirm", color = primaryColor)
@@ -664,7 +714,6 @@ fun LentBookCard(lentBook: LentBook, navController: NavController,book: Book,   
         )
     }
 }
-
 
 fun sendBookReturnConfirmationNotification(lentBook: LentBook) {
     val db = FirebaseFirestore.getInstance()
@@ -688,35 +737,14 @@ fun sendBookReturnConfirmationNotification(lentBook: LentBook) {
             db.collection("notifications")
                 .add(returnConfirmationNotification)
                 .addOnSuccessListener {
-                    // Success handling if needed
                 }
                 .addOnFailureListener { e ->
-                    // Error handling if needed
                 }
         }
         .addOnFailureListener { e ->
-            // Error handling if needed
         }
 }
 
-fun updateBorrow(db: FirebaseFirestore, borrowId: String, bookId: String, context: Context) {
-    try {
-        Tasks.await(db.collection("borrows").document(borrowId)
-            .update("status", "returned", "returnDate", System.currentTimeMillis()))
-
-        // Update to use string-based availability
-        val updates = hashMapOf<String, Any>(
-            "isAvailable" to "available"
-        )
-
-        Tasks.await(db.collection("books").document(bookId)
-            .update(updates))
-
-        Toast.makeText(context, "Book marked as returned", Toast.LENGTH_SHORT).show()
-    } catch (e: Exception) {
-        Toast.makeText(context, "Error updating book status", Toast.LENGTH_SHORT).show()
-    }
-}
 
 @Composable
 fun ClickableTextWithNavigation(
