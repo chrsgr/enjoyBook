@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.draw.clip
@@ -211,13 +212,26 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                             .fillMaxWidth()
                             .padding(16.dp)
                     ) {
-                        SectionHeader(
-                            icon = Icons.Filled.Book,
-                            title = "FEATURED BOOKS",
-                            primaryColor = primaryColor,
-                            textColor = textColor,
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ){
+                            SectionHeader(
+                                icon = Icons.Filled.Book,
+                                title = "FEATURED BOOKS",
+                                primaryColor = primaryColor,
+                                textColor = textColor,
 
-                        )
+                                )
+                            ClickableTextWithNavigation(
+                                fullText = "All the books",
+                                clickableWord = "All the books",
+                                navController = navController,
+                                destinationRoute = "allBooks",
+                                normalColor = textColor
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(16.dp))
 

@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.enjoybook.pages.FavoritesManager
 import com.example.enjoybook.theme.FirebaseAuthTheme
 import com.example.enjoybook.viewModel.AuthViewModel
+import com.example.enjoybook.viewModel.BooksViewModel
 import com.example.enjoybook.viewModel.SearchViewModel
 import com.google.firebase.FirebaseApp
 
@@ -33,8 +34,8 @@ class MainActivity : ComponentActivity() {
                     MyAppNavigation(
                         modifier = Modifier.padding(innerPadding),
                         authViewModel = AuthViewModel(context),
-                        searchViewModel = SearchViewModel()
-
+                        searchViewModel = SearchViewModel(),
+                        booksViewModel = BooksViewModel()
                     )
                 }
             }

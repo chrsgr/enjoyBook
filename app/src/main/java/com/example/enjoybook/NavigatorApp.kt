@@ -103,13 +103,14 @@ import com.example.enjoybook.utils.handleAcceptLoanRequest
 import com.example.enjoybook.utils.handleRejectLoanRequest
 import com.example.enjoybook.utils.markNotificationsAsRead
 import com.example.enjoybook.viewModel.AuthState
+import com.example.enjoybook.viewModel.BooksViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 
 
 @Composable
-fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel, searchViewModel: SearchViewModel) {
+fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel, searchViewModel: SearchViewModel, booksViewModel: BooksViewModel) {
     val navController = rememberNavController()
     val context = LocalContext.current.applicationContext
     val authState = authViewModel.authState.observeAsState()
@@ -235,6 +236,10 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                 FavouritePage(navController)
             }
 
+            composable("allBooks"){
+                AllFeaturedBooksPage(navController, authViewModel, booksViewModel)
+            }
+
             composable(
                 route = "bookDetails/{bookId}",
                 arguments = listOf(navArgument("bookId") { type = NavType.StringType })
@@ -243,14 +248,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
                 BookDetails(navController, authViewModel, bookId)
             }
 
-            /*composable(
-                route = "userDetails/{userId}",
-                arguments = listOf(navArgument("userId") { type = NavType.StringType })
-            ) {
-                val userId = it.arguments?.getString("userId") ?: ""
-                Log.d("Navigation", "Navigated to UserDetails with userId: $userId")
-                UserDetails(navController, authViewModel, userId)
-            }*/
 
             composable("userDetails/{userId}") { backStackEntry ->
                 val userId = backStackEntry.arguments?.getString("userId")
@@ -277,7 +274,6 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             composable("bookUser") {
                 BookPage(navController, authViewModel)
             }
-
 
             composable("library"){
                 LibraryPage(navController)
