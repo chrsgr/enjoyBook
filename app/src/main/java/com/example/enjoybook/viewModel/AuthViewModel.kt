@@ -47,11 +47,38 @@ class AuthViewModel(val context: Context): ViewModel() {
     }
 
     fun checkAuthStatus() {
-        if (auth.currentUser == null) {
+        _authState.value = AuthState.Loading
+
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
             _authState.value = AuthState.Unauthenticated
-        } else {
-            _authState.value = AuthState.Authenticated
+            return
         }
+
+        // Always check if the user has a username, regardless of authentication method
+        db.collection("users").document(currentUser.uid)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    val username = document.getString("username") ?: ""
+
+                    if (username.isBlank()) {
+                        // Username vuoto, deve configurarlo
+                        _authState.value = AuthState.WaitingForUsername
+                    } else {
+                        // Username presente, utente completamente autenticato
+                        _authState.value = AuthState.Authenticated
+                    }
+                } else {
+                    // Documento utente non trovato, comportamento anomalo
+                    // Meglio fare logout e richiedere l'autenticazione
+                    auth.signOut()
+                    _authState.value = AuthState.Unauthenticated
+                }
+            }
+            .addOnFailureListener { e ->
+                _authState.value = AuthState.Error(e.message ?: "Error checking user data")
+            }
     }
 
     fun login(email: String, password: String) {
@@ -94,14 +121,15 @@ class AuthViewModel(val context: Context): ViewModel() {
                             auth.signInWithEmailAndPassword(email, password)
                                 .addOnCompleteListener { task ->
 
+                                    // Modify the successful login section in the login method
                                     if (task.isSuccessful) {
                                         val user = auth.currentUser
                                         if (user != null && user.isEmailVerified) {
-                                            _authState.value = AuthState.Authenticated
+                                            // Instead of directly setting to Authenticated, check the auth status
+                                            checkAuthStatus()
                                         } else {
                                             auth.signOut()
-                                            _authState.value =
-                                                AuthState.Error("Please verify your email before logging in")
+                                            _authState.value = AuthState.Error("Please verify your email before logging in")
                                         }
                                     } else {
                                         _authState.value =
@@ -335,6 +363,48 @@ class AuthViewModel(val context: Context): ViewModel() {
             }
     }
 
+    fun saveUsername(username: String, callback: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val currentUser = auth.currentUser
+
+            if (currentUser == null) {
+                callback(false, "User not logged in")
+                return@launch
+            }
+
+            if (username.isBlank()) {
+                callback(false, "Username cannot be empty")
+                return@launch
+            }
+
+            // Verifica se l'username è già in uso
+            db.collection("users")
+                .whereEqualTo("username", username)
+                .get()
+                .addOnSuccessListener { documents ->
+                    if (!documents.isEmpty) {
+                        callback(false, "Username already in use")
+                        return@addOnSuccessListener
+                    }
+
+                    // L'username è disponibile, aggiorniamo il profilo utente
+                    db.collection("users").document(currentUser.uid)
+                        .update("username", username)
+                        .addOnSuccessListener {
+                            // Username salvato, aggiorna lo stato di autenticazione
+                            _authState.value = AuthState.Authenticated
+                            callback(true, null)
+                        }
+                        .addOnFailureListener { e ->
+                            callback(false, e.message ?: "Error saving username")
+                        }
+                }
+                .addOnFailureListener { e ->
+                    callback(false, e.message ?: "Error checking username availability")
+                }
+        }
+    }
+
     //PROVA AUTENTICAZIONE GOOGLE
 
     private fun createNonce(): String{
@@ -405,8 +475,8 @@ class AuthViewModel(val context: Context): ViewModel() {
 
                                             // Se l'utente non è bannato, procedi con l'autenticazione Google
                                             auth.signInWithCredential(firebaseCredential)
-                                                .addOnCompleteListener {
-                                                    if (it.isSuccessful) {
+                                                .addOnCompleteListener { task ->
+                                                    if (task.isSuccessful) {
                                                         val user = auth.currentUser
                                                         val userId = user?.uid
 
@@ -425,7 +495,8 @@ class AuthViewModel(val context: Context): ViewModel() {
                                                                         db.collection("users").document(uid)
                                                                             .update(googleUpdates as Map<String, Any>)
                                                                             .addOnSuccessListener {
-                                                                                _authState.value = AuthState.Authenticated
+                                                                                // Invece di impostare direttamente Authenticated, controlla se l'username è vuoto
+                                                                                checkAuthStatus()
                                                                             }
                                                                             .addOnFailureListener { e ->
                                                                                 _authState.value = AuthState.Error(e.message ?: "Error updating user data")
@@ -452,7 +523,9 @@ class AuthViewModel(val context: Context): ViewModel() {
                                                                         db.collection("users").document(uid)
                                                                             .set(fullUserData)
                                                                             .addOnSuccessListener {
-                                                                                _authState.value = AuthState.Authenticated
+                                                                                // Invece di impostare direttamente Authenticated, imposta WaitingForUsername
+                                                                                _authState.value = AuthState.WaitingForUsername
+
                                                                             }
                                                                             .addOnFailureListener { e ->
                                                                                 _authState.value = AuthState.Error(e.message ?: "Error saving user data")
@@ -464,7 +537,7 @@ class AuthViewModel(val context: Context): ViewModel() {
                                                                 }
                                                         }
                                                     } else {
-                                                        _authState.value = AuthState.Error(it.exception?.message ?: "Unknown error")
+                                                        _authState.value = AuthState.Error(task.exception?.message ?: "Unknown error")
                                                     }
                                                 }
                                         }
@@ -490,11 +563,14 @@ class AuthViewModel(val context: Context): ViewModel() {
     }
 }
 
+
+
 sealed class AuthState {
     object Authenticated : AuthState()
     object Unauthenticated : AuthState()
     object Loading : AuthState()
     object WaitingForVerification: AuthState()
+    object WaitingForUsername: AuthState()
     object PasswordResetSent: AuthState()
     data class Error(val message: String) : AuthState()
 }

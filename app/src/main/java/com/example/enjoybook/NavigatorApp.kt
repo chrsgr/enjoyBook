@@ -89,6 +89,7 @@ import com.example.enjoybook.admin.AdminListReports
 import com.example.enjoybook.admin.AdminPanel
 import com.example.enjoybook.admin.AdminUsersBanned
 import com.example.enjoybook.auth.ForgotPasswordPage
+import com.example.enjoybook.auth.InsertUsernamePage
 import com.example.enjoybook.data.Message
 import com.example.enjoybook.data.NavItem
 import com.example.enjoybook.data.Notification
@@ -115,7 +116,7 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
 
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
-    val routesWithoutBars = listOf("login", "signup", "forgotpass")
+    val routesWithoutBars = listOf("login", "signup", "forgotpass", "usernameSetup")
 
     val shouldShowBars = remember(currentRoute) {
         currentRoute != null && !routesWithoutBars.any { route ->
@@ -128,8 +129,13 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
             is AuthState.Unauthenticated -> navController.navigate("login") {
                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
             }
+            is AuthState.WaitingForUsername -> {
+                navController.navigate("usernameSetup") {
+                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                }
+            }
             is AuthState.Authenticated -> {
-                if (currentRoute == "login") {
+                if (currentRoute == "login" || currentRoute == "usernameSetup") {
                     navController.navigate("main") {
                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
@@ -169,6 +175,10 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel,
 
             composable("forgotpass") {
                 ForgotPasswordPage(modifier, navController, authViewModel)
+            }
+
+            composable("usernameSetup") {
+                InsertUsernamePage(modifier, navController, authViewModel)
             }
 
             composable("signup") {
