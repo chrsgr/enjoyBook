@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
+import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -31,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -95,11 +97,19 @@ fun ListBookAddPage(navController: NavController) {
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        "YOUR ADD BOOK LIST",
-                        color = textColor,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "YOUR ADD BOOK LIST",
+                            color = textColor,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 20.sp,
+                            letterSpacing = 1.sp
+                        )
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -111,10 +121,11 @@ fun ListBookAddPage(navController: NavController) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = backgroundColor,
+                    containerColor = Color.White,
                     titleContentColor = textColor
                 ),
-                windowInsets = WindowInsets(0)
+                windowInsets = WindowInsets(0),
+                modifier = Modifier.shadow(elevation = 2.dp)
             )
         },
         floatingActionButton = {

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,8 +58,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
@@ -71,6 +77,7 @@ import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.LentBook
 import com.example.enjoybook.data.Notification
+import com.example.enjoybook.theme.backgroundColor
 import com.example.enjoybook.theme.primaryColor
 import com.example.enjoybook.theme.textColor
 import com.google.android.gms.tasks.Tasks
@@ -79,6 +86,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryPage(navController: NavController) {
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -169,7 +177,8 @@ fun LibraryPage(navController: NavController) {
                                 backCoverUrl = bookDoc.getString("backCoverUrl") ?: null
                             )
 
-                            val borrowerDoc = db.collection("users").document(borrowerId).get().await()
+                            val borrowerDoc =
+                                db.collection("users").document(borrowerId).get().await()
 
                             lentBooksList.add(
                                 LentBook(
@@ -196,39 +205,44 @@ fun LibraryPage(navController: NavController) {
         }
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color.White
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Top Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(secondaryBackgroundColor)
-                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { navController.popBackStack() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Go back",
-                        tint = secondaryColor
-                    )
-                }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
 
-                Spacer(modifier = Modifier.padding(horizontal = 8.dp))
-
-                Text(
-                    text = "YOUR LIBRARY",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                )
-            }
-
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "YOUR LIBRARY",
+                            color = textColor,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 20.sp,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = secondaryColor
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White,
+                    titleContentColor = textColor
+                ),
+                windowInsets = WindowInsets(0),
+                modifier = Modifier.shadow(elevation = 2.dp)
+            )
+        },
+        contentWindowInsets = WindowInsets(0),
+    ) { paddingValues ->
+        Column(modifier = Modifier.padding(paddingValues)) {
             TabRow(
                 selectedTabIndex = selectedTab,
                 backgroundColor = Color(0xFF2CBABE),
@@ -269,14 +283,18 @@ fun LibraryPage(navController: NavController) {
                 }
             } else {
                 when (selectedTab) {
-                    0 -> LentBookGrid(lentBooks, navController, "You haven't lent any books yet", onRefresh = { /* Your refresh logic here */ })
+                    0 -> LentBookGrid(
+                        lentBooks,
+                        navController,
+                        "You haven't lent any books yet",
+                        onRefresh = { /* Your refresh logic here */ })
+
                     1 -> BookGrid(borrowedBooks, navController, "You haven't borrowed any books")
                 }
             }
         }
     }
 }
-
 @Composable
 fun BookGrid(
     books: List<Book>,
