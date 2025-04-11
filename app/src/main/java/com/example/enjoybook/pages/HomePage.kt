@@ -225,8 +225,8 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
 
                                 )
                             ClickableTextWithNavigation(
-                                fullText = "All the books",
-                                clickableWord = "All the books",
+                                fullText = "All books",
+                                clickableWord = "All books",
                                 navController = navController,
                                 destinationRoute = "allBooks",
                                 normalColor = textColor
