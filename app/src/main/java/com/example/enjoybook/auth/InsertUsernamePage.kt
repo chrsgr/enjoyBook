@@ -77,20 +77,6 @@ fun InsertUsernamePage(modifier: Modifier = Modifier, navController: NavControll
         }
     }
 
-    /*fun validateFields(): Boolean {
-        var isValid = true
-
-        emailError = if (email.isEmpty()) {
-            isValid = false
-            "Email is required"
-        } else if (!emailPattern.matches(email)) {
-            isValid = false
-            "Invalid email format"
-        } else null
-
-        return isValid
-    }*/
-
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color.White

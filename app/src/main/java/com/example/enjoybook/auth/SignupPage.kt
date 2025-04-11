@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
+import android.os.Handler
+import android.os.Looper
+import androidx.compose.ui.focus.onFocusChanged
 
 @Composable
 fun SignupPage(modifier: Modifier = Modifier, navController: NavController, authViewModel: AuthViewModel) {
@@ -63,6 +66,9 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var confirmPasswordError by remember { mutableStateOf<String?>(null) }
+
+    var isCheckingUsername by remember { mutableStateOf(false) }
+    var isUsernameTaken by remember { mutableStateOf(false) }
 
     val authState = authViewModel.authState.observeAsState()
     val context = LocalContext.current
@@ -89,9 +95,13 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
             "Surname is required"
         } else null
 
+
         usernameError = if (username.isEmpty()) {
             isValid = false
             "Username is required"
+        } else if (isUsernameTaken) {
+            isValid = false
+            "Username already taken"
         } else null
 
         emailError = if (email.isEmpty()) {
@@ -284,18 +294,35 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Username
+            // Modifica il campo username come segue
             OutlinedTextField(
                 value = username,
                 onValueChange = {
                     username = it
-                    if (usernameError != null) usernameError = null
+                    // Resetta solo l'errore manuale, non l'errore di username già preso
+                    if (usernameError != null && usernameError != "Username already taken") {
+                        usernameError = null
+                    }
                 },
                 label = { Text("Username") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 enabled = !isLoading,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        // Verifica l'username solo quando il campo perde il focus
+                        if (!focusState.isFocused && username.isNotEmpty()) {
+                            isCheckingUsername = true
+                            authViewModel.isUsernameTaken(username) { taken ->
+                                isUsernameTaken = taken
+                                if (taken) {
+                                    usernameError = "Username already taken"
+                                }
+                                isCheckingUsername = false
+                            }
+                        }
+                    },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryColor,
                     focusedLabelColor = primaryColor,
@@ -308,6 +335,14 @@ fun SignupPage(modifier: Modifier = Modifier, navController: NavController, auth
                         imageVector = Icons.Default.AccountBox,
                         contentDescription = "Username"
                     )
+                },
+                trailingIcon = {
+                    if (isCheckingUsername) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
                 },
                 isError = usernameError != null,
                 supportingText = {
