@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+
 class SearchViewModel : ViewModel() {
     private val _books = MutableStateFlow<List<Book>>(emptyList())
     val books: StateFlow<List<Book>> = _books
@@ -30,19 +31,31 @@ class SearchViewModel : ViewModel() {
 
             try {
                 val db = FirebaseFirestore.getInstance()
-                val result = db.collection("books")
-                    .whereGreaterThanOrEqualTo("titleLower", lowerCaseQuery)
-                    .whereLessThanOrEqualTo("titleLower", lowerCaseQuery + "\uf8ff")
-                    .get()
-                    .await()
+                val allBooks = db.collection("books").get().await()
 
-                val bookList = result.documents.mapNotNull { doc ->
-                    doc.toObject(Book::class.java)?.copy(id = doc.id)
+                // Filter books that contain the query in title or author
+                val bookList = allBooks.documents.mapNotNull { doc ->
+                    val book = doc.toObject(Book::class.java)
+                    if (book != null) {
+                        // Create copied book with ID set
+                        val bookWithId = book.copy(id = doc.id)
+
+                        // Check if book matches search criteria
+                        if (bookWithId.title.lowercase().contains(lowerCaseQuery) ||
+                            bookWithId.author.lowercase().contains(lowerCaseQuery)) {
+                            bookWithId
+                        } else {
+                            null
+                        }
+                    } else {
+                        null
+                    }
                 }
 
                 _books.value = bookList
             } catch (e: Exception) {
                 Log.e("SearchViewModel", "Error searching books", e)
+                _books.value = emptyList()
             } finally {
                 _isLoading.value = false
             }
@@ -56,31 +69,32 @@ class SearchViewModel : ViewModel() {
 
             try {
                 val db = FirebaseFirestore.getInstance()
-                val resultUsername = db.collection("users")
-                    .whereGreaterThanOrEqualTo("username", lowerCaseQuery)
-                    .whereLessThanOrEqualTo("username", lowerCaseQuery + "\uf8ff")
-                    .get()
-                    .await()
+                val allUsers = db.collection("users").get().await()
 
-                val usernameList = resultUsername.documents.mapNotNull { doc ->
-                    doc.toObject(User::class.java)?.copy(userId = doc.id)
+                // Filter users that contain the query in username, name or surname
+                val userList = allUsers.documents.mapNotNull { doc ->
+                    val user = doc.toObject(User::class.java)
+                    if (user != null) {
+                        // Create copied user with ID set
+                        val userWithId = user.copy(userId = doc.id)
+
+                        // Check if user matches search criteria
+                        if (userWithId.username.lowercase().contains(lowerCaseQuery) ||
+                            userWithId.name.lowercase().contains(lowerCaseQuery) ||
+                            userWithId.surname.lowercase().contains(lowerCaseQuery)) {
+                            userWithId
+                        } else {
+                            null
+                        }
+                    } else {
+                        null
+                    }
                 }
 
-                val resultName = db.collection("users")
-                    .whereGreaterThanOrEqualTo("name", lowerCaseQuery)
-                    .whereLessThanOrEqualTo("name", lowerCaseQuery + "\uf8ff")
-                    .get()
-                    .await()
-
-                val nameList = resultName.documents.mapNotNull { doc ->
-                    doc.toObject(User::class.java)?.copy(userId = doc.id)
-                }
-
-                val combinedList = (usernameList + nameList).distinctBy { it.userId }
-
-                _users.value = combinedList
+                _users.value = userList
             } catch (e: Exception) {
                 Log.e("SearchViewModel", "Error searching users", e)
+                _users.value = emptyList()
             } finally {
                 _isLoading.value = false
             }
