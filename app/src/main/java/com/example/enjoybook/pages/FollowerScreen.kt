@@ -1,9 +1,12 @@
 package com.example.enjoybook.pages
 
 import android.util.Log
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,6 +21,9 @@ import androidx.compose.material.Icon
 import androidx.compose.material.TabRowDefaults.Divider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -35,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,24 +58,47 @@ fun FollowersScreen(navController: NavController, userId: String) {
     val db = FirebaseFirestore.getInstance()
     var followers by remember { mutableStateOf<List<User>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    val context = LocalContext.current
 
     LaunchedEffect(userId) {
+        loadFollowers(userId) { usersList ->
+            followers = usersList
+            isLoading = false
+        }
+    }
+
+    fun removeFollower(followerId: String) {
+        isLoading = true
         db.collection("follows")
+            .whereEqualTo("followerId", followerId)
             .whereEqualTo("followingId", userId)
             .get()
             .addOnSuccessListener { documents ->
-                val followerIds = documents.map { it.getString("followerId") ?: "" }
-                if (followerIds.isNotEmpty()) {
-                    fetchUsersFromIds(followerIds) { usersList ->
-                        followers = usersList
-                        isLoading = false
-                    }
-                } else {
-                    isLoading = false
+                val batch = db.batch()
+
+                for (document in documents) {
+                    batch.delete(document.reference)
                 }
+
+                batch.commit()
+                    .addOnSuccessListener {
+                        Toast.makeText(context, "Follower remove successor", Toast.LENGTH_SHORT).show()
+                        // Ricarichiamo la lista dei follower
+                        loadFollowers(userId) { usersList ->
+                            followers = usersList
+                            isLoading = false
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("FollowersScreen", "Error removing follower: ", e)
+                        isLoading = false
+                        Toast.makeText(context, "Error", Toast.LENGTH_SHORT).show()
+                    }
             }
-            .addOnFailureListener {
+            .addOnFailureListener { e ->
+                Log.e("FollowersScreen", "Error finding follow relationship: ", e)
                 isLoading = false
+                Toast.makeText(context, "Error", Toast.LENGTH_SHORT).show()
             }
     }
 
@@ -76,7 +106,10 @@ fun FollowersScreen(navController: NavController, userId: String) {
         navController = navController,
         users = followers,
         isLoading = isLoading,
-        title = "FOLLOWERS"
+        title = "FOLLOWERS",
+        currentUserId = userId,
+        onRemoveRelationship = { followerId -> removeFollower(followerId) },
+        isFollowingList = false
     )
 }
 
@@ -85,35 +118,83 @@ fun FollowingScreen(navController: NavController, userId: String) {
     val db = FirebaseFirestore.getInstance()
     var following by remember { mutableStateOf<List<User>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    val context = LocalContext.current
 
     LaunchedEffect(userId) {
-        db.collection("follows")
-            .whereEqualTo("followerId", userId)
-            .get()
-            .addOnSuccessListener { documents ->
-                val followingIds = documents.map { it.getString("followingId") ?: "" }
-                if (followingIds.isNotEmpty()) {
-                    fetchUsersFromIds(followingIds) { usersList ->
-                        following = usersList
-                        isLoading = false
-                    }
-                } else {
-                    isLoading = false
-                }
-            }
-            .addOnFailureListener {
+        loadFollowing(userId) { usersList ->
+            following = usersList
+            isLoading = false
+        }
+    }
+
+    fun removeFollowing(targetUserId: String) {
+        isLoading = true
+        unfollowUser(userId, targetUserId) {
+            Toast.makeText(context, "Don't follow yet this user", Toast.LENGTH_SHORT).show()
+            // Ricarichiamo la lista dei following
+            loadFollowing(userId) { usersList ->
+                following = usersList
                 isLoading = false
             }
+        }
     }
 
     UserFollowList(
         navController = navController,
         users = following,
         isLoading = isLoading,
-        title = "FOLLOWING"
-
+        title = "FOLLOWING",
+        currentUserId = userId,
+        onRemoveRelationship = { followingId -> removeFollowing(followingId) },
+        isFollowingList = true
     )
 }
+
+// Funzione di utilità per caricare i follower
+private fun loadFollowers(userId: String, onComplete: (List<User>) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("follows")
+        .whereEqualTo("followingId", userId)
+        .get()
+        .addOnSuccessListener { documents ->
+            val followerIds = documents.map { it.getString("followerId") ?: "" }
+            if (followerIds.isNotEmpty()) {
+                fetchUsersFromIds(followerIds) { usersList ->
+                    onComplete(usersList)
+                }
+            } else {
+                onComplete(emptyList())
+            }
+        }
+        .addOnFailureListener {
+            onComplete(emptyList())
+        }
+}
+
+
+// Funzione di utilità per caricare i following
+private fun loadFollowing(userId: String, onComplete: (List<User>) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("follows")
+        .whereEqualTo("followerId", userId)
+        .get()
+        .addOnSuccessListener { documents ->
+            val followingIds = documents.map { it.getString("followingId") ?: "" }
+            if (followingIds.isNotEmpty()) {
+                fetchUsersFromIds(followingIds) { usersList ->
+                    onComplete(usersList)
+                }
+            } else {
+                onComplete(emptyList())
+            }
+        }
+        .addOnFailureListener {
+            onComplete(emptyList())
+        }
+}
+
 
 private fun fetchUsersFromIds(userIds: List<String>, onComplete: (List<User>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
@@ -160,13 +241,17 @@ private fun fetchUsersFromIds(userIds: List<String>, onComplete: (List<User>) ->
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserFollowList(
     navController: NavController,
     users: List<User>,
     isLoading: Boolean,
-    title: String
+    title: String,
+    currentUserId: String, // Aggiungiamo il parametro currentUserId
+    onRemoveRelationship: (String) -> Unit, // Aggiungiamo il callback per la rimozione
+    isFollowingList: Boolean = false // Indica se è una lista di persone che seguo
 ) {
     val primaryColor = Color(0xFF2CBABE)
 
@@ -186,9 +271,7 @@ fun UserFollowList(
             )
         },
         contentWindowInsets = WindowInsets(0),
-
-
-        ) { paddingValues ->
+    ) { paddingValues ->
         if (isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -211,21 +294,33 @@ fun UserFollowList(
             ) {
                 items(users.size) { index ->
                     val user = users[index]
-                    UserListItem(user, navController)
+                    UserListItem(
+                        user = user,
+                        navController = navController,
+                        showDeleteButton = true,
+                        onDelete = { onRemoveRelationship(user.userId) },
+                        isFollowingList = isFollowingList
+                    )
                     Divider()
                 }
             }
         }
     }
 }
+
+
+
 @Composable
-fun UserListItem(user: User, navController: NavController) {
+fun UserListItem(
+    user: User,
+    navController: NavController,
+    showDeleteButton: Boolean = false,
+    onDelete: () -> Unit = {},
+    isFollowingList: Boolean = false
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                navController.navigate("userDetails/${user.userId}")
-            }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -240,7 +335,13 @@ fun UserListItem(user: User, navController: NavController) {
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        Column {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clickable {
+                    navController.navigate("userDetails/${user.userId}")
+                }
+        ) {
             Text(
                 text = user.username,
                 fontWeight = FontWeight.Bold,
@@ -252,12 +353,36 @@ fun UserListItem(user: User, navController: NavController) {
                 color = Color.Gray
             )
         }
+
+        if (showDeleteButton) {
+            val primaryColor = Color.Red
+            val buttonText = if (isFollowingList) "Unfollow" else "Remove"
+
+            Button(
+                onClick = onDelete,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = primaryColor
+                ),
+                border = BorderStroke(1.dp, primaryColor),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = buttonText,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp
+                )
+            }
+        }
     }
 }
 
 
 
- fun followUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
+
+
+
+fun followUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
     val db = FirebaseFirestore.getInstance()
     val followData = hashMapOf(
         "followerId" to currentUserId,
@@ -303,7 +428,8 @@ fun UserListItem(user: User, navController: NavController) {
             Log.e("UserDetails", "Error following user: ", e)
         }
 }
- fun unfollowUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
+
+fun unfollowUser(currentUserId: String, targetUserId: String, onComplete: () -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
     db.collection("follows")
@@ -339,4 +465,3 @@ fun UserListItem(user: User, navController: NavController) {
             onComplete()
         }
 }
-
