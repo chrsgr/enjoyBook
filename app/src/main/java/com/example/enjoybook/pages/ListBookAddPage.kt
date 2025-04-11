@@ -256,7 +256,6 @@ private fun loadUserBooks(db: FirebaseFirestore, userId: String?, onComplete: (L
         .get()
         .addOnSuccessListener { documents ->
             val booksList = documents.map { doc ->
-                // Updated: get isAvailable as a string instead of boolean
                 val availabilityStatus = doc.getString("isAvailable") ?: "available"
 
                 BookWithId(
@@ -338,11 +337,9 @@ fun BookItem(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // Toggle between available and not available
                         availabilityStatus = if(availabilityStatus == "available") "not available" else "available"
                         showDialog = false
 
-                        // Update Firebase
                         scope.launch {
                             updateBookAvailability(
                                 db, book.id, availabilityStatus, context, onUpdateComplete = { onRefresh() }
@@ -505,7 +502,6 @@ fun BookItem(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(30.dp)
                     ) {
-                        // Display different status based on availability
                         when (availabilityStatus) {
                             "available" -> {
                                 Surface(

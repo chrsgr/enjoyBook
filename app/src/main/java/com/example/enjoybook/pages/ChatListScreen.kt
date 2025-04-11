@@ -72,7 +72,6 @@ fun ChatListScreen(
 
             if (!partnerSnapshot.exists()) return
 
-            // Get unread message count
             val unreadMessagesCount = db.collection("messages")
                 .whereEqualTo("receiverId", currentUserId)
                 .whereEqualTo("senderId", partnerId)
@@ -81,7 +80,6 @@ fun ChatListScreen(
                 .await()
                 .size()
 
-            // Get most recent message
             val recentMessageQuery = db.collection("messages")
                 .where(
                     Filter.or(
@@ -108,7 +106,6 @@ fun ChatListScreen(
                 lastMessageContent = lastMessageDoc.getString("content") ?: ""
                 lastMessageTimestamp = lastMessageDoc.getLong("timestamp") ?: System.currentTimeMillis()
             } else {
-                // Fallback if no messages found (shouldn't happen with our new logic)
                 lastMessageContent = ""
                 lastMessageTimestamp = System.currentTimeMillis()
             }
@@ -135,7 +132,6 @@ fun ChatListScreen(
 
             val db = FirebaseFirestore.getInstance()
             try {
-                // Get all chats where the current user is a participant
                 val chatsSnapshot = db.collection("chats")
                     .whereArrayContains("participants", currentUser.uid)
                     .get()
@@ -143,34 +139,29 @@ fun ChatListScreen(
 
                 val chatItems = mutableListOf<ChatItem>()
 
-                // Process existing chats
                 for (chatDoc in chatsSnapshot.documents) {
                     val participants = chatDoc.get("participants") as? List<String> ?: continue
                     val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
 
                     if (deletedFor.contains(currentUser.uid)) {
-                        continue  // Skip this chat if it's been deleted by the current user
+                        continue
                     }
 
                     val partnerId = participants.firstOrNull { it != currentUser.uid } ?: continue
                     addChatItemToList(db, currentUser.uid, partnerId, chatItems)
                 }
 
-                // Also check for messages where the current user is the receiver but no chat exists yet
                 val unrespondedMessagesQuery = db.collection("messages")
                     .whereEqualTo("receiverId", currentUser.uid)
                     .whereEqualTo("read", false)
                     .get()
                     .await()
 
-                // Group messages by sender ID
                 val senderIds = unrespondedMessagesQuery.documents
                     .mapNotNull { it.getString("senderId") }
                     .distinct()
 
-                // For each sender, check if we already have a chat, if not add them
                 for (senderId in senderIds) {
-                    // Check if this sender is already in our chat list
                     if (chatItems.none { it.partnerId == senderId }) {
                         addChatItemToList(db, currentUser.uid, senderId, chatItems)
                     }
@@ -207,7 +198,6 @@ fun ChatListScreen(
                     if (!deletedFor.contains(currentUserId)) {
                         deletedFor.add(currentUserId)
 
-                        // Store deletion timestamp in a dedicated field with user ID
                         val currentTime = System.currentTimeMillis()
                         val fieldName = "deletedTimestamp_$currentUserId"
 
@@ -219,7 +209,6 @@ fun ChatListScreen(
                         chatDocRef.update(updates)
                             .addOnSuccessListener {
                                 Log.d("ChatListScreen", "Successfully updated deletedFor and timestamp")
-                                // Update UI
                                 chatList = chatList.filter { it.partnerId != chatItem.partnerId }
                             }
                             .addOnFailureListener { e ->

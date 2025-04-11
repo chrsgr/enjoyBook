@@ -1158,7 +1158,6 @@ private fun cancelFollowRequest(requesterId: String, targetId: String, onComplet
                 document.reference.delete()
             }
 
-            // Also delete the notification
             db.collection("notifications")
                 .whereEqualTo("senderId", requesterId)
                 .whereEqualTo("recipientId", targetId)

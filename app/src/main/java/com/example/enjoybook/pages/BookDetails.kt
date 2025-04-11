@@ -100,7 +100,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
 
     val firestore = FirebaseFirestore.getInstance()
 
-    // Updated to handle string availability status
     var availabilityStatus by remember { mutableStateOf("available") }
     var buttonText by remember { mutableStateOf("available") }
 
@@ -145,7 +144,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                     if (document != null && document.exists()) {
                         book = document.toObject(Book::class.java)
 
-                        // Get availability status as string
                         availabilityStatus = document.getString("isAvailable") ?: "available"
                         buttonText = availabilityStatus
 
@@ -255,17 +253,13 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
         }
     }
 
-    // Updated to handle string availability status
     fun toggleLoanRequest() {
         when (availabilityStatus) {
             "requested" -> {
-                // If the current user has requested this book
                 if (currentUserEmail == book?.userEmail) {
-                    // Book owner is canceling the request status
                     availabilityStatus = "available"
                     buttonText = "available"
 
-                    // Update the book's status in Firestore
                     db.collection("books").document(bookId)
                         .update("isAvailable", "available")
                         .addOnSuccessListener {
@@ -276,12 +270,10 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             )
                         }
                 } else {
-                    // Someone else requested it, and now we're canceling
                     deleteRequest = true
                     availabilityStatus = "available"
                     buttonText = "available"
 
-                    // Update in Firestore
                     db.collection("books").document(bookId)
                         .update("isAvailable", "available")
                         .addOnSuccessListener {
@@ -299,16 +291,13 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 }
             }
             "available" -> {
-                // Book is available, so we're requesting it
                 availabilityStatus = "requested"
                 buttonText = "requested"
                 isLoanRequested = true
 
-                // Update in Firestore
                 db.collection("books").document(bookId)
                     .update("isAvailable", "requested")
                     .addOnSuccessListener {
-                        // Send notification to book owner
                         sendBookRequestNotification(book?.userId.toString(), book!!.title, book!!.id)
 
                         NotificationManager.showNotification(
@@ -325,7 +314,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                 }
             }
             "not available" -> {
-                // Book is not available
                 showLoanRequestDialog = false
                 isLoanRequested = false
                 buttonText = "not available"
@@ -665,7 +653,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                             }
                         }
 
-                        // Available/Unavailable button with updated colors and text based on status
                         if (currentUserEmail != book?.userEmail) {
                             Button(
                                 onClick = { toggleLoanRequest() },
@@ -709,7 +696,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                 }
                             }
                         }
-                        // Review button
                         Button(
                             onClick = { showReviewDialog = true },
                             colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
@@ -905,7 +891,6 @@ fun BookDetails(navController: NavController, authViewModel: AuthViewModel, book
                                                                                         "ReviewDialog",
                                                                                         "Review successfully deleted"
                                                                                     )
-                                                                                    // Remove from local state after successful deletion
                                                                                     submittedReviews.removeAt(
                                                                                         index
                                                                                     )
@@ -1150,7 +1135,6 @@ private fun fetchReviewsForBook(bookId: String, callback: (List<Review>) -> Unit
 
 fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
     val currentUser = FirebaseAuth.getInstance().currentUser ?: return
-    // Get the current user's username
     FirebaseFirestore.getInstance()
         .collection("users")
         .document(currentUser.uid)

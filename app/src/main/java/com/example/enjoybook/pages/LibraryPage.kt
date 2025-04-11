@@ -1,6 +1,5 @@
 package com.example.enjoybook.pages
 
-import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -77,10 +76,8 @@ import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.LentBook
 import com.example.enjoybook.data.Notification
-import com.example.enjoybook.theme.backgroundColor
 import com.example.enjoybook.theme.primaryColor
 import com.example.enjoybook.theme.textColor
-import com.google.android.gms.tasks.Tasks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -97,16 +94,14 @@ fun LibraryPage(navController: NavController) {
 
     val primaryColor = Color(0xFFB4E4E8)
     val secondaryColor = Color(0xFF1A8A8F)
-    val secondaryBackgroundColor = (primaryColor.copy(alpha = 0.1f))
 
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             val db = FirebaseFirestore.getInstance()
 
-            // Load borrowed books - UPDATED to include both accepted AND returned books
             db.collection("borrows")
                 .whereEqualTo("borrowerId", currentUser.uid)
-                .whereIn("status", listOf("accepted", "returned")) // Include both accepted and returned books
+                .whereIn("status", listOf("accepted", "returned"))
                 .get()
                 .addOnSuccessListener { borrowDocs ->
                     val borrowedBookIds = borrowDocs.mapNotNull { it.getString("bookId") }
@@ -119,14 +114,12 @@ fun LibraryPage(navController: NavController) {
                             .whereIn(FieldPath.documentId(), borrowedBookIds)
                             .get()
                             .addOnSuccessListener { bookDocs ->
-                                // Create a map from borrow documents to track status
                                 val borrowStatusMap = borrowDocs.associate {
                                     it.getString("bookId")!! to it.getString("status")!!
                                 }
 
                                 borrowedBooks = bookDocs.map { doc ->
                                     val bookId = doc.id
-                                    // Use the status from the borrow document
                                     val borrowStatus = borrowStatusMap[bookId] ?: "accepted"
 
                                     Book(
@@ -135,7 +128,6 @@ fun LibraryPage(navController: NavController) {
                                         author = doc.getString("author") ?: "",
                                         type = doc.getString("type") ?: "",
                                         userId = doc.getString("userId") ?: "",
-                                        // Set book status based on borrow status
                                         isAvailable = borrowStatus,
                                         userEmail = doc.getString("userEmail") ?: "",
                                         frontCoverUrl = doc.getString("frontCoverUrl") ?: null,
@@ -153,7 +145,6 @@ fun LibraryPage(navController: NavController) {
                     isLoading = false
                 }
 
-            // Load lent books (unchanged)
             withContext(Dispatchers.IO) {
                 try {
                     val borrowQuery = db.collection("borrows")
@@ -162,20 +153,17 @@ fun LibraryPage(navController: NavController) {
                         .get()
                         .await()
 
-                    // Use a HashSet of book IDs to track uniqueness
                     val processedBookIds = HashSet<String>()
                     val lentBooksList = mutableListOf<LentBook>()
 
                     for (borrowDoc in borrowQuery.documents) {
                         val bookId = borrowDoc.getString("bookId") ?: continue
 
-                        // Skip if we've already processed this book
                         if (bookId in processedBookIds) continue
 
                         val borrowId = borrowDoc.id
                         val borrowerId = borrowDoc.getString("borrowerId") ?: continue
 
-                        // Add to processed set
                         processedBookIds.add(bookId)
 
                         val bookDoc = db.collection("books").document(bookId).get().await()
@@ -302,7 +290,7 @@ fun LibraryPage(navController: NavController) {
                         lentBooks,
                         navController,
                         "You haven't lent any books yet",
-                        onRefresh = { /* Your refresh logic here */ })
+                        onRefresh = {  })
 
                     1 -> BookGrid(borrowedBooks, navController, "You haven't borrowed any books")
                 }
@@ -484,7 +472,6 @@ fun BookCard(book: Book, navController: NavController) {
                     }
                 }
 
-                // Show "Returned" label when the book status is "returned"
                 if (book.isAvailable == "returned") {
                     Box(
                         modifier = Modifier
@@ -670,12 +657,10 @@ fun LentBookCard(
                         showDialog = false
                         scope.launch {
                             try {
-                                // 1. Update the book availability to "available"
                                 db.collection("books").document(book.id)
                                     .update("isAvailable", "available")
                                     .await()
 
-                                // 2. Update the borrow status to "returned" - THIS IS CRITICAL
                                 db.collection("borrows").document(lentBook.borrowId)
                                     .update(
                                         mapOf(
@@ -685,13 +670,10 @@ fun LentBookCard(
                                     )
                                     .await()
 
-                                // 3. Send notification about the return
                                 sendBookReturnConfirmationNotification(lentBook)
 
-                                // 4. Show success message
                                 Toast.makeText(context, "Book marked as returned", Toast.LENGTH_SHORT).show()
 
-                                // 5. Refresh the UI
                                 onRefresh()
                             } catch (e: Exception) {
                                 Log.e("LentBookCard", "Error updating borrow status", e)

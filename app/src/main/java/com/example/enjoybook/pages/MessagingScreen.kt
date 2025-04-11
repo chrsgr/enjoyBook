@@ -26,7 +26,6 @@ import com.example.enjoybook.data.Message
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -61,7 +60,6 @@ fun UserMessagingScreen(
     LaunchedEffect(targetUserId) {
         val currentUserId = currentUser?.uid ?: return@LaunchedEffect
 
-        // First, make sure this chat isn't marked as deleted for the current user
         val chatDocumentId = listOf(currentUserId, targetUserId).sorted().joinToString("_")
         db.collection("chats")
             .document(chatDocumentId)
@@ -70,7 +68,6 @@ fun UserMessagingScreen(
                 if (chatDoc.exists()) {
                     val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
 
-                    // If chat was deleted for current user, restore it
                     if (deletedFor.contains(currentUserId)) {
                         val updatedDeletedFor = deletedFor.filter { it != currentUserId }
                         db.collection("chats")
@@ -83,7 +80,6 @@ fun UserMessagingScreen(
                 }
             }
 
-        // Then proceed with marking messages as read
         markMessagesAsRead(
             db,
             currentUserId,
@@ -112,7 +108,6 @@ fun UserMessagingScreen(
     }
 
 
-    // Helper function to update chat metadata
     fun updateChatMetadata(
         db: FirebaseFirestore,
         chatDocumentId: String,
@@ -157,7 +152,6 @@ fun UserMessagingScreen(
         val chatDocumentId = listOf(currentUser.uid, targetUserId).sorted().joinToString("_")
 
         if (editedMessage != null) {
-            // Get reference to the existing message document
             db.collection("messages")
                 .whereEqualTo("id", editedMessage.id)
                 .get()
@@ -165,16 +159,12 @@ fun UserMessagingScreen(
                     if (!querySnapshot.isEmpty) {
                         val messageDoc = querySnapshot.documents[0]
 
-                        // Update the message content and set edited flag to true
-                        // but DON'T update the timestamp
                         messageDoc.reference.update(
                             mapOf(
                                 "content" to messageContent,
                                 "edited" to true
-                                // Removed "timestamp" update to preserve original timestamp
                             )
                         ).addOnSuccessListener {
-                            // Update chat metadata
                             updateChatMetadata(db, chatDocumentId, currentUser.uid, targetUserId, messageContent)
                             Log.d("MessagingSystem", "Message edited successfully")
                         }.addOnFailureListener { e ->
@@ -217,7 +207,6 @@ fun UserMessagingScreen(
             }
         }
 
-        // First check if chat exists and handle deletion status
         db.collection("chats")
             .document(chatDocumentId)
             .get()
@@ -226,25 +215,21 @@ fun UserMessagingScreen(
                     val deletedFor = chatDoc.get("deletedFor") as? List<String> ?: emptyList()
                     val updatedDeletedFor = deletedFor.toMutableList()
 
-                    // If current user had deleted this chat, remove them from deletedFor
                     if (updatedDeletedFor.contains(currentUser.uid)) {
                         updatedDeletedFor.remove(currentUser.uid)
 
-                        // Don't remove the deletion timestamp - we'll still filter based on it
                     }
 
-                    // Save the message first
                     db.collection("messages")
                         .document(messageRef.id)
                         .set(messageRef)
                         .addOnSuccessListener {
-                            // Then update the chat metadata
                             val chatUpdates = hashMapOf<String, Any>(
                                 "participants" to listOf(currentUser.uid, targetUserId),
                                 "lastMessageTimestamp" to System.currentTimeMillis(),
                                 "lastMessage" to messageContent,
                                 "lastMessageSenderId" to currentUser.uid,
-                                "deletedFor" to updatedDeletedFor  // Updated deletedFor list
+                                "deletedFor" to updatedDeletedFor
                             )
 
                             db.collection("chats")
@@ -261,7 +246,6 @@ fun UserMessagingScreen(
                             Log.e("MessagingSystem", "Error sending message", e)
                         }
                 } else {
-                    // Create new chat - no deletion history
                     db.collection("messages")
                         .document(messageRef.id)
                         .set(messageRef)

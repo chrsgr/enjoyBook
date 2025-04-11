@@ -245,21 +245,18 @@ fun ProfilePage(
         val isPasswordChangeRequested = newPassword.isNotBlank() || confirmNewPassword.isNotBlank()
 
         if (isPasswordChangeRequested) {
-            // Verificare che la password attuale sia stata inserita
             if (currentPassword.isBlank()) {
                 errorMessage = "Current password is required to change password"
                 showErrorDialog = true
                 return
             }
 
-            // Verificare che le nuove password corrispondano
             if (newPassword != confirmNewPassword) {
                 errorMessage = "New passwords do not match"
                 showErrorDialog = true
                 return
             }
 
-            // Verificare che la nuova password soddisfi i requisiti di sicurezza
             val (isValid, validationMessage) = isPasswordValid(newPassword)
             if (!isValid) {
                 errorMessage = validationMessage
@@ -270,7 +267,6 @@ fun ProfilePage(
 
         isSaving = true
 
-        // Verificare se lo username è già preso
         firestore.collection("users")
             .whereEqualTo("username", username)
             .get()
@@ -283,7 +279,6 @@ fun ProfilePage(
                     errorMessage = "Username is already taken. Please choose a different username."
                     showErrorDialog = true
                 } else {
-                    // Preparare i dati utente da aggiornare
                     val userData = hashMapOf(
                         "name" to name,
                         "surname" to surname,
@@ -299,7 +294,6 @@ fun ProfilePage(
                         userData["profilePictureUrl"] = it.toString()
                     }
 
-                    // Funzione per aggiornare Firestore
                     val updateFirestore = {
                         firestore.collection("users").document(currentUser.uid)
                             .update(userData as Map<String, Any>)
@@ -324,7 +318,6 @@ fun ProfilePage(
                             }
                     }
 
-                    // Verificare il tipo di account e procedere con il cambio password se richiesto
                     firestore.collection("users").document(currentUser.uid)
                         .get()
                         .addOnSuccessListener { document ->
@@ -332,13 +325,11 @@ fun ProfilePage(
 
                             if (isPasswordChangeRequested) {
                                 if (isGoogleAuth) {
-                                    // Gli account Google non possono cambiare password dall'app
                                     isSaving = false
                                     errorMessage =
                                         "Google accounts cannot change their password through the app. Please manage your Google account settings instead."
                                     showErrorDialog = true
                                 } else {
-                                    // Riautenticare l'utente prima di cambiare la password
                                     val credential = EmailAuthProvider.getCredential(currentUser.email!!, currentPassword)
 
                                     currentUser.reauthenticate(credential)
@@ -346,12 +337,10 @@ fun ProfilePage(
                                             // Dopo la riautenticazione, aggiorna la password
                                             currentUser.updatePassword(newPassword)
                                                 .addOnSuccessListener {
-                                                    // Reset dei campi password dopo l'aggiornamento
                                                     currentPassword = ""
                                                     newPassword = ""
                                                     confirmNewPassword = ""
 
-                                                    // Aggiorna i dati dell'utente su Firestore
                                                     updateFirestore()
 
                                                     Toast.makeText(
@@ -373,7 +362,6 @@ fun ProfilePage(
                                         }
                                 }
                             } else {
-                                // Se non c'è cambio password, aggiorna solo i dati dell'utente
                                 updateFirestore()
                             }
                         }
@@ -470,7 +458,6 @@ fun ProfilePage(
                     }
                 }
             } else {
-                // Main content
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -913,7 +900,6 @@ fun ProfilePage(
                             }
                         }
 
-                        // Delete confirmation dialog
                         if (showDeleteConfirmation) {
                             AlertDialog(
                                 onDismissRequest = { showDeleteConfirmation = false },

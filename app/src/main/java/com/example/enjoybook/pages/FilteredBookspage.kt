@@ -172,7 +172,6 @@ fun BookListItem(book: Book, navController: NavController) {
             modifier = Modifier
                 .padding(16.dp)
                 .clickable {
-                    // Navigate to BookDetails screen when the book is clicked
                     navController.navigate("bookDetails/${book.id}")
                 },
             verticalAlignment = Alignment.CenterVertically

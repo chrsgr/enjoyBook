@@ -50,7 +50,6 @@ fun BookCardUser(
 
     val isNew = book.timestamp?.toDate()?.after(sevenDaysAgo.toDate()) == true
 
-    // Updated: handle isAvailable as a string
     val availabilityStatus = book.isAvailable ?: "available"
     val isBookAvailable = availabilityStatus == "available"
 
@@ -97,7 +96,6 @@ fun BookCardUser(
                         modifier = Modifier.fillMaxSize(),
                     )
 
-                    // Show NEW tag if the book is new and available
                     if (isNew && isBookAvailable) {
                         Box(
                             modifier = Modifier
@@ -114,13 +112,12 @@ fun BookCardUser(
                         }
                     }
 
-                    // Show availability status tags
                     when (availabilityStatus) {
                         "requested" -> {
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .background(Color(0xFFFF9800)) // Orange for requested
+                                    .background(Color(0xFFFF9800))
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
@@ -163,7 +160,6 @@ fun BookCardUser(
                         modifier = Modifier.size(36.dp)
                     )
 
-                    // Show NEW tag if the book is new and available
                     if (isNew && isBookAvailable) {
                         Box(
                             modifier = Modifier
@@ -180,13 +176,12 @@ fun BookCardUser(
                         }
                     }
 
-                    // Show availability status tags
                     when (availabilityStatus) {
                         "requested" -> {
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .background(Color(0xFFFF9800)) // Orange for requested
+                                    .background(Color(0xFFFF9800))
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(

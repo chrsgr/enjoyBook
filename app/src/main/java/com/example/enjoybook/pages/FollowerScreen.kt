@@ -21,7 +21,6 @@ import androidx.compose.material.Icon
 import androidx.compose.material.TabRowDefaults.Divider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -83,7 +82,6 @@ fun FollowersScreen(navController: NavController, userId: String) {
                 batch.commit()
                     .addOnSuccessListener {
                         Toast.makeText(context, "Follower remove successor", Toast.LENGTH_SHORT).show()
-                        // Ricarichiamo la lista dei follower
                         loadFollowers(userId) { usersList ->
                             followers = usersList
                             isLoading = false
@@ -131,7 +129,6 @@ fun FollowingScreen(navController: NavController, userId: String) {
         isLoading = true
         unfollowUser(userId, targetUserId) {
             Toast.makeText(context, "Don't follow yet this user", Toast.LENGTH_SHORT).show()
-            // Ricarichiamo la lista dei following
             loadFollowing(userId) { usersList ->
                 following = usersList
                 isLoading = false
@@ -150,7 +147,6 @@ fun FollowingScreen(navController: NavController, userId: String) {
     )
 }
 
-// Funzione di utilità per caricare i follower
 private fun loadFollowers(userId: String, onComplete: (List<User>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
@@ -173,7 +169,6 @@ private fun loadFollowers(userId: String, onComplete: (List<User>) -> Unit) {
 }
 
 
-// Funzione di utilità per caricare i following
 private fun loadFollowing(userId: String, onComplete: (List<User>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
@@ -249,9 +244,9 @@ fun UserFollowList(
     users: List<User>,
     isLoading: Boolean,
     title: String,
-    currentUserId: String, // Aggiungiamo il parametro currentUserId
-    onRemoveRelationship: (String) -> Unit, // Aggiungiamo il callback per la rimozione
-    isFollowingList: Boolean = false // Indica se è una lista di persone che seguo
+    currentUserId: String,
+    onRemoveRelationship: (String) -> Unit,
+    isFollowingList: Boolean = false
 ) {
     val primaryColor = Color(0xFF2CBABE)
 
