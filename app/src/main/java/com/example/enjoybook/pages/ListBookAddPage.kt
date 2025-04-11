@@ -615,7 +615,7 @@ fun BookItem(
     }
 }
 
-private suspend fun updateBookAvailability(
+internal suspend fun updateBookAvailability(
     db: FirebaseFirestore,
     bookId: String,
     availabilityStatus: String,

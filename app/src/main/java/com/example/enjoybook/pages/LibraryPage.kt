@@ -269,7 +269,7 @@ fun LibraryPage(navController: NavController) {
                 }
             } else {
                 when (selectedTab) {
-                    0 -> LentBookGrid(lentBooks, navController, "You haven't lent any books yet")
+                    0 -> LentBookGrid(lentBooks, navController, "You haven't lent any books yet", onRefresh = { /* Your refresh logic here */ })
                     1 -> BookGrid(borrowedBooks, navController, "You haven't borrowed any books")
                 }
             }
@@ -327,7 +327,8 @@ fun BookGrid(
 fun LentBookGrid(
     lentBooks: List<LentBook>,
     navController: NavController,
-    emptyMessage: String
+    emptyMessage: String,
+    onRefresh: () -> Unit
 ) {
     if (lentBooks.isEmpty()) {
         Box(
@@ -363,7 +364,12 @@ fun LentBookGrid(
             modifier = Modifier.fillMaxSize()
         ) {
             items(lentBooks) { lentBook ->
-                LentBookCard(lentBook, navController)
+                LentBookCard(
+                    lentBook = lentBook,
+                    navController = navController,
+                    book = lentBook.book,
+                    onRefresh = onRefresh
+                )
             }
         }
     }
@@ -467,12 +473,16 @@ fun BookCard(book: Book, navController: NavController) {
 
 
 @Composable
-fun LentBookCard(lentBook: LentBook, navController: NavController) {
+fun LentBookCard(lentBook: LentBook, navController: NavController,book: Book,     onRefresh: () -> Unit,
+
+                 ) {
 
     var showDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val db = FirebaseFirestore.getInstance()
     val context = LocalContext.current
+    var availabilityStatus by remember { mutableStateOf(book.isAvailable ?: "available") }
+
 
     Card(
         modifier = Modifier
@@ -608,11 +618,18 @@ fun LentBookCard(lentBook: LentBook, navController: NavController) {
                     onClick = {
                         showDialog = false
 
+                        availabilityStatus = if(availabilityStatus == "available") "not available" else "available"
+
                         scope.launch {
-                            updateBorrow(db, lentBook.borrowId, lentBook.book.id, context)
+                            updateBookAvailability(
+                                db, book.id, availabilityStatus, context, onUpdateComplete = { onRefresh() }
+                            )
 
                             sendBookReturnConfirmationNotification(lentBook)
+
                         }
+
+
                     }
                 ) {
                     androidx.compose.material3.Text("Confirm", color = primaryColor)
