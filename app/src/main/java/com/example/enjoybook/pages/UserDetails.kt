@@ -91,6 +91,7 @@ import com.example.enjoybook.utils.reportHandler
 import com.example.enjoybook.utils.requestToFollowUser
 import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
@@ -1036,31 +1037,39 @@ private fun fetchReadsUser(userId: String, onComplete: (List<Book>) -> Unit) {
 
     db.collection("borrows")
         .whereEqualTo("borrowerId", userId)
-       // .whereEqualTo("status", "returned")
+        .whereEqualTo("status", "returned") // Only include books with "returned" status
         .get()
         .addOnSuccessListener { userBorrowsSnapshot ->
-            val bookBorrowIds = userBorrowsSnapshot.documents.mapNotNull { it.getString("bookId") }.toSet()
+            // Extract the book IDs from the borrow documents
+            val bookIds = userBorrowsSnapshot.documents.mapNotNull { it.getString("bookId") }
 
-            if (bookBorrowIds.isEmpty()) {
+            if (bookIds.isEmpty()) {
                 onComplete(emptyList())
                 return@addOnSuccessListener
             }
 
+            // Fetch the book details
             db.collection("books")
-                .whereIn("id", bookBorrowIds.toList())
+                .whereIn(FieldPath.documentId(), bookIds)
                 .get()
-                .addOnSuccessListener { documents ->
-                    val booksList = mutableListOf<Book>()
-                    for (document in documents) {
-                        val book = document.toObject(Book::class.java).copy(
-                            id = document.id
+                .addOnSuccessListener { bookDocuments ->
+                    val booksList = bookDocuments.map { doc ->
+                        Book(
+                            id = doc.id,
+                            title = doc.getString("title") ?: "",
+                            author = doc.getString("author") ?: "",
+                            type = doc.getString("type") ?: "",
+                            userId = doc.getString("userId") ?: "",
+                            isAvailable = doc.getString("isAvailable") ?: "available",
+                            userEmail = doc.getString("userEmail") ?: "",
+                            frontCoverUrl = doc.getString("frontCoverUrl"),
+                            backCoverUrl = doc.getString("backCoverUrl")
                         )
-                        booksList.add(book)
                     }
                     onComplete(booksList)
                 }
                 .addOnFailureListener { exception ->
-                    Log.e("Firestore", "Error getting featured books: ", exception)
+                    Log.e("Firestore", "Error getting books: ", exception)
                     onComplete(emptyList())
                 }
         }
