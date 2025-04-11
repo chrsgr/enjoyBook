@@ -77,7 +77,7 @@ import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun SearchPage(viewModel: SearchViewModel = viewModel(), navController: NavController){
-    val primaryColor = Color(0xFF2CBABE)
+    val primaryColor = Color(0xFF3AB5BD)
     val backgroundColor = Color(0xFFF5F5F5)
     val textColor = Color(0xFF333333)
 
