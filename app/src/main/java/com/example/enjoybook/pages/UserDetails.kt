@@ -351,7 +351,11 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
 
                             // Dialog report
                             if (showReportDialog) {
-                                reportHandler(userId, user?.username, showReportDialog)
+                                reportHandler(
+                                    userId = userId,
+                                    username = user?.username,
+                                    onDismiss = { showReportDialog = false }
+                                )
                             }
                         }
                     },
