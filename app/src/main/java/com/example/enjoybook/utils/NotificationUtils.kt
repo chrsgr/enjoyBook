@@ -294,36 +294,38 @@ fun handleAcceptLoanRequest(notification: Notification) {
         }
 }
 
+
 fun handleRejectLoanRequest(notification: Notification) {
     val db = FirebaseFirestore.getInstance()
-    db.collection("notifications").document(notification.id)
-        .delete()
+    val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+
+    db.collection("books").document(notification.bookId)
+        .update(mapOf("isAvailable" to "available"))
         .addOnSuccessListener {
-            Log.d("Notifications", "Original notification deleted immediately")
+            Log.d("Notifications", "Book status updated to available")
 
-            val requesterId = notification.senderId
-
-            val rejectionNotification = Notification(
-                recipientId = requesterId,
-                senderId = FirebaseAuth.getInstance().currentUser?.uid ?: "",
-                message = "Your book request '${notification.title}' is rejected",
-                timestamp = System.currentTimeMillis(),
-                isRead = false,
-                type = "LOAN_REJECTED",
-                bookId = notification.bookId,
-                title = notification.title
-            )
-
-            db.collection("notifications").add(rejectionNotification)
+            db.collection("notifications").document(notification.id)
+                .delete()
                 .addOnSuccessListener {
-                    Log.d("Notifications", "Rejection notification sent")
+                    Log.d("Notifications", "Notification deleted successfully")
+
+                    val rejectionNotification = Notification(
+                        recipientId = notification.senderId,
+                        senderId = currentUser.uid,
+                        message = "Your book request '${notification.title}' is rejected",
+                        timestamp = System.currentTimeMillis(),
+                        isRead = false,
+                        type = "LOAN_REJECTED",
+                        bookId = notification.bookId,
+                        title = notification.title,
+
+                    )
+
+                    db.collection("notifications").add(rejectionNotification)
+                        .addOnSuccessListener {
+                            Log.d("Notifications", "Rejection notification sent")
+                        }
                 }
-                .addOnFailureListener { e ->
-                    Log.e("Notifications", "Error sending rejection notification", e)
-                }
-        }
-        .addOnFailureListener { e ->
-            Log.e("Notifications", "Error deleting notification", e)
         }
 }
 
