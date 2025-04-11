@@ -121,6 +121,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
 
     var showReportDialog by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
+    var showBannedDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
     val libraryBooks = remember { mutableStateOf<List<Book>>(emptyList()) }
@@ -240,6 +241,12 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
         }
     }
 
+    if(isBanned){
+        errorMessage = "User banned"
+        showBannedDialog = true
+        isLoading = false
+    }
+
     if (showErrorDialog) {
         AlertDialog(
             onDismissRequest = { showErrorDialog = false },
@@ -251,6 +258,22 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
                     if (userId.isEmpty()) {
                         navController.popBackStack()
                     }
+                }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    if (showBannedDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = { Text("Error") },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showErrorDialog = false
+                    navController.popBackStack()
                 }) {
                     Text("OK")
                 }
