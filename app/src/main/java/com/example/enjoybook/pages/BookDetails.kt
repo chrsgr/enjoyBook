@@ -1150,26 +1150,36 @@ private fun fetchReviewsForBook(bookId: String, callback: (List<Review>) -> Unit
 
 fun sendBookRequestNotification(userId: String, title: String, bookId: String) {
     val currentUser = FirebaseAuth.getInstance().currentUser ?: return
-
-    val notification = Notification(
-        recipientId = userId,
-        senderId = currentUser.uid,
-        message = "Book rental request '$title'",
-        timestamp = System.currentTimeMillis(),
-        isRead = false,
-        type = "LOAN_REQUEST",
-        bookId = bookId,
-        title = title
-    )
-
+    // Get the current user's username
     FirebaseFirestore.getInstance()
-        .collection("notifications")
-        .add(notification)
-        .addOnSuccessListener {
-            Log.d("Notifications", "Request notification sent to owner")
-        }
-        .addOnFailureListener { e ->
-            Log.e("Notifications", "Error sending notification", e)
+        .collection("users")
+        .document(currentUser.uid)
+        .get()
+        .addOnSuccessListener { document ->
+            val username = document.getString("username") ?: "Unknown user"
+
+            val notification = Notification(
+                recipientId = userId,
+                senderId = currentUser.uid,
+                senderUsername = username,  // Added sender's username
+                message = "Book rental request '$title' from $username",
+                timestamp = System.currentTimeMillis(),
+                isRead = false,
+                type = "LOAN_REQUEST",
+                bookId = bookId,
+                title = title
+            )
+
+
+            FirebaseFirestore.getInstance()
+                .collection("notifications")
+                .add(notification)
+                .addOnSuccessListener {
+                    Log.d("Notifications", "Request notification sent to owner")
+                }
+                .addOnFailureListener { e ->
+                    Log.e("Notifications", "Error sending notification", e)
+                }
         }
 }
 
