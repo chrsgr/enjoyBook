@@ -75,6 +75,7 @@ import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.BuildConfig
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
@@ -82,6 +83,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -177,33 +181,49 @@ fun ProfilePage(
         }
     }
 
+
     fun fetchImagesFromApi() {
         isLoading = true
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val sampleImages = mutableListOf<String>()
 
-                // API: RoboHash - random avatars with high-quality SVGs
-                val avatarTypes =
-                    listOf("male", "female", "human", "identicon", "initials", "bottts")
-                for (i in 0 until 6) {
-                    val seed = "User${i + 100}"
-                    val type = avatarTypes[i % avatarTypes.size]
-                    sampleImages.add("https://robohash.org/$seed?set=$type&bgset=bg1&size=200x200") // Increased size for better quality
-                }
+                val baseUrl = "${ApiConfig.getBaseUrl()}/api/images"
+                val url = URL(baseUrl)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
 
-                delay(800)
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val inputStream = connection.inputStream
+                    val response = inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(response)
+                    val images = json.getJSONArray("images")
 
-                withContext(Dispatchers.Main) {
-                    apiImages = sampleImages
-                    isLoading = false
+                    val fetchedImages = mutableListOf<String>()
+                    for (i in 0 until images.length()) {
+                        val fileName = images.getString(i)
+                        fetchedImages.add("${ApiConfig.getBaseUrl()}/api/images/$fileName")
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        apiImages = fetchedImages
+                        isLoading = false
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        errorMessage = "Server error $responseCode"
+                        showErrorDialog = true
+                        isLoading = false
+                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    isLoading = false
                     errorMessage = "Failed to load avatars: ${e.message}"
                     showErrorDialog = true
+                    isLoading = false
                 }
             }
         }
@@ -1356,7 +1376,7 @@ fun deleteUserAccount(navController: NavController, viewModel: AuthViewModel) {
     user?.let { currentUser ->
         val userId = currentUser.uid
         val collectionsToDelete =
-            listOf("books", "reviews", "users", "messages", "favourites", "chats")
+            listOf("books", "reviews", "users", "messages", "favorites", "chats")
         val tasks = mutableListOf<Task<Void>>()
 
         for (collection in collectionsToDelete) {

@@ -242,7 +242,7 @@ fun UserDetails(navController: NavController, authViewModel: AuthViewModel, user
         }
     }
 
-    if(isBanned){
+    if(isBanned && !isAdmin){
         errorMessage = "User banned"
         showBannedDialog = true
         isLoading = false
