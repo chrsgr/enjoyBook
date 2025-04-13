@@ -455,6 +455,7 @@ fun ProfilePage(
                 }
             }
         },
+        contentWindowInsets = WindowInsets(0)
     ) { paddingValues ->
         Box(
             modifier = Modifier

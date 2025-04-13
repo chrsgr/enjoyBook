@@ -148,7 +148,8 @@ fun ListBookAddPage(navController: NavController) {
                 )
             }
         },
-        containerColor = backgroundColor
+        containerColor = backgroundColor,
+        contentWindowInsets = WindowInsets(0),
     ) { paddingValues ->
         Box(
             modifier = Modifier
