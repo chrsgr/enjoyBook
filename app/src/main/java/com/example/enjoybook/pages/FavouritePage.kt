@@ -41,6 +41,8 @@ import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.example.enjoybook.data.Book
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.google.common.reflect.TypeToken
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -109,109 +111,32 @@ fun FavouritePage(
 ) {
     val favorites by remember { mutableStateOf(FavoritesManager.favorites) }
 
+    val refreshing = remember { mutableStateOf(false) }
+    val swipeRefreshState = rememberSwipeRefreshState(refreshing.value)
+
     val refreshScope = rememberCoroutineScope()
-    var refreshing by remember { mutableStateOf(false) }
-    var refreshOffset by remember { mutableStateOf(0f) }
-    val maxRefreshOffset = 120.dp
 
-    val density = LocalDensity.current
-    val maxRefreshOffsetPx = with(density) { maxRefreshOffset.toPx() }
-
-    fun refresh() = refreshScope.launch {
-        refreshing = true
-        delay(1500)
-        refreshing = false
-
-        val startTime = System.currentTimeMillis()
-        val animationDuration = 300
-        while (refreshOffset > 0) {
-            val elapsedTime = System.currentTimeMillis() - startTime
-            val fraction = (elapsedTime.toFloat() / animationDuration).coerceIn(0f, 1f)
-            refreshOffset = maxRefreshOffsetPx * (1 - fraction)
-            delay(16)
-            if (elapsedTime >= animationDuration) break
+    fun refresh() {
+        refreshScope.launch {
+            refreshing.value = true
+            delay(500)
+            refreshing.value = false
         }
-        refreshOffset = 0f
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onDragStart = { },
-                        onDragEnd = {
-                            if (refreshOffset > maxRefreshOffsetPx * 0.7f) {
-                                refresh()
-                            } else {
-                                refreshScope.launch {
-                                    val startTime = System.currentTimeMillis()
-                                    val animationDuration = 200
-                                    val startOffset = refreshOffset
-                                    while (refreshOffset > 0) {
-                                        val elapsedTime = System.currentTimeMillis() - startTime
-                                        val fraction = (elapsedTime.toFloat() / animationDuration).coerceIn(0f, 1f)
-                                        refreshOffset = startOffset * (1 - fraction)
-                                        delay(16)
-                                        if (elapsedTime >= animationDuration) break
-                                    }
-                                    refreshOffset = 0f
-                                }
-                            }
-                        },
-                        onVerticalDrag = { change, dragAmount ->
-                            if (dragAmount > 0) {
-                                change.consume()
-                                refreshOffset = (refreshOffset + dragAmount * 0.5f).coerceIn(
-                                    0f,
-                                    maxRefreshOffsetPx * 1.5f
-                                )
-                            }
-                        }
-                    )
-                }
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = { refresh() },
+            modifier = Modifier.fillMaxSize()
         ) {
-            if (refreshOffset > 0 || refreshing) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(with(density) { refreshOffset.toDp() })
-                        .background(Color.Transparent),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(32.dp),
-                            progress = if (refreshing) 1f else (refreshOffset / maxRefreshOffsetPx).coerceIn(0f, 1f),
-                            color = Color(0xFF2CBABE)
-                        )
-
-                        if (refreshOffset > maxRefreshOffsetPx * 0.7f || refreshing) {
-                            Text(
-                                text = if (refreshing) "Update..." else "Release to update",
-                                fontSize = 12.sp,
-                                color = Color.Gray,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .offset(y = with(density) { refreshOffset.toDp() })
                     .padding(horizontal = 16.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Titolo
-
-
                 if (favorites.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -247,7 +172,8 @@ fun FavouritePage(
                             FavoriteBookItem(
                                 book = book,
                                 onClick = {
-                                    navController.navigate("bookDetails/${book.id}")                                },
+                                    navController.navigate("bookDetails/${book.id}")
+                                },
                                 onRemove = {
                                     val currentUser = FirebaseAuth.getInstance().currentUser
                                     if (currentUser != null) {
@@ -264,13 +190,12 @@ fun FavouritePage(
 
                                                 refreshScope.launch {
                                                     delay(100)
-                                                    refreshing = true
+                                                    refreshing.value = true
                                                     delay(300)
-                                                    refreshing = false
+                                                    refreshing.value = false
                                                 }
                                             }
                                             .addOnFailureListener { e ->
-                                                Log.e("FavoriteBookItem", "Errore nella rimozione del libro dai preferiti", e)
                                             }
                                     }
                                 }

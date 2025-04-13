@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
@@ -28,6 +29,9 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,7 +68,7 @@ import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
 import com.example.enjoybook.viewModel.BooksViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun AllFeaturedBooksPage(navController: NavController, authViewModel: AuthViewModel, booksViewModel: BooksViewModel) {
     val primaryColor = Color(0xFF2CBABE)
@@ -78,6 +82,13 @@ fun AllFeaturedBooksPage(navController: NavController, authViewModel: AuthViewMo
     val booksGrouped by booksViewModel.booksGrouped.collectAsState()
     val isLoading by booksViewModel.isLoading.collectAsState()
     val error by booksViewModel.error.collectAsState()
+
+
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isLoading,
+        onRefresh = { booksViewModel.refreshBooks() }
+    )
+
 
     LaunchedEffect(authState.value) {
         when (authState.value) {
@@ -133,6 +144,8 @@ fun AllFeaturedBooksPage(navController: NavController, authViewModel: AuthViewMo
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .pullRefresh(pullRefreshState)
+
         ) {
             if (isLoading) {
                 LoadingIndicator()
@@ -176,8 +189,20 @@ fun AllFeaturedBooksPage(navController: NavController, authViewModel: AuthViewMo
                     }
                 }
             }
+
+            PullRefreshIndicator(
+                refreshing = isLoading,
+                state = pullRefreshState,
+                backgroundColor = Color.White,
+                modifier = Modifier.align(Alignment.TopCenter),
+                contentColor = primaryColor
+            )
         }
+
+
     }
+
+
 }
 
 @Composable

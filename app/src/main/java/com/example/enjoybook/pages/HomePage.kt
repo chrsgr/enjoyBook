@@ -64,6 +64,10 @@ import com.example.enjoybook.data.Book
 import com.example.enjoybook.data.FavoriteBook
 import com.example.enjoybook.viewModel.AuthState
 import com.example.enjoybook.viewModel.AuthViewModel
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.SwipeRefreshIndicator
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -80,6 +84,8 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
     val favorites by FavoritesManager.favoritesFlow.collectAsState()
 
     var selectedGenre by remember { mutableStateOf<String?>(null) }
+    val refreshing = remember { mutableStateOf(false) }
+    val swipeRefreshState = rememberSwipeRefreshState(refreshing.value)
 
     val categories = listOf(
         "Adventure", "Classics", "Crime", "Folk", "Fantasy", "Historical",
@@ -91,15 +97,23 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
     val favoritesBooks = remember { mutableStateOf<List<FavoriteBook>>(emptyList()) }
     val isLoading = remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
+    val refreshData = {
+        refreshing.value = true
+        isLoading.value = true
+
         fetchFeaturedBooks { books ->
             featuredBooks.value = books
             isLoading.value = false
         }
+
         fetchFavoriteBooks { books ->
             favoritesBooks.value = books
-            isLoading.value = false
+            refreshing.value = false
         }
+    }
+
+    LaunchedEffect(Unit) {
+        refreshData()
     }
 
     LaunchedEffect(authState.value) {
@@ -109,29 +123,38 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
         }
     }
 
-
     Scaffold(
         contentWindowInsets = WindowInsets(0)
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(top = 16.dp)
-        ){
-            // Genre
-            item {
-                //Spacer(modifier = Modifier.height(60.dp))
-                Box(
-                    modifier = Modifier.padding(start = 16.dp)
-                ) {
-                    SectionHeader(
-                        icon = Icons.Filled.MenuBook,
-                        title = "GENRE",
-                        primaryColor = primaryColor,
-                        textColor = textColor,
-                    )
-                }
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = refreshData,
+            indicator = { state, trigger ->
+                SwipeRefreshIndicator(
+                    state = state,
+                    refreshTriggerDistance = trigger,
+                    contentColor = primaryColor
+                )
+            }
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(top = 16.dp)
+            ){
+                // Genre
+                item {
+                    Box(
+                        modifier = Modifier.padding(start = 16.dp)
+                    ) {
+                        SectionHeader(
+                            icon = Icons.Filled.MenuBook,
+                            title = "GENRE",
+                            primaryColor = primaryColor,
+                            textColor = textColor,
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
@@ -177,228 +200,182 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                         }
                     }
 
-                // "See all" link
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp),
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    Text(
-                        text = "See all genres",
-                        color = primaryColor,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .clickable { navController.navigate("search") }
-                            .padding(vertical = 4.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // Featured books
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
+                    // "See all" link
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(start = 16.dp),
+                        horizontalArrangement = Arrangement.Start
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ){
-                            SectionHeader(
-                                icon = Icons.Filled.Book,
-                                title = "FEATURED BOOKS",
-                                primaryColor = primaryColor,
-                                textColor = textColor,
-
-                                )
-                            ClickableTextWithNavigation(
-                                fullText = "All books",
-                                clickableWord = "All books",
-                                navController = navController,
-                                destinationRoute = "allBooks",
-                                normalColor = textColor
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Box(
+                        Text(
+                            text = "See all genres",
+                            color = primaryColor,
+                            fontWeight = FontWeight.Bold,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(180.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isLoading.value) {
-                                CircularProgressIndicator(color = primaryColor)
-                            } else if (featuredBooks.value.isEmpty()) {
-                                Text("No featured books available", color = Color.Gray)
-                            } else {
-                                Row(
-                                    modifier = Modifier
-                                        .horizontalScroll(rememberScrollState())
-                                        .fillMaxWidth()
-                                ) {
-                                    featuredBooks.value.forEach { book ->
-                                        FeatureBookCard(
-                                            book = book,
-                                            primaryColor = primaryColor,
-                                            textColor = textColor,
-                                            onClick = {
-                                                navController.navigate("bookDetails/${book.id}")
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Favorites section
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        SectionHeader(
-                            icon = Icons.Default.Favorite,
-                            title = "YOUR FAVORITES",
-                            primaryColor = primaryColor,
-                            textColor = textColor
+                                .clickable { navController.navigate("search") }
+                                .padding(vertical = 4.dp)
                         )
+                    }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
 
-                        Box(
+                // Featured books
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(180.dp),
-                            contentAlignment = Alignment.Center
+                                .padding(16.dp)
                         ) {
-                            if (isLoading.value) {
-                                CircularProgressIndicator(color = primaryColor)
-                            } else if (favoritesBooks.value.isEmpty()) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.BookmarkBorder,
-                                        contentDescription = null,
-                                        tint = Color.LightGray,
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        "No favorites books yet",
-                                        color = Color.Gray,
-                                        fontSize = 16.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        "Add books to your favorites to see them here",
-                                        color = Color.Gray,
-                                        fontSize = 14.sp,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            } else {
-                                Row(
-                                    modifier = Modifier
-                                        .horizontalScroll(rememberScrollState())
-                                        .fillMaxWidth()
-                                ) {
-                                    favoritesBooks.value.forEach { book ->
-                                        Log.d("FavoritesHome", "${book.bookId}")
-                                        FavoriteBookCard(
-                                            book = book,
-                                            primaryColor = primaryColor,
-                                            textColor = textColor,
-                                            onClick = {
-                                                navController.navigate("bookDetails/${book.bookId}")
-                                            }
-                                        )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ){
+                                SectionHeader(
+                                    icon = Icons.Filled.Book,
+                                    title = "FEATURED BOOKS",
+                                    primaryColor = primaryColor,
+                                    textColor = textColor,
+                                )
+                                ClickableTextWithNavigation(
+                                    fullText = "All books",
+                                    clickableWord = "All books",
+                                    navController = navController,
+                                    destinationRoute = "allBooks",
+                                    normalColor = textColor
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isLoading.value) {
+                                    CircularProgressIndicator(color = primaryColor)
+                                } else if (featuredBooks.value.isEmpty()) {
+                                    Text("No featured books available", color = Color.Gray)
+                                } else {
+                                    Row(
+                                        modifier = Modifier
+                                            .horizontalScroll(rememberScrollState())
+                                            .fillMaxWidth()
+                                    ) {
+                                        featuredBooks.value.forEach { book ->
+                                            FeatureBookCard(
+                                                book = book,
+                                                primaryColor = primaryColor,
+                                                textColor = textColor,
+                                                onClick = {
+                                                    navController.navigate("bookDetails/${book.id}")
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
-                            /*if (favoritesBooks.isEmpty()) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.BookmarkBorder,
-                                        contentDescription = null,
-                                        tint = Color.LightGray,
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        "No favorites books yet",
-                                        color = Color.Gray,
-                                        fontSize = 16.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        "Add books to your favorites to see them here",
-                                        color = Color.Gray,
-                                        fontSize = 14.sp,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            } else {
-                                Row(
-                                    modifier = Modifier
-                                        .horizontalScroll(rememberScrollState())
-                                        .fillMaxWidth()
-                                ) {
-                                    favoritesBooks.forEach { book ->
-                                        FavoriteBookCard(
-                                            book = book,
-                                            primaryColor = primaryColor,
-                                            textColor = textColor,
-                                            onClick = {
-                                                navController.navigate("bookDetails/${book.id}")
-                                            }
-                                        )
-                                    }
-                                }
-                            }*/
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // space  scrolling
-                Spacer(modifier = Modifier.height(90.dp))
+                // Favorites section
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            SectionHeader(
+                                icon = Icons.Default.Favorite,
+                                title = "YOUR FAVORITES",
+                                primaryColor = primaryColor,
+                                textColor = textColor
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isLoading.value) {
+                                    CircularProgressIndicator(color = primaryColor)
+                                } else if (favoritesBooks.value.isEmpty()) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.BookmarkBorder,
+                                            contentDescription = null,
+                                            tint = Color.LightGray,
+                                            modifier = Modifier.size(48.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            "No favorites books yet",
+                                            color = Color.Gray,
+                                            fontSize = 16.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            "Add books to your favorites to see them here",
+                                            color = Color.Gray,
+                                            fontSize = 14.sp,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier
+                                            .horizontalScroll(rememberScrollState())
+                                            .fillMaxWidth()
+                                    ) {
+                                        favoritesBooks.value.forEach { book ->
+                                            Log.d("FavoritesHome", "${book.bookId}")
+                                            FavoriteBookCard(
+                                                book = book,
+                                                primaryColor = primaryColor,
+                                                textColor = textColor,
+                                                onClick = {
+                                                    navController.navigate("bookDetails/${book.bookId}")
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(90.dp))
+                }
             }
         }
     }
-
-
 }
-
 @Composable
 fun SectionHeader(
     icon: ImageVector,
@@ -703,6 +680,40 @@ fun FavoriteBookCard(
 private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
 
+    db.collection("users")
+        .whereEqualTo("isBanned", true)
+        .get()
+        .addOnSuccessListener { bannedUsersSnapshot ->
+            val bannedUserIds = bannedUsersSnapshot.documents.map { it.id }
+
+            db.collection("books")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(10)
+                .get()
+                .addOnSuccessListener { documents ->
+                    val booksList = mutableListOf<Book>()
+                    for (document in documents) {
+                        val book = document.toObject(Book::class.java).copy(
+                            id = document.id
+                        )
+                        if (book.userId !in bannedUserIds) {
+                            booksList.add(book)
+                        }
+                    }
+                    onComplete(booksList)
+                }
+                .addOnFailureListener { exception ->
+                    onComplete(emptyList())
+                }
+        }
+        .addOnFailureListener { exception ->
+            fetchBooksWithoutBanCheck(onComplete)
+        }
+}
+
+private fun fetchBooksWithoutBanCheck(onComplete: (List<Book>) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+
     db.collection("books")
         .orderBy("timestamp", Query.Direction.DESCENDING)
         .limit(10)
@@ -723,9 +734,84 @@ private fun fetchFeaturedBooks(onComplete: (List<Book>) -> Unit) {
         }
 }
 
+
 private fun fetchFavoriteBooks(onComplete: (List<FavoriteBook>) -> Unit) {
     val db = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
 
+    if (currentUser != null) {
+        db.collection("users")
+            .whereEqualTo("isBanned", true)
+            .get()
+            .addOnSuccessListener { bannedUsersSnapshot ->
+                val bannedUserIds = bannedUsersSnapshot.documents.map { it.id }
+
+                db.collection("favorites")
+                    .whereEqualTo("userId", currentUser.uid)
+                    .orderBy("addedAt", Query.Direction.DESCENDING)
+                    .get()
+                    .addOnSuccessListener { documents ->
+                        val favoriteBooks = documents.mapNotNull { document ->
+                            FavoriteBook(
+                                bookId = document.getString("bookId") ?: "",
+                                author = document.getString("author") ?: "",
+                                addedAt = document.getTimestamp("addedAt") ?: Timestamp.now(),
+                                title = document.getString("title") ?: "",
+                                type = document.getString("type") ?: "",
+                                userId = document.getString("userId") ?: "",
+                                frontCoverUrl = document.getString("frontCoverUrl") ?: null
+                            )
+                        }
+
+                        if (favoriteBooks.isEmpty()) {
+                            onComplete(emptyList())
+                            return@addOnSuccessListener
+                        }
+
+                        val bookIds = favoriteBooks.map { it.bookId }
+
+                        val filteredBooks = mutableListOf<FavoriteBook>()
+                        var booksChecked = 0
+
+                        for (bookId in bookIds) {
+                            db.collection("books").document(bookId).get()
+                                .addOnSuccessListener { bookDoc ->
+                                    val bookOwnerId = bookDoc.getString("userId") ?: ""
+                                    val favoriteBook = favoriteBooks.find { it.bookId == bookId }
+
+                                    if (bookOwnerId !in bannedUserIds && favoriteBook != null) {
+                                        filteredBooks.add(favoriteBook)
+                                    }
+
+                                    booksChecked++
+                                    if (booksChecked >= bookIds.size) {
+                                        onComplete(filteredBooks)
+                                    }
+                                }
+                                .addOnFailureListener { exception ->
+
+                                    booksChecked++
+                                    if (booksChecked >= bookIds.size) {
+                                        onComplete(filteredBooks)
+                                    }
+                                }
+                        }
+                    }
+                    .addOnFailureListener { exception ->
+                        onComplete(emptyList())
+                    }
+            }
+            .addOnFailureListener { exception ->
+                fetchFavoritesWithoutBanCheck(onComplete)
+            }
+    } else {
+        onComplete(emptyList())
+    }
+}
+
+private fun fetchFavoritesWithoutBanCheck(onComplete: (List<FavoriteBook>) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
 
@@ -746,15 +832,14 @@ private fun fetchFavoriteBooks(onComplete: (List<FavoriteBook>) -> Unit) {
                         userId = document.getString("userId") ?: "",
                         frontCoverUrl = document.getString("frontCoverUrl") ?: null,
                     )
-                    Log.d("FavoritesHome", "${book.title}")
                     booksList.add(book)
                 }
                 onComplete(booksList)
             }
             .addOnFailureListener { exception ->
-                Log.e("Firestore", "Error getting featured books: ", exception)
                 onComplete(emptyList())
             }
+    } else {
+        onComplete(emptyList())
     }
 }
-

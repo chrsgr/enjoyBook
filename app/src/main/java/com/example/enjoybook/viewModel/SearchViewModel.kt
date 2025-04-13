@@ -1,6 +1,5 @@
 package com.example.enjoybook.viewModel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.enjoybook.data.Book
@@ -23,41 +22,6 @@ class SearchViewModel : ViewModel() {
     val isLoading: StateFlow<Boolean> = _isLoading
 
 
-    fun searchBooks(query: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            val lowerCaseQuery = query.trim().lowercase()
-
-            try {
-                val db = FirebaseFirestore.getInstance()
-                val allBooks = db.collection("books").get().await()
-
-                val bookList = allBooks.documents.mapNotNull { doc ->
-                    val book = doc.toObject(Book::class.java)
-                    if (book != null) {
-                        val bookWithId = book.copy(id = doc.id)
-
-                        if (bookWithId.title.lowercase().contains(lowerCaseQuery) ||
-                            bookWithId.author.lowercase().contains(lowerCaseQuery)) {
-                            bookWithId
-                        } else {
-                            null
-                        }
-                    } else {
-                        null
-                    }
-                }
-
-                _books.value = bookList
-            } catch (e: Exception) {
-                Log.e("SearchViewModel", "Error searching books", e)
-                _books.value = emptyList()
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
     fun searchUsers(query: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -70,14 +34,18 @@ class SearchViewModel : ViewModel() {
                 val userList = allUsers.documents.mapNotNull { doc ->
                     val user = doc.toObject(User::class.java)
                     if (user != null) {
-                        val userWithId = user.copy(userId = doc.id)
-
-                        if (userWithId.username.lowercase().contains(lowerCaseQuery) ||
-                            userWithId.name.lowercase().contains(lowerCaseQuery) ||
-                            userWithId.surname.lowercase().contains(lowerCaseQuery)) {
-                            userWithId
-                        } else {
+                        if (user.isBanned == true) {
                             null
+                        } else {
+                            val userWithId = user.copy(userId = doc.id)
+
+                            if (userWithId.username.lowercase().contains(lowerCaseQuery) ||
+                                userWithId.name.lowercase().contains(lowerCaseQuery) ||
+                                userWithId.surname.lowercase().contains(lowerCaseQuery)) {
+                                userWithId
+                            } else {
+                                null
+                            }
                         }
                     } else {
                         null
@@ -86,8 +54,44 @@ class SearchViewModel : ViewModel() {
 
                 _users.value = userList
             } catch (e: Exception) {
-                Log.e("SearchViewModel", "Error searching users", e)
                 _users.value = emptyList()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun searchBooks(query: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val lowerCaseQuery = query.trim().lowercase()
+
+            try {
+                val db = FirebaseFirestore.getInstance()
+                val allBooks = db.collection("books").get().await()
+                val bannedUserIds = getBannedUserIds()
+
+                val bookList = allBooks.documents.mapNotNull { doc ->
+                    val book = doc.toObject(Book::class.java)
+                    if (book != null) {
+                        val bookWithId = book.copy(id = doc.id)
+
+                        if (bannedUserIds.contains(book.userId)) {
+                            null
+                        } else if (bookWithId.title.lowercase().contains(lowerCaseQuery) ||
+                            bookWithId.author.lowercase().contains(lowerCaseQuery)) {
+                            bookWithId
+                        } else {
+                            null
+                        }
+                    } else {
+                        null
+                    }
+                }
+
+                _books.value = bookList
+            } catch (e: Exception) {
+                _books.value = emptyList()
             } finally {
                 _isLoading.value = false
             }
@@ -105,16 +109,36 @@ class SearchViewModel : ViewModel() {
                     .get()
                     .await()
 
+                val bannedUserIds = getBannedUserIds()
+
                 val bookList = result.documents.mapNotNull { doc ->
-                    doc.toObject(Book::class.java)?.copy(id = doc.id)
+                    val book = doc.toObject(Book::class.java)?.copy(id = doc.id)
+                    if (book != null && !bannedUserIds.contains(book.userId)) {
+                        book
+                    } else {
+                        null
+                    }
                 }
 
                 _books.value = bookList
             } catch (e: Exception) {
-                Log.e("SearchViewModel", "Error filtering by category", e)
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    private suspend fun getBannedUserIds(): Set<String> {
+        try {
+            val db = FirebaseFirestore.getInstance()
+            val bannedUsers = db.collection("users")
+                .whereEqualTo("isBanned", true)
+                .get()
+                .await()
+
+            return bannedUsers.documents.mapNotNull { it.id }.toSet()
+        } catch (e: Exception) {
+            return emptySet()
         }
     }
 }
