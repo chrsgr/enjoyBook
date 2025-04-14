@@ -2,11 +2,10 @@ import android.os.Build
 
 object ApiConfig {
     fun getBaseUrl(): String {
-        // Controlla se siamo in un emulatore
         return if (isEmulator()) {
             "http://10.0.2.2:4000"
         } else {
-            "http://192.168.1.209:4000"
+            "http://192.168.3.215:4000"
         }
     }
 
